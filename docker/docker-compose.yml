@@ -1,0 +1,14 @@
+services:
+  autoware_workspace:
+    build:
+      context: .
+      args:
+        USERNAME: ${USERNAME}
+        UID: ${UID}
+        GID: ${GID}
+    user: "${UID}:${GID}"
+    stdin_open: true
+    tty: true
+    working_dir: "/autoware_workspace"
+    volumes:
+      - "../:/autoware_workspace"
