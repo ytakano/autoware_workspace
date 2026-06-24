@@ -23,8 +23,12 @@ RUN apt-get update && \
       libgmp10 \
       npm \
       procps \
-      clang && \
+      clang \
+      python3-colcon-common-extensions \
+      python3-rosdep && \
     rm -rf /var/lib/apt/lists/*
+
+RUN rosdep init
 
 RUN npm i -g @openai/codex
 
