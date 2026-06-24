@@ -7,8 +7,9 @@ ARG GID=1000
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
-    apt-get -y upgrade && \
-    apt-get install -y \
+    apt-get -y upgrade 
+
+RUN apt-get install -y \
       vim \
       build-essential \
       zsh \
@@ -24,9 +25,16 @@ RUN apt-get update && \
       npm \
       procps \
       clang \
-      python3-colcon-common-extensions \
-      python3-rosdep && \
-    rm -rf /var/lib/apt/lists/*
+      sudo
+
+RUN echo "Defaults:${USERNAME} !env_reset" > /etc/sudoers && \
+    echo "${USERNAME}    ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+
+RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg 
+RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu jammy main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null
+
+RUN apt-get update && \
+    apt-get install -y python3-colcon-common-extensions python3-rosdep python3-vcstool
 
 RUN rosdep init
 
