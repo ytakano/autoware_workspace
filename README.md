@@ -14,7 +14,7 @@ $ sh exec_zsh.sh
 ## Build Autoware Core in the Docker 
 
 ```
-user@autoware %> ./setup.sh
+user@autoware %> ./bootstrap.sh
 user@autoware %> ./build.sh
 ```
 
