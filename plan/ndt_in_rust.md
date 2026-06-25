@@ -1,239 +1,143 @@
 # Porting `autoware_ndt_scan_matcher` to Rust — Roadmap
 
-## Context & goal
+## Goal (set 2026-06-25)
 
-We are porting `src/core/autoware_core/localization/autoware_ndt_scan_matcher` (a C++ ROS 2
-`ament_cmake` package) to Rust. There are two drivers:
+**Full Rust port of the package, NDT engine included.** End state: C++ is only the rclcpp I/O shell
+(Node, sub/pub, tf2, agnocast, message types); Rust holds the **NDT engine + node orchestration +
+state**. Decisions:
 
-1. **Near-term:** move logic into memory-safe Rust incrementally without destabilizing the running
-   ROS 2 node.
-2. **Strategic:** make the NDT engine runnable on **tier4/awkernel** (TIER IV's `no_std` async Rust
-   kernel), so the same Rust code can eventually run both in the ROS node and on awkernel.
+1. **Rust owns the plain-data node state**; C++ callbacks are thin dispatchers that only call Rust
+   over FFI.
+2. **Rust-ize everything, including the NDT engine** (`multigrid_ndt_omp` → Rust: point cloud,
+   voxel-grid covariance, kdtree, align, More-Thuente line search, covariance — replacing PCL + Eigen).
+3. **Core logic stays `no_std`-capable** so the **final artifact is reusable on awkernel** (a design
+   requirement). Build the ROS node first with **std + rayon**; the awkernel async/no_std backend
+   comes later.
+4. **ENGINE-FIRST:** the #1 immediate goal is the ROS 2 NDT engine itself, *then* the node logic.
 
-Work is on the `autoware_core` branch **`ndt_in_rust_phase1`** (off `ndt_in_rust`).
+awkernel (TIER IV's no_std async Rust kernel) is a **low-priority** secondary target: its
+constraints must not gate progress, but the `no_std`-capability and `ParReduce` seam keep it open.
 
 ## Current state (done)
 
-- **Phase 0 — Scaffold:** crate `autoware_ndt_scan_matcher_rs/` nested in the package, built via
-  **Corrosion** (FetchContent) and linked over the C ABI; `cargo test` registered as a CTest
-  (`autoware_ndt_scan_matcher_rs_cargo_test`); `./test.sh` runs the C++, Rust, and FFI tests
-  together. Crate is `crate-type = ["staticlib", "rlib"]`, clippy-clean, `rust-hardening`-compliant.
-- **Phase 1 (Track A) — DONE:** `count_oscillation` and `rotate_covariance` ported to Rust, selected
-  at build time by the **`NDT_USE_RUST`** CMake option. The original `ndt_scan_matcher_helper.cpp`
-  is left **byte-identical**; a `ndt_scan_matcher_helper_rs.cpp` twin carries the FFI adapters. The
-  unchanged `test_ndt_scan_matcher_helper` gtest runs in both OFF (C++) and ON (Rust) configs as the
-  differential oracle. `count_oscillation` is **zero-copy**: it reads `&[geometry_msgs__msg__Pose]`
-  via a **bindgen** `#[repr(C)]` binding (gated by the `ros` feature), verified by bindgen layout
-  tests + a C++ `static_assert`.
-- **Coverage:** `./coverage.sh` (cargo-llvm-cov) — ~99% line coverage of the crate.
-- **no_std (Track B / B0) — DONE:** crate compiles `no_std` via
-  `#![cfg_attr(not(any(test, feature = "std")), no_std)]` + `libm` for `sqrt`; `default = ["std"]`,
-  `ros ⇒ std`. Builds clean as an rlib for `x86_64-unknown-none` and `aarch64-unknown-none`.
+- **Scaffold:** crate `autoware_ndt_scan_matcher_rs/` built via **Corrosion** and linked over a C
+  ABI; `cargo test` registered as a CTest; `./test.sh` runs C++ + Rust + FFI tests. `rust-hardening`
+  lint gates on; clippy-clean.
+- **Build switch `NDT_USE_RUST`** (CMake option): OFF = original C++ (byte-identical), ON = Rust via
+  `_rs.cpp` twins. The unchanged gtests run in both as the differential oracle.
+- **Pure helpers ported:** `count_oscillation`, `rotate_covariance` (zero-copy: `count_oscillation`
+  reads `&[geometry_msgs__msg__Pose]` via a **bindgen** `#[repr(C)]` binding, layout-verified).
+- **`no_std`-capable:** `#![cfg_attr(not(any(test, feature = "std")), no_std)]` + `libm`;
+  `default=["std"]`, `ros` feature independent of `std`. Builds as rlib for `x86_64`/`aarch64-unknown-none`.
+- **Coverage:** `./coverage.sh` (cargo-llvm-cov) ~99%.
 
-## Architecture: what ports, what stays
+Branch: `ndt_in_rust_phase1` (off `ndt_in_rust`).
 
-| Layer | Examples | Disposition |
-|---|---|---|
-| ROS I/O | `rclcpp::Node`, sub/pub, services, timers, tf2, agnocast wrapper | Stay in C++ (node shell) |
-| Heavy numeric kernel | `multigrid_ndt_omp` (PCL + Eigen + OpenMP + SSE) | C++ now; **ported to Rust in Track B** |
-| PCL data | `pcl::PointCloud<PointXYZ>`, transforms | C++; do **not** pass ownership across FFI |
-| Orchestration / decision logic | bodies of `callback_*_main`, pose gating, convergence checks | **Port to Rust (Track A)** |
-| Pure numeric leaves | `rotate_covariance`, `count_oscillation`, parts of `estimate_covariance` | **Port first** (already unit-tested) |
+## Target architecture (end state)
 
-## Two tracks
+| Stays C++ (rclcpp I/O shell) | Becomes Rust |
+|---|---|
+| `rclcpp::Node`, subscriptions/publishers, services, timers | Each callback's body, orchestration, sequencing |
+| tf2 buffer/listener, agnocast wrapper | Node logic **state** (pose buffers, flags, `HyperParameters`, latest EKF pos) — Rust-owned, `Mutex`-guarded (MultiThreadedExecutor) |
+| ROS message types (cross via bindgen `#[repr(C)]`, zero-copy) | **NDT engine** (voxel grid, kdtree, align, line search, covariance) — replaces PCL + Eigen + `multigrid_ndt_omp` |
 
-**Track A — strangler-fig (ROS node, near-term).** Keep the C++ node shell and the C++ NDT engine;
-move each ROS 2 callback's orchestration/decision logic into Rust one piece at a time. The original
-C++ source files are left in place; a parallel `_rs.cpp` adapter twin (same namespace/signatures,
-backed by the Rust crate over FFI) is selected at build time via `NDT_USE_RUST` (see next section).
-The unchanged gtests act as the regression/differential oracle.
+C++ callbacks shrink to: decompose msg / pass handles → call Rust → (Rust calls back for ROS I/O it
+can't do). Engine swap is done behind the NDT interface (below), so node logic is untouched by it.
 
-**Track B — awkernel NDT engine (large).** Port the NDT engine itself (`multigrid_ndt_omp`) to a
-portable `no_std + alloc` Rust crate so it runs on awkernel. ~3000 lines of templated numeric C++
-plus reimplementing PCL's voxel grid and kd-tree.
+## Phase E — NDT engine (PRIMARY, engine-first)
 
-**Convergence point.** Once the Track B engine matures, it replaces the C++ NDT in the ROS node too,
-so a single Rust engine crate serves both the ROS node (via FFI) and awkernel (native).
+The engine has a **narrow, well-defined interface** the node uses:
+`setInputTarget`/`addTarget`/`removeTarget`/`createVoxelKdtree`, `setInputSource`, `align(guess)→NdtResult`,
+`getResult`/`getHessian`/`getFinalNumIteration`, `setRegularizationPose`,
+`calculateNearestVoxelTransformationLikelihood`. Swap **C++ → Rust behind this interface** via a C ABI
++ a thin C++ adapter (matching the methods the node calls) under `NDT_USE_RUST` — **no node-logic
+changes** required initially.
 
-## FFI boundary design (Track A)
+Bottom-up steps (all `no_std`-capable; std+rayon for the node now):
+- **E1 — math foundation:** introduce `nalgebra` (no_std + `libm`) and the engine module skeleton
+  (SE3, 4×4/6×6, angle derivatives). `extern crate alloc` once heap types appear.
+- **E2 — point cloud + voxel-grid covariance** (`multi_voxel_grid_covariance_omp` + `VoxelGridCovariance`):
+  voxelize, per-voxel mean+covariance, id-keyed add/remove. Property-tested vs brute force / the C++ grid.
+- **E3 — kdtree** (nearest-voxel search; replaces `KdTreeFLANN`). Property-tested.
+- **E4 — align + More-Thuente line search** (`multigrid_ndt_omp_impl` core): score/gradient/hessian,
+  the optimization loop. Per-point loops via **`ParReduce`** (rayon now). **Differential trace vs the
+  C++ engine** (trace-state-machine-port-verification skill; fixtures from `standard_sequence_*`).
+- **E5 — covariance module:** Laplace / multi-NDT covariance estimation. Folds in the remaining
+  Phase-1 `estimate_covariance` pure helpers (they have direct gtests).
+- **E6 — C ABI + C++ adapter + node swap:** expose the NDT interface; swap behind `NDT_USE_RUST`;
+  verify with the node integration tests (`standard_sequence_*`) OFF vs ON.
 
-Only value types / POD layouts cross the boundary (`rust-c-ffi-safety`):
-- **May cross:** poses (`[f64;7]` or 4×4 `[f64;16]`), covariance (`[f64;36]`), scalars, a
-  `#[repr(C)]`-flattened parameter struct, point clouds as `len + *const f32` (C++ keeps ownership),
-  and **rosidl-defined message structs by pointer** (see "ROS IDL structs" below).
-- **Must not cross:** `pcl::PointCloud`, the NDT object, Eigen types, C++ `std::*` containers,
-  `shared_ptr` (C++/PCL runtime types with no stable C ABI). **rosidl message types are fine** — via
-  bindgen `#[repr(C)]` bindings they cross the boundary *and* compile in no_std (see "May cross" and
-  "ROS IDL structs"); they're feature-gated for decoupling, not because no_std forbids them.
-- Start with a hand-written header for the Rust-defined surface; move to cbindgen when it grows.
+**Recommended first step:** E1 + the E5 pure covariance helpers together — stand up the
+`nalgebra`/no_std stack with an existing gtest oracle (small, verified) before the large E2–E4.
 
-### ROS IDL structs → bindgen, prefer zero-copy
+## Phase N — node port (after the engine)
 
-When the boundary needs a data structure defined by ROS IDL (a rosidl `.msg`/`.srv` type, e.g.
-`geometry_msgs::msg::Pose`), generate its Rust view with **bindgen over the rosidl-generated C
-header** (`.../msg/detail/<type>__struct.h`) rather than hand-writing it or pulling in
-`rosidl_generator_rs`/`rclrs` (those are std-bound and unsuitable for the no_std engine):
+Move each callback's body into Rust (decision 1): Rust owns the plain-data state; the C++ callback
+is a thin FFI dispatcher. Sequence by difficulty: `callback_initial_pose_main` (PCL-free) →
+regularization / services / timer → `callback_sensor_points_main` (now calls the **Rust** engine
+directly). C++ provides a small "host interface" (vtable + opaque handles) for the ROS I/O Rust
+can't do (tf2 lookups, publishers, params, time). Reuses the ported helpers and the Rust engine.
+End state: only the rclcpp shell is C++.
 
-- bindgen emits `#[repr(C)]` POD structs whose layout is auto-derived from the IDL and
-  **auto-verified** by bindgen's `layout_tests` (size/align/offset vs the C header). Pair with a
-  C++-side `static_assert` on the same type so a drift on either side fails the build.
-- **Pass the message (array) by pointer and read it in place — do not flatten/gather/copy.** C++
-  keeps ownership; Rust borrows a `&[T]` via `from_raw_parts` and reads only the fields it needs.
-  Reserve copying only for genuinely tiny, non-hot inputs where it is clearly simpler.
-- **Feature-gate** the bindings (`ros` feature) so they are *optional* (the core engine math takes
-  plain `[f64; N]` / slices and doesn't need ROS types) — **not** because no_std can't use them.
-  `ros` is **independent of `std`**: the `use_core()` output is no_std-compatible, so a no_std build
-  can enable `ros` too (`--no-default-features --features ros` builds as an rlib for
-  `x86_64-unknown-none` / `aarch64-unknown-none`).
-- Wire-up: `bindgen` as an optional build-dep behind the `ros` feature; `build.rs` runs it with
-  `.use_core()` + `.layout_tests(true)` and pins clang's `--target=$HOST` (the structs are
-  target-agnostic POD; without this a bare-metal `TARGET` gives clang no libc sysroot and
-  `<stdint.h>` fails); CMake passes the include dir via
-  `corrosion_set_env_vars(... "ROS_INCLUDE_DIRS=${<pkg>_INCLUDE_DIRS}")`.
-- **awkernel caveat:** enabling `ros` still *runs* bindgen, which needs libclang + the rosidl C
-  headers (absent on awkernel). To use ROS structs in the real awkernel build, **vendor** the
-  generated `ros_msgs.rs` (commit it, skip bindgen) — a separate follow-up.
-- Reference implementation: `count_oscillation` reads `&[geometry_msgs__msg__Pose]` zero-copy
-  (no `std::vector<double>` flatten) — see `autoware_ndt_scan_matcher_rs` `build.rs` / `helper.rs`.
+## Engine design details
 
-## C++/Rust build switch (Track A method)
-
-Existing C++ source files are **not modified**. For each function/file being ported, add a
-same-namespace, same-signature adapter translation unit `<name>_rs.cpp` whose bodies marshal to the
-Rust crate over FFI (value-type rules above). A CMake option selects, per ported file, whether the
-original `.cpp` or its `_rs.cpp` twin is compiled — never both (duplicate symbols):
-
-```cmake
-option(NDT_USE_RUST "Build the Rust port of ported functions" OFF)
-if(NDT_USE_RUST)
-  list(APPEND NDT_SOURCES src/ndt_scan_matcher_helper_rs.cpp)
-else()
-  list(APPEND NDT_SOURCES src/ndt_scan_matcher_helper.cpp)
-endif()
-```
-
-- The only existing file that changes is `CMakeLists.txt` (which must change for Corrosion anyway).
-- Default `OFF` builds the original C++; `-DNDT_USE_RUST=ON` builds the Rust-backed version. The C++
-  stays as the permanent reference implementation and differential oracle; rollback = flip `OFF`.
-- Granularity: start with one package-wide `NDT_USE_RUST`; split into per-module options later.
-- `ndt_scan_matcher_core.cpp` caveat (Phase 3): it is large and mixes many callbacks, so a whole-file
-  twin is impractical — first extract the orchestration being ported into its own TU (the `_rs.cpp`
-  twin candidate); avoid `#ifdef` inside the big file.
-
-## awkernel constraints → engine crate design (Track B)
-
-Confirmed awkernel constraints: `no_std` **with** `alloc` (allocator present); concurrency is
-**async/await tasks, no threads**; targets **x86_64 and AArch64** (RISC-V later); **f64 FP usable**
-in task context; strict pure-Rust deps (no inline asm). Task spawn requires **`'static + Send`**
-futures (no scoped concurrency).
-
-Resulting design (locked):
-- Crate is no_std-capable today (`#![cfg_attr(not(any(test, feature = "std")), no_std)]`, `libm` for
-  `sqrt`); `extern crate alloc` is added at B2 when the data structures need heap. Linear algebra
-  will use **`nalgebra`** (no_std + `libm`); transcendental math via **`libm`**. PCL voxel-grid/kd-tree
-  reimplemented in Rust. Eigen's `NonLinearOptimization` (More-Thuente line search) hand-ported.
-- **Parallelism** behind a `ParReduce` trait, backends `serial` / `rayon` (host) / `awkernel`:
-  ```rust
-  pub trait ParReduce {
-      async fn reduce<A, J>(&self, jobs: alloc::vec::Vec<J>, combine: impl Fn(A, A) -> A) -> A
-      where A: Send + 'static, J: FnOnce() -> A + Send + 'static;
-  }
-  ```
-  - awkernel: spawn `async move { job() }` per chunk, join, combine.
-  - rayon: `into_par_iter().map(|j| j())`. serial: run in order.
-- **Ownership (to satisfy `'static + Send`):** share read-only data (`Arc<TargetMap: Send+Sync>`,
-  `Arc<[Point]>`); each job is a `Send + 'static` *synchronous* closure capturing Arc clones + an
-  owned `Range<usize>` + a `Copy` pose, transforms its own chunk, returns a small POD partial
-  (gradient/hessian/score). Engine's mutable state stays on the orchestrator; jobs are pure.
-- **Determinism:** fixed chunk count + ordered (binary-tree) reduction so parallel == serial
-  bit-for-bit (matters for certification and differential testing).
-- **Async coloring:** `align()` is `async fn`; only the reduce boundary awaits, per-point math stays
-  sync. Expose `align_blocking()` (minimal no_std `block_on`) for the FFI/ROS path; on awkernel the
-  kernel executor drives `align()` directly.
-- **Feature flags:** `default = ["std"]` (so plain `cargo build`/`test`/`clippy` and the ROS-node
-  build have std — incl. the test harness and panic handler); `std` (later also enables the `rayon`
-  backend); `ros` (ROS-message bindings; **independent of `std`** — usable in no_std too);
-  `awkernel` (kernel backend, no_std). awkernel/no_std consumers build with
-  `--no-default-features`. `sqrt` comes from `libm` so the math is no_std-clean. **no_std gate:**
-  `cargo rustc --no-default-features --lib --target x86_64-unknown-none --crate-type rlib` (and
-  `aarch64-unknown-none`) — `--crate-type rlib` avoids the `#[panic_handler]` that a standalone
-  `staticlib` would require (the kernel provides it). A plain `cargo check --no-default-features`
-  on the host fails on `panic=unwind`, so the bare target + rlib is the correct check.
+- **no_std:** crate already `no_std`-capable; engine math via `nalgebra`(no_std+`libm`). `alloc`
+  added at E2 (heap-backed voxel grid / kdtree / point buffers).
+- **Parallelism — `ParReduce` trait**, backends selected by feature:
+  - **now:** `serial` / `rayon` (host, **synchronous** — no async coloring needed for the ROS node).
+  - **later (awkernel):** an `async` task-fan-out backend; that's when `align()` gains an async
+    variant. Keep the per-point math in plain sync fns so adding the async boundary later is cheap.
+  - **Deterministic ordered reduction** (fixed chunk count + binary-tree combine) so parallel ==
+    serial bit-for-bit (matters for differential testing and certification).
+- **awkernel backend (deferred) constraints** (confirmed with the user, kept for when it's built):
+  no_std **+ alloc**; async/await tasks, **no threads**; task spawn needs **`'static + Send`** futures
+  → share read-only data via `Arc<TargetMap: Send+Sync>` / `Arc<[Point]>`, each job a `Send+'static`
+  sync closure capturing Arc clones + owned `Range` + `Copy` pose, returning a small POD partial;
+  targets x86_64 + AArch64; f64 usable in task context; pure-Rust deps (no inline asm).
 
 ### Engine module breakdown (C++ → Rust)
-
 | Rust module | Replaces (C++) |
 |---|---|
 | `math` | Eigen Core/Dense/Cholesky/Geometry (→ nalgebra + libm), SE3/angle-derivative helpers |
 | `point_cloud` | `pcl::PointCloud<PointXYZ>`, `transformPointCloud` |
 | `voxel_grid` | `multi_voxel_grid_covariance_omp` + `pcl::VoxelGridCovariance` (id-keyed add/remove) |
-| `kdtree` | `pcl::KdTreeFLANN` (no_std kd-tree) |
+| `kdtree` | `pcl::KdTreeFLANN` |
 | `line_search` | `unsupported/Eigen/NonLinearOptimization` (More-Thuente) |
-| `ndt` | `multigrid_ndt_omp_impl.hpp` core: `set_input_target/add_target/remove_target`, `set_input_source`, `align`, score/gradient/hessian |
+| `ndt` | `multigrid_ndt_omp_impl.hpp` core: targets/source, `align`, score/gradient/hessian |
 | `params` / `result` | `ndt_struct.hpp` (`NdtParams`, `NdtResult`) + a non-panicking `Error` |
 | `parallel` | the 5 `#pragma omp` loops (the `ParReduce` abstraction) |
-| `covariance` | `estimate_covariance.*` (shared with node layer) |
+| `covariance` | `estimate_covariance.*` (Laplace, multi-NDT, the pure helpers) |
 
-## Phased roadmap
+## FFI boundary
 
-- **Phase 0 — Scaffold (DONE).** Corrosion build, FFI round-trip, colcon/`test.sh` test path.
-- **Phase 1 — Pure leaves (Track A) (DONE).** `count_oscillation` + `rotate_covariance` ported
-  behind `NDT_USE_RUST` (twin-file pattern, original C++ untouched); `count_oscillation` zero-copy
-  over the bindgen Pose binding; differential-tested OFF vs ON. **Remaining:** the pure
-  `estimate_covariance` helpers (`calc_weight_vec`, `calculate_weighted_mean_and_cov`,
-  `estimate_xy_covariance_by_laplace_approximation`, `rotate_covariance_to_*`,
-  `adjust_diagonal_covariance`, `propose_poses_to_search`) — they live in the `multigrid_ndt_omp`
-  engine lib and need Eigen `Matrix2d/Matrix4f` marshaling (introduces `nalgebra`, overlaps with B0).
-- **Phase 2 — Stateless decision logic (Track A):** parameter validation, pose gating
-  (distance/covariance thresholds), convergence evaluation (`ConvergedParamType`),
-  initial→result distance.
-- **Phase 3 — Callback bodies (Track A):** start with `callback_initial_pose_main` (PCL-free). Since
-  these live in the large `ndt_scan_matcher_core.cpp`, first extract the orchestration being ported
-  into its own TU so the `_rs.cpp` twin + `NDT_USE_RUST` pattern applies; `callback_sensor_points_main`
-  last (point cloud / NDT / tf2 stay in C++, Rust owns the surrounding decisions).
-- **Track B — engine crate (parallel effort, larger):**
-  - **B0 — Foundation (DONE).** Crate compiles `no_std` (cfg_attr + `libm`); rlib builds for
-    `x86_64-unknown-none` / `aarch64-unknown-none`. (CI wiring of the gate still to be added; `alloc`
-    will be introduced at B2 when the data structures need heap.)
-  - **B1 — Parallel abstraction:** `ParReduce` trait + serial/rayon/awkernel backends with the
-    deterministic ordered reduction.
-  - **B2 — Data structures:** `voxel_grid` + `kdtree`, tested against brute force (property tests).
-  - **B3 — Core align:** `ndt` + `line_search`; differential trace vs the C++ engine.
-  - **B4 — Integration:** drive the engine from the ROS node via FFI; later run natively on awkernel.
-- **Convergence:** replace the C++ NDT with the Rust engine in the ROS node.
-
-**Next:** Phase 1 done and B0 done. Either finish Phase 1's `estimate_covariance` helpers (Track A)
-or start **B1** (parallel abstraction) on Track B — they are independent.
+- **Value types / POD cross** (`rust-c-ffi-safety`): poses, covariance (`[f64;36]`), scalars,
+  `#[repr(C)]` param structs, point clouds as `len + *const f32` (C++ keeps ownership), and **rosidl
+  message structs by pointer** (bindgen `#[repr(C)]`, zero-copy).
+- **rosidl structs via bindgen** (`use_core()`, `--target=$HOST`, layout tests + C++ `static_assert`),
+  behind the `ros` feature (independent of `std`; no_std-usable). awkernel would **vendor** the
+  generated bindings (bindgen needs libclang + ROS headers, absent there).
+- **Build switch (方式2):** `NDT_USE_RUST` selects `_rs.cpp` twins; original C++ untouched where a TU
+  is purely portable. For mixed TUs (`estimate_covariance.cpp` has NDT-dependent fns;
+  `ndt_scan_matcher_core.cpp` is the big node file), first extract the portable part into its own TU.
 
 ## Verification strategy
 
-- **Differential oracle:** instrument the C++ engine to emit an abstract per-iteration trace (pose,
-  score, gradient norm, hessian, `transform_probability`, `nearest_voxel_transformation_likelihood`,
-  final transform); the Rust port emits the same trace; diff with tolerance. (`trace-state-machine-
-  port-verification` skill.)
-- **Reuse existing gtests** (`test_estimate_covariance`, `test_ndt_scan_matcher_helper`,
-  `standard_sequence_*`) as regression oracles; capture real sensor-cloud + map + initial-guess
-  fixtures from recorded runs / the integration tests.
-- **Sub-components:** property tests for `voxel_grid`/`kdtree` vs brute force.
-- **Numeric tolerance:** serial-Rust ↔ C++ within epsilon; parallel-Rust ↔ serial-Rust bit-identical
-  via the deterministic reduction.
-- **Multi-arch:** identical traces on x86_64 and AArch64 (portable scalar first; per-arch SIMD added
-  later and re-verified).
-- **no_std purity:** CI runs `cargo rustc --no-default-features --lib --target {x86_64,aarch64}-unknown-none --crate-type rlib`.
-- **Build-switch differential gate (Track A):** build and test **both** configurations and require
-  agreement — rebuild with `--cmake-args -DNDT_USE_RUST=OFF` then `=ON`, running the identical gtest
-  suite against each; results must match (behavioral-equivalence gate). Rollback = build with `OFF`.
-- **Run via:** `./test.sh --packages-select autoware_ndt_scan_matcher [--ctest-args -R <regex>]`.
+- **Differential oracle per layer:** unit gtests (helpers, covariance); **property tests** for
+  `voxel_grid`/`kdtree` vs brute force; **iteration trace diff** for `align` vs the C++ engine
+  (trace-state-machine-port-verification); **`standard_sequence_*` integration tests** for the engine
+  swap and the node port, run **OFF vs ON** (`NDT_USE_RUST`) — results must match.
+- **Determinism:** serial ↔ rayon bit-identical via the ordered reduction; C++ ↔ Rust within tolerance.
+- **no_std gate:** `cargo rustc --no-default-features --lib --target {x86_64,aarch64}-unknown-none --crate-type rlib`.
+- **Coverage:** `./coverage.sh`. **Perf:** benchmark Rust align vs C++ OMP (NDT is real-time ~10 Hz).
+- **Run:** `./test.sh --packages-select autoware_ndt_scan_matcher [--ctest-args -R <regex>]`.
 
 ## Skills
-
-`rust-hardening` (all Rust), `rust-c-ffi-safety` (FFI boundary),
-`trace-state-machine-port-verification` (every port step's equivalence).
+`rust-hardening` (all Rust), `rust-c-ffi-safety` (FFI boundary), `trace-state-machine-port-verification`
+(engine align equivalence).
 
 ## Open decisions / risks
-
-- awkernel FP-in-interrupt vs task-context details (FP confirmed usable in task context).
-- SIMD strategy: ship portable scalar first; revisit per-arch SIMD (x86_64/AArch64) after numeric
-  parity is established.
-- Corrosion fetches at configure time (network); switch to a local `SOURCE_DIR` for offline/CI.
-- Track B is large; Track A delivers value independently if Track B is deferred.
+- The align core + voxel/kdtree reimplementation (~3000 lines + PCL replacement) is the bulk and the
+  main risk; verify bottom-up (property tests → trace diff) and keep the C++ engine as the oracle/rollback.
+- `nalgebra` no_std+libm feature set + the staticlib panic-handler nuance (rlib for awkernel; std for the node).
+- Real-time performance parity with the C++ OpenMP engine.
+- SIMD (x86_64/AArch64) deferred until after numeric parity; re-verify traces when added.
