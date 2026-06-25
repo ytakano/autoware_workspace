@@ -35,6 +35,12 @@ constraints must not gate progress, but the `no_std`-capability and `ParReduce` 
   helpers (`calc_weight_vec`, `calculate_weighted_mean_and_cov`, Laplace, `rotate_to_*`,
   `adjust_diagonal`) ported into a Rust `covariance` module, swapped behind `NDT_USE_RUST` via the
   extracted `estimate_covariance_math{,_rs}.cpp` twin. `test_estimate_covariance` green OFF and ON.
+- **Engine E2 — single voxel-grid covariance (DONE):** Rust `voxel_grid` module (voxelization +
+  per-voxel mean / single-pass covariance / 3×3 symmetric-eigendecomposition eigenvalue
+  regularization / inverse covariance), opaque-handle C ABI (`build`/`leaf_at`/`free`). Introduced
+  `alloc` and nalgebra `symmetric_eigen` (no_std-verified). New differential gtest `test_voxel_grid`
+  matches the C++ grid (via `radiusSearch`); it caught the C++ `Leaf` Identity-init quirk
+  (`cov = sample_cov + I/(n-1)`), replicated for equivalence.
 
 Branches: scaffold/helpers/no_std on `ndt_in_rust_phase1`; engine work on `ndt_in_rust_engine` (off phase1).
 
@@ -59,11 +65,13 @@ The engine has a **narrow, well-defined interface** the node uses:
 changes** required initially.
 
 Bottom-up steps (all `no_std`-capable; std+rayon for the node now):
-- **E1 — math foundation (DONE):** `nalgebra` (no_std + `libm`) stood up; engine module skeleton.
-  `extern crate alloc` to be added once heap types appear (E2).
-- **E2 — point cloud + voxel-grid covariance** (`multi_voxel_grid_covariance_omp` + `VoxelGridCovariance`):
-  voxelize, per-voxel mean+covariance, id-keyed add/remove. Property-tested vs brute force / the C++ grid. **← NEXT**
-- **E3 — kdtree** (nearest-voxel search; replaces `KdTreeFLANN`). Property-tested.
+- **E1 — math foundation (DONE):** `nalgebra` (no_std + `libm`); `extern crate alloc` added at E2.
+- **E2 — voxel-grid covariance (single grid: DONE):** voxelize + per-voxel mean/covariance/
+  eigenvalue-regularized inverse covariance; opaque-handle C ABI; differential gtest vs the C++ grid.
+  **Remaining (E2b):** multi-grid id-keyed `add`/`remove` (`sid_to_iid_`/`grid_list_`) + the centroid
+  cloud. **← NEXT (with E3)**
+- **E3 — kdtree** (nearest-voxel search; replaces `KdTreeFLANN`; pairs with E2b's centroid cloud and
+  `radiusSearch`). Property-tested.
 - **E4 — align + More-Thuente line search** (`multigrid_ndt_omp_impl` core): score/gradient/hessian,
   the optimization loop. Per-point loops via **`ParReduce`** (rayon now). **Differential trace vs the
   C++ engine** (trace-state-machine-port-verification skill; fixtures from `standard_sequence_*`).
@@ -74,7 +82,8 @@ Bottom-up steps (all `no_std`-capable; std+rayon for the node now):
 - **E6 — C ABI + C++ adapter + node swap:** expose the NDT interface; swap behind `NDT_USE_RUST`;
   verify with the node integration tests (`standard_sequence_*`) OFF vs ON.
 
-**Next:** E2 (voxel-grid covariance) — the nalgebra/no_std stack proven by E1 de-risks it.
+**Next:** E2b (multi-grid add/remove + centroid cloud) and E3 (kdtree / `radiusSearch`) — together
+they complete the target-map side before E4 (align). `symmetric_eigen` no_std is proven by E2.
 
 ## Phase N — node port (after the engine)
 
