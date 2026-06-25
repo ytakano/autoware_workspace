@@ -41,6 +41,11 @@ constraints must not gate progress, but the `no_std`-capability and `ParReduce` 
   `alloc` and nalgebra `symmetric_eigen` (no_std-verified). New differential gtest `test_voxel_grid`
   matches the C++ grid (via `radiusSearch`); it caught the C++ `Leaf` Identity-init quirk
   (`cov = sample_cov + I/(n-1)`), replicated for equivalence.
+- **Engine E2b + E3 — multi-grid map + kd-tree (DONE):** hand-rolled no_std 3-D kd-tree
+  (`kdtree.rs`, property-tested vs brute force) + `VoxelGridMap` (id-keyed `add`/`remove_target`,
+  `create_kdtree`, `radius_search`) with an opaque-handle C ABI. `test_voxel_grid` extended: the
+  Rust map and the C++ `MultiVoxelGridCovariance` (add 3 clouds, remove 1) return the same
+  `radiusSearch` leaves (count + mean + inverse covariance). The target-map side is now complete.
 
 Branches: scaffold/helpers/no_std on `ndt_in_rust_phase1`; engine work on `ndt_in_rust_engine` (off phase1).
 
@@ -68,13 +73,13 @@ Bottom-up steps (all `no_std`-capable; std+rayon for the node now):
 - **E1 — math foundation (DONE):** `nalgebra` (no_std + `libm`); `extern crate alloc` added at E2.
 - **E2 — voxel-grid covariance (single grid: DONE):** voxelize + per-voxel mean/covariance/
   eigenvalue-regularized inverse covariance; opaque-handle C ABI; differential gtest vs the C++ grid.
-  **Remaining (E2b):** multi-grid id-keyed `add`/`remove` (`sid_to_iid_`/`grid_list_`) + the centroid
-  cloud. **← NEXT (with E3)**
-- **E3 — kdtree** (nearest-voxel search; replaces `KdTreeFLANN`; pairs with E2b's centroid cloud and
-  `radiusSearch`). Property-tested.
+- **E2b + E3 — multi-grid map + kd-tree (DONE):** `VoxelGridMap` (id-keyed add/remove, centroid
+  flattening, `create_kdtree`) + hand-rolled no_std 3-D kd-tree `radius_search` (replaces
+  `KdTreeFLANN`). Differential gtest vs the C++ grid (add/remove + `radiusSearch`). **Target-map side complete.**
 - **E4 — align + More-Thuente line search** (`multigrid_ndt_omp_impl` core): score/gradient/hessian,
-  the optimization loop. Per-point loops via **`ParReduce`** (rayon now). **Differential trace vs the
-  C++ engine** (trace-state-machine-port-verification skill; fixtures from `standard_sequence_*`).
+  the optimization loop. Per-point loops query the map's `radius_search`, parallelized via
+  **`ParReduce`** (rayon now). **Differential trace vs the C++ engine** (trace-state-machine-port-
+  verification skill; fixtures from `standard_sequence_*`). **← NEXT**
 - **E5 — covariance module (pure helpers DONE; estimation pending):** the 6 pure
   `estimate_covariance` helpers are ported (gtest-verified). Remaining: `propose_poses_to_search`
   (variable-length `Vec<Matrix4f>` output) and the multi-NDT estimation (`estimate_xy_covariance_by_multi_ndt[_score]`,
@@ -82,8 +87,9 @@ Bottom-up steps (all `no_std`-capable; std+rayon for the node now):
 - **E6 — C ABI + C++ adapter + node swap:** expose the NDT interface; swap behind `NDT_USE_RUST`;
   verify with the node integration tests (`standard_sequence_*`) OFF vs ON.
 
-**Next:** E2b (multi-grid add/remove + centroid cloud) and E3 (kdtree / `radiusSearch`) — together
-they complete the target-map side before E4 (align). `symmetric_eigen` no_std is proven by E2.
+**Next:** E4 — the align loop + More-Thuente line search (the optimization core), consuming the
+map's `radius_search`. This is the hardest step (iterative optimization); verify with the
+iteration-level differential trace vs the C++ engine. `ParReduce` parallelism lands here.
 
 ## Phase N — node port (after the engine)
 
