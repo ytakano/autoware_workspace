@@ -29,7 +29,8 @@ constraints must not gate progress, but the `no_std`-capability and `ParReduce` 
   reads `&[geometry_msgs__msg__Pose]` via a **bindgen** `#[repr(C)]` binding, layout-verified).
 - **`no_std`-capable:** `#![cfg_attr(not(any(test, feature = "std")), no_std)]` + `libm`;
   `default=["std"]`, `ros` feature independent of `std`. Builds as rlib for `x86_64`/`aarch64-unknown-none`.
-- **Coverage:** `./coverage.sh` (cargo-llvm-cov) ~99%.
+- **Coverage:** `./coverage.sh` (cargo-llvm-cov) ~97% lines / 99% functions — FFI shims + map methods
+  covered by Rust direct-call tests (see "Test coverage policy").
 - **Engine E1 + covariance helpers (DONE):** `nalgebra` (no_std + `libm`) math stack stood up
   (verified to compile no_std on x86_64/aarch64-unknown-none); the 6 pure `estimate_covariance`
   helpers (`calc_weight_vec`, `calculate_weighted_mean_and_cov`, Laplace, `rotate_to_*`,
@@ -151,6 +152,35 @@ End state: only the rclcpp shell is C++.
 - **no_std gate:** `cargo rustc --no-default-features --lib --target {x86_64,aarch64}-unknown-none --crate-type rlib`.
 - **Coverage:** `./coverage.sh`. **Perf:** benchmark Rust align vs C++ OMP (NDT is real-time ~10 Hz).
 - **Run:** `./test.sh --packages-select autoware_ndt_scan_matcher [--ctest-args -R <regex>]`.
+
+### Test coverage policy
+
+Follow the **`rust-coverage-meaningful-tests`** skill. Coverage is a **diagnostic map, not a target** —
+the goal is that high-risk code (unsafe/FFI, public API, boundaries, error paths) is checked by tests
+that would *fail for a plausible bug*. Never add a test that only calls a function to raise the
+percentage; every test must have an oracle (assertion, invariant, round-trip, reference-model, or
+null/edge contract).
+
+Each port step keeps coverage meaningful as follows:
+- **Pure logic** (`helper`, `covariance` pure fns, `voxel_grid::build`/`compute_icov`, `kdtree`) →
+  unit + property tests with oracles (e.g. LCG-driven brute-force model for `kdtree`/`VoxelGridMap`).
+- **`extern "C"` FFI shims** → **Rust direct-call tests** that (a) assert the shim equals the
+  already-tested pure fn on the same input (catches wrong length / row-col order / truncation) and
+  (b) assert the null/edge contract (null → documented no-op/`false`/`0` with **no write** to outputs;
+  `cap`/`max_nn` truncation). This is required because **`cargo llvm-cov` sees only Rust tests** — the
+  shims are *also* exercised by the C++ differential gtests, but those paths are invisible to llvm-cov.
+  Do **not** chase the C++-only paths by weakening Rust tests; add Rust tests that independently assert
+  the same behavior, or explicitly note the gap.
+- **Cross-language behavior** → the C++ differential gtest (OFF vs ON), the authoritative oracle.
+- **Unsafe FFI** → validate under **Miri**: `cargo +nightly miri test --features libm/force-soft-floats`
+  (the soft-float flag is required — `libm`'s default `sqrtsd` inline asm is unsupported by Miri).
+  Heavy LCG/eigen property tests are `#[cfg_attr(miri, ignore)]` to keep the UB run fast. As of E3 the
+  FFI shims, the `VoxelGrid`/`VoxelGridMap` Box opaque-handle round-trips, `from_raw_parts`, and the
+  out-pointer writes pass Miri with no UB.
+
+Anti-patterns to reject: `assert!(true)`, assert-free "it runs" tests, asserting unstable debug
+strings, overfitting to the current implementation, or accepting higher coverage when deleting the
+key assertion would still let the test pass.
 
 ## Skills
 `rust-hardening` (all Rust), `rust-c-ffi-safety` (FFI boundary), `trace-state-machine-port-verification`
