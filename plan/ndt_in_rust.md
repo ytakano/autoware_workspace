@@ -195,6 +195,25 @@ Anti-patterns to reject: `assert!(true)`, assert-free "it runs" tests, asserting
 strings, overfitting to the current implementation, or accepting higher coverage when deleting the
 key assertion would still let the test pass.
 
+## Upstream bug / divergence discovery (process)
+
+Porting diffs the C++ and Rust implementations directly, so it is the best opportunity to find
+**upstream bugs**. When a divergence between the C++ reference and the mathematically/expected-correct
+behavior is found during the port:
+
+1. **Always notify the user immediately** — surface what / where / evidence / impact in the session.
+   Never silently absorb a divergence.
+2. **Record it in `porting_notes/ndt_in_rust.md`** — one entry per finding, using that file's schema
+   (location · type · evidence · correct value · impact · decision · revisit trigger · upstream ·
+   verification).
+3. **Reproduce, don't fix locally** — the differential test vs C++ is the oracle, so the port keeps
+   the C++ behavior verbatim. Mark the deviation site in-code (`PORT-QUIRK`) and pin it with a test so
+   an accidental "fix" fails loudly.
+4. **Fix upstream** — the correct fix belongs in pcl/Autoware; file/draft an upstream issue with the
+   proof and link it from the ledger. Re-sync the port only after upstream merges.
+
+Current findings (incl. the NDT `h_ang` "d1" sign bug): see `porting_notes/ndt_in_rust.md`.
+
 ## Skills
 `rust-hardening` (all Rust), `rust-c-ffi-safety` (FFI boundary), `trace-state-machine-port-verification`
 (engine align equivalence).
