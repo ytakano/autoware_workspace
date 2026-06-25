@@ -10,20 +10,25 @@ We are porting `src/core/autoware_core/localization/autoware_ndt_scan_matcher` (
 2. **Strategic:** make the NDT engine runnable on **tier4/awkernel** (TIER IV's `no_std` async Rust
    kernel), so the same Rust code can eventually run both in the ROS node and on awkernel.
 
-Work happens on the `autoware_core` git branch **`ndt_in_rust`**. A scaffold is already in place
-(see "Current state").
+Work is on the `autoware_core` branch **`ndt_in_rust_phase1`** (off `ndt_in_rust`).
 
 ## Current state (done)
 
-- Stub crate `autoware_ndt_scan_matcher_rs/` nested in the package, built via **Corrosion**
-  (FetchContent) and linked into the C++ ament library.
-- C++ → Rust C-ABI call proven end-to-end (`autoware_ndt_scan_matcher_rs_add` ← `rs_ffi_mock.cpp`
-  → gtest `test_rs_ffi`).
-- `cargo test` registered as a CTest (`autoware_ndt_scan_matcher_rs_cargo_test`); `./test.sh`
-  runs the C++, Rust, and FFI tests together.
-- Crate is `crate-type = ["staticlib", "rlib"]`, clippy-clean, `rust-hardening`-compliant.
-- Phase 1 currently replaces `ndt_scan_matcher_helper.cpp` bodies in place; this will be migrated to
-  the `NDT_USE_RUST` twin-file structure (see "C++/Rust build switch") as a follow-up.
+- **Phase 0 — Scaffold:** crate `autoware_ndt_scan_matcher_rs/` nested in the package, built via
+  **Corrosion** (FetchContent) and linked over the C ABI; `cargo test` registered as a CTest
+  (`autoware_ndt_scan_matcher_rs_cargo_test`); `./test.sh` runs the C++, Rust, and FFI tests
+  together. Crate is `crate-type = ["staticlib", "rlib"]`, clippy-clean, `rust-hardening`-compliant.
+- **Phase 1 (Track A) — DONE:** `count_oscillation` and `rotate_covariance` ported to Rust, selected
+  at build time by the **`NDT_USE_RUST`** CMake option. The original `ndt_scan_matcher_helper.cpp`
+  is left **byte-identical**; a `ndt_scan_matcher_helper_rs.cpp` twin carries the FFI adapters. The
+  unchanged `test_ndt_scan_matcher_helper` gtest runs in both OFF (C++) and ON (Rust) configs as the
+  differential oracle. `count_oscillation` is **zero-copy**: it reads `&[geometry_msgs__msg__Pose]`
+  via a **bindgen** `#[repr(C)]` binding (gated by the `ros` feature), verified by bindgen layout
+  tests + a C++ `static_assert`.
+- **Coverage:** `./coverage.sh` (cargo-llvm-cov) — ~99% line coverage of the crate.
+- **no_std (Track B / B0) — DONE:** crate compiles `no_std` via
+  `#![cfg_attr(not(any(test, feature = "std")), no_std)]` + `libm` for `sqrt`; `default = ["std"]`,
+  `ros ⇒ std`. Builds clean as an rlib for `x86_64-unknown-none` and `aarch64-unknown-none`.
 
 ## Architecture: what ports, what stays
 
@@ -115,9 +120,10 @@ in task context; strict pure-Rust deps (no inline asm). Task spawn requires **`'
 futures (no scoped concurrency).
 
 Resulting design (locked):
-- Crate is `#![no_std]` + `extern crate alloc`. Linear algebra via **`nalgebra`** (no_std + `libm`);
-  transcendental math via **`libm`**. PCL voxel-grid/kd-tree reimplemented in Rust. Eigen's
-  `NonLinearOptimization` (More-Thuente line search) hand-ported.
+- Crate is no_std-capable today (`#![cfg_attr(not(any(test, feature = "std")), no_std)]`, `libm` for
+  `sqrt`); `extern crate alloc` is added at B2 when the data structures need heap. Linear algebra
+  will use **`nalgebra`** (no_std + `libm`); transcendental math via **`libm`**. PCL voxel-grid/kd-tree
+  reimplemented in Rust. Eigen's `NonLinearOptimization` (More-Thuente line search) hand-ported.
 - **Parallelism** behind a `ParReduce` trait, backends `serial` / `rayon` (host) / `awkernel`:
   ```rust
   pub trait ParReduce {
@@ -136,10 +142,14 @@ Resulting design (locked):
 - **Async coloring:** `align()` is `async fn`; only the reduce boundary awaits, per-point math stays
   sync. Expose `align_blocking()` (minimal no_std `block_on`) for the FFI/ROS path; on awkernel the
   kernel executor drives `align()` directly.
-- **Feature flags:** `default = []` (always no_std+alloc); `std` (enables `rayon` backend + test
-  helpers); `awkernel` (kernel backend). Tests run `--features std`; a CI gate builds
-  `--no-default-features --target x86_64-unknown-none` and `aarch64-unknown-none` to enforce no_std
-  purity.
+- **Feature flags:** `default = ["std"]` (so plain `cargo build`/`test`/`clippy` and the ROS-node
+  build have std — incl. the test harness and panic handler); `std` (later also enables the `rayon`
+  backend); `ros` ⇒ `std`; `awkernel` (kernel backend, no_std). awkernel/no_std consumers build with
+  `--no-default-features`. `sqrt` comes from `libm` so the math is no_std-clean. **no_std gate:**
+  `cargo rustc --no-default-features --lib --target x86_64-unknown-none --crate-type rlib` (and
+  `aarch64-unknown-none`) — `--crate-type rlib` avoids the `#[panic_handler]` that a standalone
+  `staticlib` would require (the kernel provides it). A plain `cargo check --no-default-features`
+  on the host fails on `panic=unwind`, so the bare target + rlib is the correct check.
 
 ### Engine module breakdown (C++ → Rust)
 
@@ -157,13 +167,14 @@ Resulting design (locked):
 
 ## Phased roadmap
 
-- **Phase 0 — Scaffold (DONE):** Corrosion build, FFI round-trip, colcon/`test.sh` test path.
-- **Phase 1 — Pure leaves (Track A):** port `count_oscillation`, `rotate_covariance`, and parts of
-  `estimate_covariance`. Use the `trace-state-machine-port-verification` skill with the existing
-  C++ gtests as the differential oracle. Add an `ndt_scan_matcher_helper_rs.cpp` twin selected by
-  `NDT_USE_RUST`; the original `ndt_scan_matcher_helper.cpp` stays untouched. (The already-landed
-  Phase 1, which replaced the helper bodies in place, will be refactored to this twin pattern —
-  restore the original file and move the FFI adapters into the `_rs.cpp`.)
+- **Phase 0 — Scaffold (DONE).** Corrosion build, FFI round-trip, colcon/`test.sh` test path.
+- **Phase 1 — Pure leaves (Track A) (DONE).** `count_oscillation` + `rotate_covariance` ported
+  behind `NDT_USE_RUST` (twin-file pattern, original C++ untouched); `count_oscillation` zero-copy
+  over the bindgen Pose binding; differential-tested OFF vs ON. **Remaining:** the pure
+  `estimate_covariance` helpers (`calc_weight_vec`, `calculate_weighted_mean_and_cov`,
+  `estimate_xy_covariance_by_laplace_approximation`, `rotate_covariance_to_*`,
+  `adjust_diagonal_covariance`, `propose_poses_to_search`) — they live in the `multigrid_ndt_omp`
+  engine lib and need Eigen `Matrix2d/Matrix4f` marshaling (introduces `nalgebra`, overlaps with B0).
 - **Phase 2 — Stateless decision logic (Track A):** parameter validation, pose gating
   (distance/covariance thresholds), convergence evaluation (`ConvergedParamType`),
   initial→result distance.
@@ -172,8 +183,9 @@ Resulting design (locked):
   into its own TU so the `_rs.cpp` twin + `NDT_USE_RUST` pattern applies; `callback_sensor_points_main`
   last (point cloud / NDT / tf2 stay in C++, Rust owns the surrounding decisions).
 - **Track B — engine crate (parallel effort, larger):**
-  - **B0 — Foundation:** `math` layer compiles `no_std`; stand up the CI no_std gate
-    (`x86_64-unknown-none`, `aarch64-unknown-none`).
+  - **B0 — Foundation (DONE).** Crate compiles `no_std` (cfg_attr + `libm`); rlib builds for
+    `x86_64-unknown-none` / `aarch64-unknown-none`. (CI wiring of the gate still to be added; `alloc`
+    will be introduced at B2 when the data structures need heap.)
   - **B1 — Parallel abstraction:** `ParReduce` trait + serial/rayon/awkernel backends with the
     deterministic ordered reduction.
   - **B2 — Data structures:** `voxel_grid` + `kdtree`, tested against brute force (property tests).
@@ -181,8 +193,8 @@ Resulting design (locked):
   - **B4 — Integration:** drive the engine from the ROS node via FFI; later run natively on awkernel.
 - **Convergence:** replace the C++ NDT with the Rust engine in the ROS node.
 
-**Recommended build order:** Track A Phase 1 (immediate value, low risk) can proceed alongside
-Track B starting at B0 → B1 → B2 → B3.
+**Next:** Phase 1 done and B0 done. Either finish Phase 1's `estimate_covariance` helpers (Track A)
+or start **B1** (parallel abstraction) on Track B — they are independent.
 
 ## Verification strategy
 
@@ -198,7 +210,7 @@ Track B starting at B0 → B1 → B2 → B3.
   via the deterministic reduction.
 - **Multi-arch:** identical traces on x86_64 and AArch64 (portable scalar first; per-arch SIMD added
   later and re-verified).
-- **no_std purity:** CI builds the crate for bare targets with `--no-default-features`.
+- **no_std purity:** CI runs `cargo rustc --no-default-features --lib --target {x86_64,aarch64}-unknown-none --crate-type rlib`.
 - **Build-switch differential gate (Track A):** build and test **both** configurations and require
   agreement — rebuild with `--cmake-args -DNDT_USE_RUST=OFF` then `=ON`, running the identical gtest
   suite against each; results must match (behavioral-equivalence gate). Rollback = build with `OFF`.
