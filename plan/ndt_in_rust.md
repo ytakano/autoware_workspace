@@ -77,10 +77,23 @@ Bottom-up steps (all `no_std`-capable; std+rayon for the node now):
 - **E2b + E3 — multi-grid map + kd-tree (DONE):** `VoxelGridMap` (id-keyed add/remove, centroid
   flattening, `create_kdtree`) + hand-rolled no_std 3-D kd-tree `radius_search` (replaces
   `KdTreeFLANN`). Differential gtest vs the C++ grid (add/remove + `radiusSearch`). **Target-map side complete.**
-- **E4 — align + More-Thuente line search** (`multigrid_ndt_omp_impl` core): score/gradient/hessian,
-  the optimization loop. Per-point loops query the map's `radius_search`, parallelized via
-  **`ParReduce`** (rayon now). **Differential trace vs the C++ engine** (trace-state-machine-port-
-  verification skill; fixtures from `standard_sequence_*`). **← NEXT**
+- **E4 — align + line search** (`multigrid_ndt_omp_impl` core): score/gradient/hessian + the
+  optimization loop. Built bottom-up:
+  - **E4a + E4b (DONE):** pure math kernels — `transform.rs` (euler↔matrix, `transform_point`,
+    `gauss_constants`) and `derivatives.rs` (`compute_angle_derivatives`, `compute_point_derivatives`,
+    `update_derivatives`). Verified by finite-difference oracles (gradient + translation Hessian rows
+    are exact). **The pcl NDT Hessian is approximate** (its `h_ang` angle-second-derivatives deviate
+    from exact, e.g. row 6 `+sy` vs exact `−sy`); we replicate pcl verbatim, so the **angle-angle
+    Hessian block is validated against the C++ `NdtResult.hessian` at E4d, not by FD**. See
+    [[ndt-pcl-hessian-quirk]]. `f64`, `no_std`, no FFI (C++ counterparts are private). **← NEXT (E4c)**
+  - **E4c:** `compute_derivatives` — source-point loop over the map's `radius_search`/`leaf`, the
+    regularization term, the score-only + nearest-voxel-likelihood loops. Serial.
+  - **E4d:** `align`/`compute_transformation` — SVD solve, the default-path step (clamp + single
+    eval; `use_line_search=false`), SE3 update, convergence, `NdtResult`. Adds the C++↔Rust
+    differential gtest (compare `NdtResult` within tolerance; `transformation_array` +
+    `transform_probability_array` give a per-iteration trace with no C++ modification).
+  - **E4e / E4f:** `ParReduce` (serial + rayon, serial==rayon bit-for-bit); full More-Thuente behind
+    `use_line_search`.
 - **E5 — covariance module (pure helpers DONE; estimation pending):** the 6 pure
   `estimate_covariance` helpers are ported (gtest-verified). Remaining: `propose_poses_to_search`
   (variable-length `Vec<Matrix4f>` output) and the multi-NDT estimation (`estimate_xy_covariance_by_multi_ndt[_score]`,
@@ -88,9 +101,9 @@ Bottom-up steps (all `no_std`-capable; std+rayon for the node now):
 - **E6 — C ABI + C++ adapter + node swap:** expose the NDT interface; swap behind `NDT_USE_RUST`;
   verify with the node integration tests (`standard_sequence_*`) OFF vs ON.
 
-**Next:** E4 — the align loop + More-Thuente line search (the optimization core), consuming the
-map's `radius_search`. This is the hardest step (iterative optimization); verify with the
-iteration-level differential trace vs the C++ engine. `ParReduce` parallelism lands here.
+**Next:** E4c — `compute_derivatives` (the source-point loop over the map's `radius_search`,
+consuming the E4a/E4b kernels), then E4d (the optimization loop + the C++ differential trace).
+This is the hardest step; `ParReduce` parallelism lands at E4e (serial first).
 
 ## Phase N — node port (after the engine)
 
