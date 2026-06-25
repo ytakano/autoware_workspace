@@ -30,8 +30,13 @@ constraints must not gate progress, but the `no_std`-capability and `ParReduce` 
 - **`no_std`-capable:** `#![cfg_attr(not(any(test, feature = "std")), no_std)]` + `libm`;
   `default=["std"]`, `ros` feature independent of `std`. Builds as rlib for `x86_64`/`aarch64-unknown-none`.
 - **Coverage:** `./coverage.sh` (cargo-llvm-cov) ~99%.
+- **Engine E1 + covariance helpers (DONE):** `nalgebra` (no_std + `libm`) math stack stood up
+  (verified to compile no_std on x86_64/aarch64-unknown-none); the 6 pure `estimate_covariance`
+  helpers (`calc_weight_vec`, `calculate_weighted_mean_and_cov`, Laplace, `rotate_to_*`,
+  `adjust_diagonal`) ported into a Rust `covariance` module, swapped behind `NDT_USE_RUST` via the
+  extracted `estimate_covariance_math{,_rs}.cpp` twin. `test_estimate_covariance` green OFF and ON.
 
-Branch: `ndt_in_rust_phase1` (off `ndt_in_rust`).
+Branches: scaffold/helpers/no_std on `ndt_in_rust_phase1`; engine work on `ndt_in_rust_engine` (off phase1).
 
 ## Target architecture (end state)
 
@@ -54,21 +59,22 @@ The engine has a **narrow, well-defined interface** the node uses:
 changes** required initially.
 
 Bottom-up steps (all `no_std`-capable; std+rayon for the node now):
-- **E1 — math foundation:** introduce `nalgebra` (no_std + `libm`) and the engine module skeleton
-  (SE3, 4×4/6×6, angle derivatives). `extern crate alloc` once heap types appear.
+- **E1 — math foundation (DONE):** `nalgebra` (no_std + `libm`) stood up; engine module skeleton.
+  `extern crate alloc` to be added once heap types appear (E2).
 - **E2 — point cloud + voxel-grid covariance** (`multi_voxel_grid_covariance_omp` + `VoxelGridCovariance`):
-  voxelize, per-voxel mean+covariance, id-keyed add/remove. Property-tested vs brute force / the C++ grid.
+  voxelize, per-voxel mean+covariance, id-keyed add/remove. Property-tested vs brute force / the C++ grid. **← NEXT**
 - **E3 — kdtree** (nearest-voxel search; replaces `KdTreeFLANN`). Property-tested.
 - **E4 — align + More-Thuente line search** (`multigrid_ndt_omp_impl` core): score/gradient/hessian,
   the optimization loop. Per-point loops via **`ParReduce`** (rayon now). **Differential trace vs the
   C++ engine** (trace-state-machine-port-verification skill; fixtures from `standard_sequence_*`).
-- **E5 — covariance module:** Laplace / multi-NDT covariance estimation. Folds in the remaining
-  Phase-1 `estimate_covariance` pure helpers (they have direct gtests).
+- **E5 — covariance module (pure helpers DONE; estimation pending):** the 6 pure
+  `estimate_covariance` helpers are ported (gtest-verified). Remaining: `propose_poses_to_search`
+  (variable-length `Vec<Matrix4f>` output) and the multi-NDT estimation (`estimate_xy_covariance_by_multi_ndt[_score]`,
+  need the engine) — fold in once E4 exists.
 - **E6 — C ABI + C++ adapter + node swap:** expose the NDT interface; swap behind `NDT_USE_RUST`;
   verify with the node integration tests (`standard_sequence_*`) OFF vs ON.
 
-**Recommended first step:** E1 + the E5 pure covariance helpers together — stand up the
-`nalgebra`/no_std stack with an existing gtest oracle (small, verified) before the large E2–E4.
+**Next:** E2 (voxel-grid covariance) — the nalgebra/no_std stack proven by E1 de-risks it.
 
 ## Phase N — node port (after the engine)
 
