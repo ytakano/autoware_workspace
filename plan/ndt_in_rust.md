@@ -62,8 +62,9 @@ Only value types / POD layouts cross the boundary (`rust-c-ffi-safety`):
   `#[repr(C)]`-flattened parameter struct, point clouds as `len + *const f32` (C++ keeps ownership),
   and **rosidl-defined message structs by pointer** (see "ROS IDL structs" below).
 - **Must not cross:** `pcl::PointCloud`, the NDT object, Eigen types, C++ `std::*` containers,
-  `shared_ptr`. ROS message *types* must not enter the no_std engine core (Track B) — they appear
-  only in the Track-A FFI shim layer.
+  `shared_ptr` (C++/PCL runtime types with no stable C ABI). **rosidl message types are fine** — via
+  bindgen `#[repr(C)]` bindings they cross the boundary *and* compile in no_std (see "May cross" and
+  "ROS IDL structs"); they're feature-gated for decoupling, not because no_std forbids them.
 - Start with a hand-written header for the Rust-defined surface; move to cbindgen when it grows.
 
 ### ROS IDL structs → bindgen, prefer zero-copy
@@ -79,12 +80,19 @@ header** (`.../msg/detail/<type>__struct.h`) rather than hand-writing it or pull
 - **Pass the message (array) by pointer and read it in place — do not flatten/gather/copy.** C++
   keeps ownership; Rust borrows a `&[T]` via `from_raw_parts` and reads only the fields it needs.
   Reserve copying only for genuinely tiny, non-hot inputs where it is clearly simpler.
-- **Feature-gate** the bindings (`ros` feature, enabled only when `NDT_USE_RUST=ON`): bindgen needs
-  libclang + the rosidl C headers, which are absent on the no_std/awkernel build. The pure engine
-  paths take plain `[f64; N]` / slices and never reference ROS types.
+- **Feature-gate** the bindings (`ros` feature) so they are *optional* (the core engine math takes
+  plain `[f64; N]` / slices and doesn't need ROS types) — **not** because no_std can't use them.
+  `ros` is **independent of `std`**: the `use_core()` output is no_std-compatible, so a no_std build
+  can enable `ros` too (`--no-default-features --features ros` builds as an rlib for
+  `x86_64-unknown-none` / `aarch64-unknown-none`).
 - Wire-up: `bindgen` as an optional build-dep behind the `ros` feature; `build.rs` runs it with
-  `.use_core()` + `.layout_tests(true)`; CMake passes the include dir via
+  `.use_core()` + `.layout_tests(true)` and pins clang's `--target=$HOST` (the structs are
+  target-agnostic POD; without this a bare-metal `TARGET` gives clang no libc sysroot and
+  `<stdint.h>` fails); CMake passes the include dir via
   `corrosion_set_env_vars(... "ROS_INCLUDE_DIRS=${<pkg>_INCLUDE_DIRS}")`.
+- **awkernel caveat:** enabling `ros` still *runs* bindgen, which needs libclang + the rosidl C
+  headers (absent on awkernel). To use ROS structs in the real awkernel build, **vendor** the
+  generated `ros_msgs.rs` (commit it, skip bindgen) — a separate follow-up.
 - Reference implementation: `count_oscillation` reads `&[geometry_msgs__msg__Pose]` zero-copy
   (no `std::vector<double>` flatten) — see `autoware_ndt_scan_matcher_rs` `build.rs` / `helper.rs`.
 
@@ -144,7 +152,8 @@ Resulting design (locked):
   kernel executor drives `align()` directly.
 - **Feature flags:** `default = ["std"]` (so plain `cargo build`/`test`/`clippy` and the ROS-node
   build have std — incl. the test harness and panic handler); `std` (later also enables the `rayon`
-  backend); `ros` ⇒ `std`; `awkernel` (kernel backend, no_std). awkernel/no_std consumers build with
+  backend); `ros` (ROS-message bindings; **independent of `std`** — usable in no_std too);
+  `awkernel` (kernel backend, no_std). awkernel/no_std consumers build with
   `--no-default-features`. `sqrt` comes from `libm` so the math is no_std-clean. **no_std gate:**
   `cargo rustc --no-default-features --lib --target x86_64-unknown-none --crate-type rlib` (and
   `aarch64-unknown-none`) — `--crate-type rlib` avoids the `#[panic_handler]` that a standalone
