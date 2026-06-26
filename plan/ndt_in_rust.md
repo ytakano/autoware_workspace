@@ -85,15 +85,20 @@ Bottom-up steps (all `no_std`-capable; std+rayon for the node now):
     are exact). **The pcl NDT Hessian is approximate** (its `h_ang` angle-second-derivatives deviate
     from exact, e.g. row 6 `+sy` vs exact `−sy`); we replicate pcl verbatim, so the **angle-angle
     Hessian block is validated against the C++ `NdtResult.hessian` at E4d, not by FD**. See
-    [[ndt-pcl-hessian-quirk]]. `f64`, `no_std`, no FFI (C++ counterparts are private). **← NEXT (E4c)**
+    [[ndt-pcl-hessian-quirk]]. `f64`, `no_std`, **allocation-free** (fixed-size nalgebra on the
+    stack), no FFI (C++ counterparts are private). **← NEXT (E4c)**
   - **E4c:** `compute_derivatives` — source-point loop over the map's `radius_search`/`leaf`, the
-    regularization term, the score-only + nearest-voxel-likelihood loops. Serial.
-  - **E4d:** `align`/`compute_transformation` — SVD solve, the default-path step (clamp + single
-    eval; `use_line_search=false`), SE3 update, convergence, `NdtResult`. Adds the C++↔Rust
-    differential gtest (compare `NdtResult` within tolerance; `transformation_array` +
-    `transform_probability_array` give a per-iteration trace with no C++ modification).
-  - **E4e / E4f:** `ParReduce` (serial + rayon, serial==rayon bit-for-bit); full More-Thuente behind
-    `use_line_search`.
+    regularization term, the score-only + nearest-voxel-likelihood loops. Serial. Built against an
+    engine-owned `AlignWorkspace` (reusable `trans_cloud` + fixed-capacity neighbor buffer) — **no
+    per-point allocation** (see "Runtime allocation policy"); also fixes the `radius_search` FFI
+    per-call `Vec::new()` trap.
+  - **E4d:** `align`/`compute_transformation` — **fixed-size 6×6 solve** (no `DMatrix`; confirm SVD is
+    stack-only, else a fixed Cholesky/LDLᵀ), the default-path step (clamp + single eval;
+    `use_line_search=false`), SE3 update, convergence, `NdtResult`. Adds the C++↔Rust differential
+    gtest (compare `NdtResult` within tolerance; `transformation_array` + `transform_probability_array`
+    give a per-iteration trace with no C++ modification).
+  - **E4e / E4f:** `ParReduce` (serial + rayon, serial==rayon bit-for-bit) with **per-thread/per-chunk
+    workspaces pre-allocated and reused across frames**; full More-Thuente behind `use_line_search`.
 - **E5 — covariance module (pure helpers DONE; estimation pending):** the 6 pure
   `estimate_covariance` helpers are ported (gtest-verified). Remaining: `propose_poses_to_search`
   (variable-length `Vec<Matrix4f>` output) and the multi-NDT estimation (`estimate_xy_covariance_by_multi_ndt[_score]`,
@@ -128,7 +133,34 @@ End state: only the rclcpp shell is C++.
   no_std **+ alloc**; async/await tasks, **no threads**; task spawn needs **`'static + Send`** futures
   → share read-only data via `Arc<TargetMap: Send+Sync>` / `Arc<[Point]>`, each job a `Send+'static`
   sync closure capturing Arc clones + owned `Range` + `Copy` pose, returning a small POD partial;
-  targets x86_64 + AArch64; f64 usable in task context; pure-Rust deps (no inline asm).
+  targets x86_64 + AArch64; f64 usable in task context; pure-Rust deps (no inline asm). Steady state
+  must need **no allocator traffic** (the kernel allocator is scarce) — fixed-capacity neighbor
+  buffers + reusable workspaces (see "Runtime allocation policy").
+
+### Runtime allocation policy (zero-alloc hot path)
+
+The engine runs in a real-time localizer (~10 Hz) and on awkernel, so the **per-frame `align` path
+(per-iteration, per-source-point) is allocation-free in steady state**. Heap traffic is confined to
+one-time / periodic setup (engine construction, map load/update); the first frame may warm buffers,
+but subsequent frames must not allocate or free.
+
+- **Already alloc-free:** the per-point math (`transform.rs` / `derivatives.rs`, all fixed-size
+  nalgebra `SMatrix`/`SVector` on the stack); `kdtree` / `VoxelGridMap::radius_search` write into a
+  caller-owned `out` buffer (no internal allocation).
+- **Engine-owned scratch workspace:** the aligner holds reusable buffers (`trans_cloud`,
+  `neighbor_idx`, per-thread accumulators); each iteration/point `clear()` (keeps capacity) and
+  refill, with `reserve()` up front → zero alloc/free after warmup.
+- **Fixed-capacity neighbor lists:** `radius_search` writes into a bounded buffer (`max_nn` → fixed
+  array / `heapless`/`SmallVec`) so the hot loop touches no heap at all (key for awkernel).
+- **Stack-only linear algebra:** everything `SMatrix`/`SVector`, never `DMatrix`; the E4d 6×6 solve
+  uses the fixed-size path (verify nalgebra SVD is stack-only, else a fixed Cholesky/LDLᵀ/hand solve).
+- **Reuse map buffers:** `create_kdtree` clears+reuses `flat_leaves`/centroid buffers and reserves
+  capacity (avoid per-call `Vec::new()`).
+- **No per-call allocation in FFI/leaf queries:** fix the `..._voxel_grid_map_radius_search` shim's
+  per-call `Vec::new()` (latent trap); the real path runs entirely in Rust — C++ calls `align` once
+  per frame, not `radius_search` per point.
+- **Parallel backends:** rayon / awkernel pre-allocate per-thread / per-chunk workspaces once and
+  reuse across frames; the alloc-free per-point math stays the unit of work.
 
 ### Engine module breakdown (C++ → Rust)
 | Rust module | Replaces (C++) |
@@ -162,6 +194,9 @@ End state: only the rclcpp shell is C++.
   (trace-state-machine-port-verification); **`standard_sequence_*` integration tests** for the engine
   swap and the node port, run **OFF vs ON** (`NDT_USE_RUST`) — results must match.
 - **Determinism:** serial ↔ rayon bit-identical via the ordered reduction; C++ ↔ Rust within tolerance.
+- **Zero-alloc hot path:** an allocation-counting global allocator (`stats_alloc` / `dhat`) test
+  asserts **0 allocations/deallocations in `align` after warmup** (first frame may allocate; later
+  frames must not). Run on the serial backend.
 - **no_std gate:** `cargo rustc --no-default-features --lib --target {x86_64,aarch64}-unknown-none --crate-type rlib`.
 - **Coverage:** `./coverage.sh`. **Perf:** benchmark Rust align vs C++ OMP (NDT is real-time ~10 Hz).
 - **Run:** `./test.sh --packages-select autoware_ndt_scan_matcher [--ctest-args -R <regex>]`.
@@ -223,4 +258,7 @@ Current findings (incl. the NDT `h_ang` "d1" sign bug): see `porting_notes/ndt_i
   main risk; verify bottom-up (property tests → trace diff) and keep the C++ engine as the oracle/rollback.
 - `nalgebra` no_std+libm feature set + the staticlib panic-handler nuance (rlib for awkernel; std for the node).
 - Real-time performance parity with the C++ OpenMP engine.
+- Fixed neighbor-buffer capacity `N` (zero-alloc hot path): pick `N` to cover the worst-case voxel
+  neighborhood within `resolution`; decide the overflow policy (drop extras as pcl effectively does
+  vs. grow once). Confirm nalgebra fixed-size SVD does not heap-allocate (decide at E4d).
 - SIMD (x86_64/AArch64) deferred until after numeric parity; re-verify traces when added.
