@@ -90,8 +90,9 @@ Bottom-up steps (all `no_std`-capable; std+rayon for the node now):
   - **E4c (DONE):** `src/ndt.rs` — `compute_derivatives` (source-point loop over the map's
     `radius_search`/`leaf` + regularization) and the two score-only loops
     (`transformation_probability`, `nearest_voxel_transformation_likelihood`). Serial; reuses an
-    engine-owned `AlignWorkspace` (`clear()` keeps capacity) — **zero steady-state allocation**,
-    proven by a counting-allocator integration test (`tests/zero_alloc.rs`). Verified by a
+    engine-owned `AlignWorkspace` (`clear()` keeps capacity) — **amortized** zero-allocation (steady
+    state; the WCET hardening — pre-reserve + direct voxel-neighbor lookup — lands at E4e), proven by
+    a counting-allocator integration test (`tests/zero_alloc.rs`). Verified by a
     finite-difference oracle on the multi-point score (gradient + translation Hessian rows; a
     **pure-f64 reference score** avoids f32-cloud FD noise) + cross-checks (score-only loops ==
     `compute_derivatives`). `f64` math, `f32` clouds. **← NEXT (E4d)**
@@ -100,8 +101,10 @@ Bottom-up steps (all `no_std`-capable; std+rayon for the node now):
     `use_line_search=false`), SE3 update, convergence, `NdtResult`. Adds the C++↔Rust differential
     gtest (compare `NdtResult` within tolerance; `transformation_array` + `transform_probability_array`
     give a per-iteration trace with no C++ modification).
-  - **E4e / E4f:** `ParReduce` (serial + rayon, serial==rayon bit-for-bit) with **per-thread/per-chunk
-    workspaces pre-allocated and reused across frames**; full More-Thuente behind `use_line_search`.
+  - **E4e / E4f:** `ParReduce` (serial + rayon, serial==rayon bit-for-bit) with **per-chunk workspaces
+    pre-reserved and reused across frames**; the WCET hardening (direct voxel-neighbor lookup,
+    iterative kd-tree, `max_nn = N`) — parallel adds scheduling jitter, so the serial backend is the
+    predictable WCET baseline; full More-Thuente behind `use_line_search`.
 - **E5 — covariance module (pure helpers DONE; estimation pending):** the 6 pure
   `estimate_covariance` helpers are ported (gtest-verified). Remaining: `propose_poses_to_search`
   (variable-length `Vec<Matrix4f>` output) and the multi-NDT estimation (`estimate_xy_covariance_by_multi_ndt[_score]`,
@@ -136,34 +139,49 @@ End state: only the rclcpp shell is C++.
   no_std **+ alloc**; async/await tasks, **no threads**; task spawn needs **`'static + Send`** futures
   → share read-only data via `Arc<TargetMap: Send+Sync>` / `Arc<[Point]>`, each job a `Send+'static`
   sync closure capturing Arc clones + owned `Range` + `Copy` pose, returning a small POD partial;
-  targets x86_64 + AArch64; f64 usable in task context; pure-Rust deps (no inline asm). Steady state
-  must need **no allocator traffic** (the kernel allocator is scarce) — fixed-capacity neighbor
-  buffers + reusable workspaces (see "Runtime allocation policy").
+  targets x86_64 + AArch64; f64 usable in task context; pure-Rust deps (no inline asm). Heap **is**
+  available; the constraint is **bounded WCET** — keep variable-latency allocator calls out of the
+  hot path (pre-reserved buffers) and bound the neighbor search (direct voxel-neighbor lookup). See
+  "Bounded WCET hot path".
 
-### Runtime allocation policy (zero-alloc hot path)
+### Bounded WCET hot path
 
-The engine runs in a real-time localizer (~10 Hz) and on awkernel, so the **per-frame `align` path
-(per-iteration, per-source-point) is allocation-free in steady state**. Heap traffic is confined to
-one-time / periodic setup (engine construction, map load/update); the first frame may warm buffers,
-but subsequent frames must not allocate or free.
+The engine runs in a real-time localizer (~10 Hz) and on awkernel, where **heap is available** — so
+the goal is **not** avoiding the allocator but **bounding the worst-case execution time (WCET)** of one
+`align` frame. Allocator calls have variable, non-bounded latency (allocation path, fragmentation,
+async lock contention), so they are kept out of the hot path; and the bar is stronger than "no alloc
+in steady state": a single growth/realloc on the worst-case frame is a latency spike, so **no frame —
+including the first — may allocate**. Pre-reserve buffers to worst-case capacity at setup ("hard
+zero", not "amortized zero").
 
-- **Already alloc-free:** the per-point math (`transform.rs` / `derivatives.rs`, all fixed-size
-  nalgebra `SMatrix`/`SVector` on the stack); `kdtree` / `VoxelGridMap::radius_search` write into a
-  caller-owned `out` buffer (no internal allocation).
-- **Engine-owned scratch workspace:** the aligner holds reusable buffers (`trans_cloud`,
-  `neighbor_idx`, per-thread accumulators); each iteration/point `clear()` (keeps capacity) and
-  refill, with `reserve()` up front → zero alloc/free after warmup.
-- **Fixed-capacity neighbor lists:** `radius_search` writes into a bounded buffer (`max_nn` → fixed
-  array / `heapless`/`SmallVec`) so the hot loop touches no heap at all (key for awkernel).
-- **Stack-only linear algebra:** everything `SMatrix`/`SVector`, never `DMatrix`; the E4d 6×6 solve
-  uses the fixed-size path (verify nalgebra SVD is stack-only, else a fixed Cholesky/LDLᵀ/hand solve).
-- **Reuse map buffers:** `create_kdtree` clears+reuses `flat_leaves`/centroid buffers and reserves
-  capacity (avoid per-call `Vec::new()`).
-- **No per-call allocation in FFI/leaf queries:** fix the `..._voxel_grid_map_radius_search` shim's
-  per-call `Vec::new()` (latent trap); the real path runs entirely in Rust — C++ calls `align` once
-  per frame, not `radius_search` per point.
-- **Parallel backends:** rayon / awkernel pre-allocate per-thread / per-chunk workspaces once and
-  reuse across frames; the alloc-free per-point math stays the unit of work.
+Per-frame bound — `T_frame ≤ max_iterations × (T_compute_derivatives + T_solve)` — bound each factor:
+- **Outer loop:** hard-capped by `max_iterations` (35). ✓
+- **Points P:** cap the input scan (the node voxel-downsamples it to a max).
+- **Neighbors/point K:** `radius_search(max_nn = N)` — bounds collection *and* traversal (the search
+  stops once `N` are found).
+- **Neighbor-search traversal (the WCET weak point):** kd-tree radius search is worst-case
+  `O(N_leaves)` (sparse / degenerate). For the WCET path prefer a **direct voxel-neighbor lookup**
+  (compute the voxel id, fetch the ≤27 neighbor voxels from the grid index) — pcl's DIRECT7/DIRECT26
+  modes — which is structurally constant-bounded (≤27 × `O(log M)` index lookups). `VoxelGridMap`
+  already holds the per-grid voxel index.
+- **Per-cell math + transcendentals:** fixed-size `SMatrix` ops + `libm` exp/sin/cos — bounded.
+- **Solve (E4d):** fixed-size 6×6 (bounded internal iterations); never `DMatrix`.
+
+Techniques:
+- **Pre-reserved reusable buffers** (`trans_cloud`, `neighbor_idx`, per-thread accumulators): sized to
+  worst case at setup, `clear()` keeps capacity → **no growth on any frame** (incl. the first).
+- **Stack-only linear algebra** (`SMatrix`/`SVector`, never `DMatrix`): the flat per-point loop pops
+  each frame, so **stack does not scale with cloud size**; the only depth-dependent stack is the
+  kd-tree recursion, `O(log N)` via median split — make it **iterative** (explicit fixed stack) for
+  the WCET path.
+- **Reuse map buffers:** `create_kdtree` clears+reuses `flat_leaves`/centroid buffers.
+- **Parallel backends** (rayon / awkernel async) add **scheduling jitter** — WCET analysis must
+  include fan-out/join cost; the **serial** backend is the most predictable baseline. The alloc-free
+  per-point math stays the parallel work unit.
+
+E4c currently uses a reused growable `Vec` (**amortized** zero-alloc, proven by `tests/zero_alloc.rs`);
+the WCET hardening (pre-reserve, `max_nn = N`, direct voxel-neighbor lookup, iterative kd-tree) lands
+with E4e / the awkernel backend.
 
 ### Engine module breakdown (C++ → Rust)
 | Rust module | Replaces (C++) |
@@ -197,9 +215,11 @@ but subsequent frames must not allocate or free.
   (trace-state-machine-port-verification); **`standard_sequence_*` integration tests** for the engine
   swap and the node port, run **OFF vs ON** (`NDT_USE_RUST`) — results must match.
 - **Determinism:** serial ↔ rayon bit-identical via the ordered reduction; C++ ↔ Rust within tolerance.
-- **Zero-alloc hot path:** an allocation-counting global allocator (`stats_alloc` / `dhat`) test
-  asserts **0 allocations/deallocations in `align` after warmup** (first frame may allocate; later
-  frames must not). Run on the serial backend.
+- **Bounded WCET:** (a) *necessary* — an allocation-counting global allocator (`stats_alloc` / `dhat`)
+  test asserts **0 allocations/deallocations per `align` frame** (incl. the first, once buffers are
+  pre-reserved to worst case); (b) *the real gate* — a **worst-case frame-time benchmark** (max /
+  high-percentile latency + jitter) over representative scans. Run on the serial backend (the
+  predictable baseline).
 - **no_std gate:** `cargo rustc --no-default-features --lib --target {x86_64,aarch64}-unknown-none --crate-type rlib`.
 - **Coverage:** `./coverage.sh`. **Perf:** benchmark Rust align vs C++ OMP (NDT is real-time ~10 Hz).
 - **Run:** `./test.sh --packages-select autoware_ndt_scan_matcher [--ctest-args -R <regex>]`.
@@ -261,7 +281,9 @@ Current findings (incl. the NDT `h_ang` "d1" sign bug): see `porting_notes/ndt_i
   main risk; verify bottom-up (property tests → trace diff) and keep the C++ engine as the oracle/rollback.
 - `nalgebra` no_std+libm feature set + the staticlib panic-handler nuance (rlib for awkernel; std for the node).
 - Real-time performance parity with the C++ OpenMP engine.
-- Fixed neighbor-buffer capacity `N` (zero-alloc hot path): pick `N` to cover the worst-case voxel
-  neighborhood within `resolution`; decide the overflow policy (drop extras as pcl effectively does
-  vs. grow once). Confirm nalgebra fixed-size SVD does not heap-allocate (decide at E4d).
+- Bounded-WCET decisions: neighbor-buffer capacity `N` (cover the worst-case voxel neighborhood within
+  `resolution`) + overflow policy (deterministic truncation via `max_nn = N`, **counted/logged** so a
+  too-small `N` is visible — no silent cap); **direct voxel-neighbor lookup vs kd-tree** (kd-tree
+  radius search is worst-case `O(N_leaves)`; direct lookup is constant-bounded — pick per WCET need);
+  confirm the fixed-size 6×6 solve is bounded-time (and stack-only, not `DMatrix`) at E4d.
 - SIMD (x86_64/AArch64) deferred until after numeric parity; re-verify traces when added.
