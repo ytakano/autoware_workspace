@@ -63,6 +63,14 @@ colcon test-result --verbose
 
 `src/` is organized into `core/`, `universe/`, `sensor_component/`, and `launcher/`. The build targets `src/core/`, which contains the Core packages (e.g. `autoware_core`, `autoware_msgs`, `autoware_utils`, `autoware_lanelet2_extension`, `agnocast`, message definitions, and rviz plugins). Linting config (`.clang-format`, `.clang-tidy`, `.pre-commit-config.yaml`, etc.) lives in the cloned `autoware/` directory, not at the repo root.
 
+## Commit conventions
+
+Applies to both repos (this workspace wrapper and the cloned `autoware_core`).
+
+- **Sign off every commit** — use `git commit -s --no-gpg-sign`. `-s` appends a `Signed-off-by: <name> <email>` trailer from `git config` that matches the commit author; the upstream `autoware_core` PR **DCO** check fails without it. (With a heredoc `-F -` message, `-s` still appends the trailer.)
+- **No `Co-Authored-By` trailer** — a `Co-Authored-By` whose co-author has not signed off also fails DCO (it broke PR #1217). Do not add the AI co-author trailer to any commit. This **overrides** the default "end commit messages with Co-Authored-By" behavior.
+- **Never write "awkernel"** in a commit message — if the no_std / kernel target must be referenced, say **"no_std"** instead.
+
 ## Rust skills — important
 
 This environment is set up for **porting Autoware C++ components to Rust**. Three skills in `.claude/skills/` are authoritative and should be applied automatically when relevant:
