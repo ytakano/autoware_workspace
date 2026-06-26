@@ -108,7 +108,10 @@ Bottom-up steps (all `no_std`-capable; std+rayon for the node now):
   - **E4e / E4f:** `ParReduce` (serial + rayon, serial==rayon bit-for-bit) with **per-chunk workspaces
     pre-reserved and reused across frames**; the WCET hardening (direct voxel-neighbor lookup,
     iterative kd-tree, `max_nn = N`) — parallel adds scheduling jitter, so the serial backend is the
-    predictable WCET baseline; full More-Thuente behind `use_line_search`.
+    predictable WCET baseline; full More-Thuente behind `use_line_search`. Apply
+    **`rust-realtime-implementation`** when writing `ParReduce` + the hardening, and add the
+    **WCET-contract docstrings** to `align` / `compute_derivatives` (retrofit — the skill postdates
+    E4a–d).
 - **E5 — covariance module (pure helpers DONE; estimation pending):** the 6 pure
   `estimate_covariance` helpers are ported (gtest-verified). Remaining: `propose_poses_to_search`
   (variable-length `Vec<Matrix4f>` output) and the multi-NDT estimation (`estimate_xy_covariance_by_multi_ndt[_score]`,
@@ -187,6 +190,14 @@ E4c currently uses a reused growable `Vec` (**amortized** zero-alloc, proven by 
 the WCET hardening (pre-reserve, `max_nn = N`, direct voxel-neighbor lookup, iterative kd-tree) lands
 with E4e / the awkernel backend.
 
+Write the RT-critical path per **`rust-realtime-implementation`**: a **WCET-contract docstring** on
+each RT entry point (`align`, `compute_derivatives` — max iterations / points / neighbors-per-point;
+no alloc/block/panic; only fixed-width compares; no user callbacks / logging / formatting); the
+**rt-core vs control-plane** split (the runtime path is alloc-free + bounded; map build/update may
+allocate); and the bounded / fixed-capacity / `Result`-on-full patterns. The crate's strict lints
+(deny `unwrap`/`expect`/`panic`/`indexing_slicing`/overflow) already provide the panic-free RT lint
+set, so `rust-hardening` + `rust-realtime-implementation` are complementary, not redundant.
+
 ### Engine module breakdown (C++ → Rust)
 | Rust module | Replaces (C++) |
 |---|---|
@@ -224,6 +235,11 @@ with E4e / the awkernel backend.
   pre-reserved to worst case); (b) *the real gate* — a **worst-case frame-time benchmark** (max /
   high-percentile latency + jitter) over representative scans. Run on the serial backend (the
   predictable baseline).
+- **RT review:** review every engine/align patch with **`rust-realtime-review`** (quick review); run a
+  **WCET audit** (bound table + allocation/panic/loop/data-structure/Drop/async audits) on the hot
+  path before any RT-readiness claim — distinguishing *static* vs *documented* vs *measured* bounds (a
+  benchmark is not a proof). Near-term: retroactively RT-review the **E4a–d** hot path now that the
+  skill exists, recording the boundedness table + residual risks.
 - **no_std gate:** `cargo rustc --no-default-features --lib --target {x86_64,aarch64}-unknown-none --crate-type rlib`.
 - **Coverage:** `./coverage.sh`. **Perf:** benchmark Rust align vs C++ OMP (NDT is real-time ~10 Hz).
 - **Run:** `./test.sh --packages-select autoware_ndt_scan_matcher [--ctest-args -R <regex>]`.
@@ -277,14 +293,27 @@ behavior is found during the port:
 Current findings (incl. the NDT `h_ang` "d1" sign bug): see `porting_notes/ndt_in_rust.md`.
 
 ## Skills
-`rust-hardening` (all Rust), `rust-c-ffi-safety` (FFI boundary), `trace-state-machine-port-verification`
-(engine align equivalence).
+- `rust-hardening` — all Rust (zero-warning/clippy; no `unwrap`/`expect`/`panic`/indexing/overflow).
+- `rust-c-ffi-safety` — the C↔Rust FFI boundary.
+- `rust-realtime-implementation` — **writing** the RT-critical hot path (`align` loop,
+  `compute_derivatives`, the per-point kernels, neighbor search, `ParReduce`): bounded /
+  allocation-free / panic-free / blocking-free designs, WCET-contract docstrings, and the **rt-core**
+  (runtime path) vs **control-plane** (map build/update) split.
+- `rust-realtime-review` — **reviewing** engine/align patches for WCET predictability: quick review
+  per patch; WCET-audit mode (bound table + allocation/panic/loop/data-structure/Drop/async audits)
+  for the hot path.
+- `rust-coverage-meaningful-tests` — coverage as a diagnostic map; every test carries an oracle.
+- `trace-state-machine-port-verification` — engine `align` equivalence vs C++.
 
 ## Open decisions / risks
 - The align core + voxel/kdtree reimplementation (~3000 lines + PCL replacement) is the bulk and the
   main risk; verify bottom-up (property tests → trace diff) and keep the C++ engine as the oracle/rollback.
 - `nalgebra` no_std+libm feature set + the staticlib panic-handler nuance (rlib for awkernel; std for the node).
 - Real-time performance parity with the C++ OpenMP engine.
+- Per `rust-realtime-review`'s data-structure audit: the RT path's `BTreeMap` use (`VoxelGridMap`
+  voxel index) is **integer-keyed and lookup-only** (acceptable; cost `O(log n · int-compare)`), while
+  `insert`/`remove`/node split-merge happen only in the **control-plane** map update — confirm in the
+  WCET audit; this also informs the direct-voxel-neighbor-lookup choice.
 - Bounded-WCET decisions: neighbor-buffer capacity `N` (cover the worst-case voxel neighborhood within
   `resolution`) + overflow policy (deterministic truncation via `max_nn = N`, **counted/logged** so a
   too-small `N` is visible — no silent cap); **direct voxel-neighbor lookup vs kd-tree** (kd-tree
