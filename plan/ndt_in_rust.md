@@ -95,12 +95,16 @@ Bottom-up steps (all `no_std`-capable; std+rayon for the node now):
     a counting-allocator integration test (`tests/zero_alloc.rs`). Verified by a
     finite-difference oracle on the multi-point score (gradient + translation Hessian rows; a
     **pure-f64 reference score** avoids f32-cloud FD noise) + cross-checks (score-only loops ==
-    `compute_derivatives`). `f64` math, `f32` clouds. **← NEXT (E4d)**
-  - **E4d:** `align`/`compute_transformation` — **fixed-size 6×6 solve** (no `DMatrix`; confirm SVD is
-    stack-only, else a fixed Cholesky/LDLᵀ), the default-path step (clamp + single eval;
-    `use_line_search=false`), SE3 update, convergence, `NdtResult`. Adds the C++↔Rust differential
-    gtest (compare `NdtResult` within tolerance; `transformation_array` + `transform_probability_array`
-    give a per-iteration trace with no C++ modification).
+    `compute_derivatives`). `f64` math, `f32` clouds.
+  - **E4d (DONE):** `src/ndt.rs` `align` — nalgebra **fixed-size 6×6 SVD** solve (no_std-verified,
+    mirrors `JacobiSVD`), the default-path step (clamp + single eval; `use_line_search=false`), **f32
+    cloud transform** (`se3_matrix_f32`/`transform_cloud_f32`, C++ `Matrix4f` parity), SE3 update,
+    convergence, `NdtResult` (`AlignResult`). Plus the `align` FFI shim
+    (`autoware_ndt_scan_matcher_rs_ndt_align`) and the **C++↔Rust differential gtest**
+    (`test/test_align.cpp`): pose / iteration_num / scores / **full 6×6 Hessian** (incl. the
+    angle-angle quirk block) / per-iteration `transformation_array` all match the C++ engine within
+    tolerance (✅ passing under `NDT_USE_RUST=ON`). Rust-internal: recover-known-translation +
+    identity-stays + FFI==pure marshaling test. **← NEXT (E4e)**
   - **E4e / E4f:** `ParReduce` (serial + rayon, serial==rayon bit-for-bit) with **per-chunk workspaces
     pre-reserved and reused across frames**; the WCET hardening (direct voxel-neighbor lookup,
     iterative kd-tree, `max_nn = N`) — parallel adds scheduling jitter, so the serial backend is the
@@ -112,9 +116,9 @@ Bottom-up steps (all `no_std`-capable; std+rayon for the node now):
 - **E6 — C ABI + C++ adapter + node swap:** expose the NDT interface; swap behind `NDT_USE_RUST`;
   verify with the node integration tests (`standard_sequence_*`) OFF vs ON.
 
-**Next:** E4d — `align`/`compute_transformation` (the optimization loop driving `compute_derivatives`:
-cloud transform, fixed-size 6×6 solve, step, convergence, `NdtResult`) + the **C++↔Rust differential
-gtest**. `ParReduce` parallelism lands at E4e (serial first).
+**Next:** E4e — `ParReduce` (serial + rayon, serial==rayon bit-for-bit) + the WCET hardening
+(pre-reserved buffers, `max_nn = N`, direct voxel-neighbor lookup, iterative kd-tree, a worst-case
+frame-time benchmark). The engine (E4a–d) is functionally complete and C++-differential-verified.
 
 ## Phase N — node port (after the engine)
 
