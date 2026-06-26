@@ -87,11 +87,14 @@ Bottom-up steps (all `no_std`-capable; std+rayon for the node now):
     Hessian block is validated against the C++ `NdtResult.hessian` at E4d, not by FD**. See
     [[ndt-pcl-hessian-quirk]]. `f64`, `no_std`, **allocation-free** (fixed-size nalgebra on the
     stack), no FFI (C++ counterparts are private). **← NEXT (E4c)**
-  - **E4c:** `compute_derivatives` — source-point loop over the map's `radius_search`/`leaf`, the
-    regularization term, the score-only + nearest-voxel-likelihood loops. Serial. Built against an
-    engine-owned `AlignWorkspace` (reusable `trans_cloud` + fixed-capacity neighbor buffer) — **no
-    per-point allocation** (see "Runtime allocation policy"); also fixes the `radius_search` FFI
-    per-call `Vec::new()` trap.
+  - **E4c (DONE):** `src/ndt.rs` — `compute_derivatives` (source-point loop over the map's
+    `radius_search`/`leaf` + regularization) and the two score-only loops
+    (`transformation_probability`, `nearest_voxel_transformation_likelihood`). Serial; reuses an
+    engine-owned `AlignWorkspace` (`clear()` keeps capacity) — **zero steady-state allocation**,
+    proven by a counting-allocator integration test (`tests/zero_alloc.rs`). Verified by a
+    finite-difference oracle on the multi-point score (gradient + translation Hessian rows; a
+    **pure-f64 reference score** avoids f32-cloud FD noise) + cross-checks (score-only loops ==
+    `compute_derivatives`). `f64` math, `f32` clouds. **← NEXT (E4d)**
   - **E4d:** `align`/`compute_transformation` — **fixed-size 6×6 solve** (no `DMatrix`; confirm SVD is
     stack-only, else a fixed Cholesky/LDLᵀ), the default-path step (clamp + single eval;
     `use_line_search=false`), SE3 update, convergence, `NdtResult`. Adds the C++↔Rust differential
@@ -106,9 +109,9 @@ Bottom-up steps (all `no_std`-capable; std+rayon for the node now):
 - **E6 — C ABI + C++ adapter + node swap:** expose the NDT interface; swap behind `NDT_USE_RUST`;
   verify with the node integration tests (`standard_sequence_*`) OFF vs ON.
 
-**Next:** E4c — `compute_derivatives` (the source-point loop over the map's `radius_search`,
-consuming the E4a/E4b kernels), then E4d (the optimization loop + the C++ differential trace).
-This is the hardest step; `ParReduce` parallelism lands at E4e (serial first).
+**Next:** E4d — `align`/`compute_transformation` (the optimization loop driving `compute_derivatives`:
+cloud transform, fixed-size 6×6 solve, step, convergence, `NdtResult`) + the **C++↔Rust differential
+gtest**. `ParReduce` parallelism lands at E4e (serial first).
 
 ## Phase N — node port (after the engine)
 
