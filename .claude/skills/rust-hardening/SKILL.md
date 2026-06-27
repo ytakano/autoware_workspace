@@ -141,9 +141,13 @@ let w = quat[3];
 | **Test code** (`#[cfg(test)]`, `tests/`, `benches/`, `examples/`, `build.rs`) | Free to relax — `unwrap`/`expect`/`panic`/indexing are idiomatic assertions. | scoped `#[allow(…, reason = "test code")]` on the module/file (see "Test code is the exception") |
 | **Production** (everything else) | **Forbidden by default.** A suppression is allowed only for a lint on the project's **explicit allowlist**, at the **narrowest** scope (expression/statement/fn — *never* module-wide), via `#[expect(…, reason = "…")]`. | `#[expect(clippy::<allowlisted>, reason = "…")]` |
 
-**Never a module-wide `#![allow]` in production.** Decompose it to the specific items that need it.
-The one tolerated exception is a module that is *entirely* a numeric kernel, and even then each
-suppressed lint needs its own reason and must be on the allowlist.
+**Never a module-wide `#![allow]` in production — no exception, not even for numeric kernels.**
+Decompose it to the specific items (functions/expressions) that actually trip the lint, each with
+its own reasoned `#[expect]`/`#[allow]`. A file-level `#![allow]` is forbidden because it also
+silently covers any non-kernel helper added to the file later (and it suppresses the lint inside the
+file's `#[cfg(test)] mod tests`, hiding what the test module really relies on). Per-function scope
+keeps the blast radius to the function that needs it. (The generated-code and test tiers below may
+still use a single block `#[allow]` on the generated module / `mod tests`.)
 
 **The production allowlist.** The project pins, in one place (`Cargo.toml` comment or `CLAUDE.md`),
 the short list of lints that *may* be excepted in production and the condition that makes each
