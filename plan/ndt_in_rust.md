@@ -47,6 +47,23 @@ constraints must not gate progress, but the `no_std`-capability and `ParReduce` 
   `create_kdtree`, `radius_search`) with an opaque-handle C ABI. `test_voxel_grid` extended: the
   Rust map and the C++ `MultiVoxelGridCovariance` (add 3 clouds, remove 1) return the same
   `radiusSearch` leaves (count + mean + inverse covariance). The target-map side is now complete.
+- **Engine E4a + E4b — derivative kernels (DONE):** `transform.rs` (euler↔matrix, `transform_point`,
+  `gauss_constants`) + `derivatives.rs` (`compute_angle_derivatives`, `compute_point_derivatives`,
+  `update_derivatives`). Verified by **finite-difference oracles** (gradient + translation Hessian
+  rows). Found the **pcl Hessian quirk** (`h_ang` "d1" `+sy` vs exact `−sy`): reproduced for C++
+  parity, fixed upstream (PR #1217), see [[ndt-pcl-hessian-quirk]].
+- **Engine E4c — `compute_derivatives` (DONE):** `ndt.rs` source-point loop over the map +
+  regularization + the two score-only loops. Serial; reuses `AlignWorkspace` (zero steady-state
+  alloc, `tests/zero_alloc.rs`). FD oracle + cross-checks.
+- **Engine E4d — `align` (DONE):** the optimization loop (fixed-size 6×6 SVD, default-path step, f32
+  cloud transform, convergence, `NdtResult`) + the `align` FFI shim + the **C++↔Rust differential
+  gtest `test_align`** — pose / iteration_num / scores / full 6×6 Hessian / per-iteration trace match
+  the C++ engine within tolerance under `NDT_USE_RUST=ON`. The NDT engine is functionally complete.
+- **Engine E4e — WCET audit slice (DONE):** `rust-realtime-review` audit of the hot path
+  (`porting_notes/ndt_wcet_audit.md`) + WCET-contract docstrings + `align` buffer pre-reserve.
+  Measured: per-frame allocation is **1, O(1)** (SVD-internal; `compute_derivatives` is 0). Residual
+  risks (unbounded neighbors, kd-tree O(N) traversal, the SVD alloc, no timing benchmark) → the E4e
+  hardening slice.
 
 Branches: scaffold/helpers/no_std on `ndt_in_rust_phase1`; engine work on `ndt_in_rust_engine` (off phase1).
 
