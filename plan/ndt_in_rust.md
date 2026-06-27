@@ -105,13 +105,19 @@ Bottom-up steps (all `no_std`-capable; std+rayon for the node now):
     angle-angle quirk block) / per-iteration `transformation_array` all match the C++ engine within
     tolerance (✅ passing under `NDT_USE_RUST=ON`). Rust-internal: recover-known-translation +
     identity-stays + FFI==pure marshaling test. **← NEXT (E4e)**
-  - **E4e / E4f:** `ParReduce` (serial + rayon, serial==rayon bit-for-bit) with **per-chunk workspaces
-    pre-reserved and reused across frames**; the WCET hardening (direct voxel-neighbor lookup,
-    iterative kd-tree, `max_nn = N`) — parallel adds scheduling jitter, so the serial backend is the
-    predictable WCET baseline; full More-Thuente behind `use_line_search`. Apply
-    **`rust-realtime-implementation`** when writing `ParReduce` + the hardening, and add the
-    **WCET-contract docstrings** to `align` / `compute_derivatives` (retrofit — the skill postdates
-    E4a–d).
+  - **E4e — audit slice (DONE):** `rust-realtime-review` WCET audit of the E4a–d hot path
+    (`porting_notes/ndt_wcet_audit.md`) + WCET-contract docstrings (`rust-realtime-implementation`) on
+    `align`/`compute_derivatives`/kernels + buffer **pre-reserve** in `align`. Measured: the per-frame
+    allocation is **1, O(1)** (SVD-internal; constant in points + iterations — `tests/zero_alloc.rs`);
+    `compute_derivatives` is 0. No behavior change (differential test still green). **← NEXT (E4e
+    hardening)**
+  - **E4e — hardening + ParReduce:** from the audit's residual risks — `max_nn = N` + fixed-capacity
+    neighbor buffer; **direct voxel-neighbor lookup** (bounds the kd-tree worst-case O(N) traversal);
+    iterative kd-tree; **fixed 6×6 solve** (removes the 1 SVD allocation; re-tune the C++ differential
+    tolerance); a worst-case **frame-time benchmark**. Then `ParReduce` (serial + rayon,
+    serial==rayon bit-for-bit; per-chunk workspaces pre-reserved) — parallel adds scheduling jitter,
+    so the serial backend stays the predictable WCET baseline. Full More-Thuente behind
+    `use_line_search`. Apply `rust-realtime-implementation`.
 - **E5 — covariance module (pure helpers DONE; estimation pending):** the 6 pure
   `estimate_covariance` helpers are ported (gtest-verified). Remaining: `propose_poses_to_search`
   (variable-length `Vec<Matrix4f>` output) and the multi-NDT estimation (`estimate_xy_covariance_by_multi_ndt[_score]`,
@@ -238,8 +244,8 @@ set, so `rust-hardening` + `rust-realtime-implementation` are complementary, not
 - **RT review:** review every engine/align patch with **`rust-realtime-review`** (quick review); run a
   **WCET audit** (bound table + allocation/panic/loop/data-structure/Drop/async audits) on the hot
   path before any RT-readiness claim — distinguishing *static* vs *documented* vs *measured* bounds (a
-  benchmark is not a proof). Near-term: retroactively RT-review the **E4a–d** hot path now that the
-  skill exists, recording the boundedness table + residual risks.
+  benchmark is not a proof). The **E4a–d WCET audit is done** (`porting_notes/ndt_wcet_audit.md`);
+  ongoing patches get a quick review, and the audit is re-run after engine changes.
 - **no_std gate:** `cargo rustc --no-default-features --lib --target {x86_64,aarch64}-unknown-none --crate-type rlib`.
 - **Coverage:** `./coverage.sh`. **Perf:** benchmark Rust align vs C++ OMP (NDT is real-time ~10 Hz).
 - **Run:** `./test.sh --packages-select autoware_ndt_scan_matcher [--ctest-args -R <regex>]`.
@@ -310,10 +316,10 @@ Current findings (incl. the NDT `h_ang` "d1" sign bug): see `porting_notes/ndt_i
   main risk; verify bottom-up (property tests → trace diff) and keep the C++ engine as the oracle/rollback.
 - `nalgebra` no_std+libm feature set + the staticlib panic-handler nuance (rlib for awkernel; std for the node).
 - Real-time performance parity with the C++ OpenMP engine.
-- Per `rust-realtime-review`'s data-structure audit: the RT path's `BTreeMap` use (`VoxelGridMap`
-  voxel index) is **integer-keyed and lookup-only** (acceptable; cost `O(log n · int-compare)`), while
-  `insert`/`remove`/node split-merge happen only in the **control-plane** map update — confirm in the
-  WCET audit; this also informs the direct-voxel-neighbor-lookup choice.
+- WCET-audit finding (`porting_notes/ndt_wcet_audit.md`): the RT path touches **no `BTreeMap`** — it
+  uses the kd-tree (`Vec<Node>`) + `flat_leaves` `Vec` (O(1) `get`); the `BTreeMap`s are control-plane
+  (map build) only. Open residual risks: per-cell neighbor count unbounded (`max_nn = 0`), kd-tree
+  worst-case O(N) traversal, and 1 O(1) SVD allocation/frame — all addressed by the hardening slice.
 - Bounded-WCET decisions: neighbor-buffer capacity `N` (cover the worst-case voxel neighborhood within
   `resolution`) + overflow policy (deterministic truncation via `max_nn = N`, **counted/logged** so a
   too-small `N` is visible — no silent cap); **direct voxel-neighbor lookup vs kd-tree** (kd-tree
