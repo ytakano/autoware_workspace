@@ -83,17 +83,19 @@ This environment is set up for **porting Autoware C++ components to Rust**. Thre
 
 The `rust-hardening` skill makes suppression rare and self-cleaning but leaves the concrete allowlist to the project. This is that pin, for all Rust here. Three tiers: **generated code** (bindgen/prost — one module-scoped `#[allow(…, reason = "…")]`) and **test code** (`#[cfg(test)]`, `tests/`, `benches/`, `examples/`) may relax freely; **production** (everything else) may suppress only a lint on the allowlist below, at the narrowest scope, via `#[expect(…, reason = "…")]` — **never** a module-wide `#![allow]`.
 
-Production allowlist — the only lints that may be `#[expect]`-ed in production, each with its condition:
+**No module-wide `#![allow]` in production — no exception, not even numeric kernels** (a file-level allow also silently covers future non-kernel helpers and the file's `mod tests`). Scope each suppression to the function/expression that trips the lint. Generated and `#[cfg(test)] mod tests` modules may still use one block `#[allow]`.
+
+Production allowlist — the only lints that may be `#[expect]`/`#[allow]`-ed (per function) in production, each with its condition:
 
 | Lint | Allowed only for |
 |---|---|
 | `arithmetic_side_effects` | f64/f32 **float** math (integer arithmetic must use `checked_*`/`saturating_*` — `overflow-checks = true` makes an integer allow a *panic* source) |
-| `indexing_slicing` | **constant** indices into fixed-size `[_; N]` / nalgebra `SMatrix` (any *dynamic* index uses `.get()`) |
+| `indexing_slicing` | fixed-size nalgebra `Vector`/`Matrix` indexing, or an index provably bounded by construction (e.g. `axis = depth % 3`); genuinely-dynamic slice/`Vec` indexing must use `.get()`/iterators (constant indices into `[_; N]` aren't even linted) |
 | `as_conversions`, `cast_possible_truncation`, `cast_precision_loss`, `cast_sign_loss` | a **deliberate, documented** conversion (e.g. the NDT f32 cloud pipeline mirroring the C++ `Matrix4f` path) |
-| selected `pedantic`/style lints (`many_single_char_names`, `similar_names`, `doc_markdown`, `unreadable_literal`) | readability in math kernels — not a safety exception, but still needs a `reason` since `pedantic = "warn"` becomes an error under `-D warnings` |
+| any `pedantic`/style **readability** lint (e.g. `many_single_char_names`, `similar_names`, `too_many_lines`, `too_many_arguments`, `manual_range_contains`, `doc_markdown`, `unreadable_literal`, `needless_range_loop`) | readability/parity in math kernels — *never* a safety lint; still needs a `reason` since `pedantic = "warn"` becomes an error under `-D warnings` |
 
 **Absolute-never in production:** `unwrap_used`, `expect_used`, `panic`, `unreachable`, `todo`, `unimplemented`, `string_slice` — suppressing these defeats the gates.
 
-Each Rust crate's `[lints.clippy]` must carry `allow_attributes = "warn"` and `allow_attributes_without_reason = "deny"` (every suppression needs a `reason`; requires clippy ≥ 1.81). The NDT crate (`autoware_ndt_scan_matcher_rs`) already has the deny baseline but not yet these two lines, and still has module-wide `#![allow]`s — converting those to scoped `#[expect]` + adding the two lints is a pending crate-migration slice.
+Each Rust crate's `[lints.clippy]` must carry `allow_attributes = "warn"` and `allow_attributes_without_reason = "deny"` (every suppression needs a `reason`; requires clippy ≥ 1.81). The NDT crate (`autoware_ndt_scan_matcher_rs`) is compliant: both lints are set, every suppression carries a `reason`, there is **no module-wide `#![allow]` in production** (each kernel function carries its own scoped `#[allow(…, reason = …)]`), single-FFI/`too_many_arguments` suppressions use `#[expect]`, and the generated `ros_msgs` module + each `#[cfg(test)] mod tests` keep one block `#[allow(…, clippy::allow_attributes, reason = …)]` (listing `clippy::allow_attributes` to opt out of the `#[expect]` nudge, since a multi-lint `#[expect]` warns on any lint that doesn't fire).
 
 The Rust toolchain (rustup, `cargo-binutils`, `mdbook-mermaid`) is installed in the container image.
