@@ -41,8 +41,13 @@ constant/caller and validated elsewhere; *measured* = observed under test, **not
 - **Data structures.** RT path = the kd-tree (`Vec<Node>` + `Vec<[f32;3]>`) and `flat_leaves`
   (`Vec`, O(1) `get`). **No `BTreeMap` in the RT path** — the `BTreeMap`s (`grids`, per-grid voxel
   index) are touched only in `add_target`/build (control-plane). (Corrects the earlier roadmap note.)
-- **Locking / async.** None — serial, single-thread, no shared state in the frame. (ParReduce + the
-  no_std async backend are later; they will add scheduling jitter and need their own audit.)
+- **Locking / async.** The **serial** backend (default for WCET; the no_std/`--no-default-features`
+  path) is single-thread, no shared state in the frame — the predictable baseline. The optional
+  **rayon** backend (`parallel` feature, `num_threads > 1`) is **bit-for-bit identical** to serial
+  (per-point-local contributions collected in point-index order, then folded in that order) but is
+  **not** the WCET baseline: it allocates per frame (`ws.contribs` of `P` + per-worker neighbor
+  buffers) and adds scheduling jitter, so it trades predictability for throughput. (The no_std async
+  backend is still later.)
 - **Drop.** Per-frame Drop is bounded: the reused `Vec`s are not dropped (kept across frames); SVD
   temporaries are fixed-size `SMatrix` on the stack. No large owned values leave the frame scope.
 
