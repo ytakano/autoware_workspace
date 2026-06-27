@@ -75,8 +75,25 @@ Applies to both repos (this workspace wrapper and the cloned `autoware_core`).
 
 This environment is set up for **porting Autoware C++ components to Rust**. Three skills in `.claude/skills/` are authoritative and should be applied automatically when relevant:
 
-- **rust-hardening** — applies to *all* Rust written here, not just "production" code. Zero-warning / zero-clippy builds; no `unwrap`/`expect`/`panic`/indexing/slicing in non-test code; explicit checked/saturating/wrapping arithmetic instead of silently-overflowing ops; no lossy `as` casts (use `TryFrom`); no `let _` discarding a `Result`; rustfmt required. Test code (`#[cfg(test)]`, `tests/`, `benches/`, `examples/`) may freely use `unwrap`/`expect`/`panic`.
+- **rust-hardening** — applies to *all* Rust written here, not just "production" code. Zero-warning / zero-clippy builds; no `unwrap`/`expect`/`panic`/indexing/slicing in non-test code; explicit checked/saturating/wrapping arithmetic instead of silently-overflowing ops; no lossy `as` casts (use `TryFrom`); no `let _` discarding a `Result`; rustfmt required. Test code (`#[cfg(test)]`, `tests/`, `benches/`, `examples/`) may freely use `unwrap`/`expect`/`panic`. Lint suppression is the rare exception — `#[expect(…, reason = "…")]` over `#[allow]`, at the narrowest scope, only from the project allowlist below; generated and test code may relax freely.
 - **rust-c-ffi-safety** — when Rust calls C or C calls Rust: every value/pointer/struct crossing the FFI boundary is untrusted until validated against its Rust-side binding. Enforces the 26 FFI soundness rules.
 - **trace-state-machine-port-verification** — when porting C++ to Rust and you need behavior-equivalence confidence: establish a C++ baseline, design a spec-level state machine + abstract trace, instrument both sides, then prove observable equivalence via differential testing.
+
+### Rust lint suppression (project allowlist)
+
+The `rust-hardening` skill makes suppression rare and self-cleaning but leaves the concrete allowlist to the project. This is that pin, for all Rust here. Three tiers: **generated code** (bindgen/prost — one module-scoped `#[allow(…, reason = "…")]`) and **test code** (`#[cfg(test)]`, `tests/`, `benches/`, `examples/`) may relax freely; **production** (everything else) may suppress only a lint on the allowlist below, at the narrowest scope, via `#[expect(…, reason = "…")]` — **never** a module-wide `#![allow]`.
+
+Production allowlist — the only lints that may be `#[expect]`-ed in production, each with its condition:
+
+| Lint | Allowed only for |
+|---|---|
+| `arithmetic_side_effects` | f64/f32 **float** math (integer arithmetic must use `checked_*`/`saturating_*` — `overflow-checks = true` makes an integer allow a *panic* source) |
+| `indexing_slicing` | **constant** indices into fixed-size `[_; N]` / nalgebra `SMatrix` (any *dynamic* index uses `.get()`) |
+| `as_conversions`, `cast_possible_truncation`, `cast_precision_loss`, `cast_sign_loss` | a **deliberate, documented** conversion (e.g. the NDT f32 cloud pipeline mirroring the C++ `Matrix4f` path) |
+| selected `pedantic`/style lints (`many_single_char_names`, `similar_names`, `doc_markdown`, `unreadable_literal`) | readability in math kernels — not a safety exception, but still needs a `reason` since `pedantic = "warn"` becomes an error under `-D warnings` |
+
+**Absolute-never in production:** `unwrap_used`, `expect_used`, `panic`, `unreachable`, `todo`, `unimplemented`, `string_slice` — suppressing these defeats the gates.
+
+Each Rust crate's `[lints.clippy]` must carry `allow_attributes = "warn"` and `allow_attributes_without_reason = "deny"` (every suppression needs a `reason`; requires clippy ≥ 1.81). The NDT crate (`autoware_ndt_scan_matcher_rs`) already has the deny baseline but not yet these two lines, and still has module-wide `#![allow]`s — converting those to scoped `#[expect]` + adding the two lints is a pending crate-migration slice.
 
 The Rust toolchain (rustup, `cargo-binutils`, `mdbook-mermaid`) is installed in the container image.

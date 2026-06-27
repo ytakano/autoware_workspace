@@ -6,10 +6,13 @@
 #                   workspace = true
 #               to each member crate's Cargo.toml.
 #
-# Hardening is the default for ALL Rust code. The only exception is test code
-# (#[cfg(test)] modules, tests/, benches/, examples/), where unwrap/expect/panic
-# are allowed — do NOT loosen these lints globally; scope an #[allow(...)] on the
-# test module/file instead (see SKILL.md, "Test code is the exception").
+# Hardening is the default for ALL Rust code. Generated code and test code
+# (#[cfg(test)] modules, tests/, benches/, examples/) may relax freely; everywhere
+# else a suppression is allowed only for a lint on the project allowlist, at the
+# narrowest scope. Do NOT loosen these lints globally; scope a suppression on the
+# specific item/module instead. Prefer #[expect(…, reason = "…")] over #[allow]
+# (it self-cleans), and every allow/expect MUST carry reason = "…" — enforced by
+# allow_attributes_without_reason below. See SKILL.md, "Suppressing a lint".
 
 [lints.rust]
 # Gate 1 — every compiler warning is a hard error.
@@ -50,6 +53,10 @@ cast_lossless            = "warn"
 # --- Float foot-guns ---
 float_cmp           = "deny"  # `==` on floats; compare against an epsilon
 lossy_float_literal = "deny"
+
+# --- Suppression hygiene: allow is the rare, justified, self-cleaning exception ---
+allow_attributes                = "warn"  # nudge #[allow] -> #[expect] (warns when no longer needed)
+allow_attributes_without_reason = "deny"  # no silent allow: reason = "…" is mandatory
 
 # --- Raise the floor (priority -1 so specific denies above win) ---
 pedantic = { level = "warn", priority = -1 }
