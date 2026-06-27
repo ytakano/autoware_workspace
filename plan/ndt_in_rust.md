@@ -59,11 +59,13 @@ constraints must not gate progress, but the `no_std`-capability and `ParReduce` 
   cloud transform, convergence, `NdtResult`) + the `align` FFI shim + the **C++↔Rust differential
   gtest `test_align`** — pose / iteration_num / scores / full 6×6 Hessian / per-iteration trace match
   the C++ engine within tolerance under `NDT_USE_RUST=ON`. The NDT engine is functionally complete.
-- **Engine E4e — WCET audit slice (DONE):** `rust-realtime-review` audit of the hot path
-  (`porting_notes/ndt_wcet_audit.md`) + WCET-contract docstrings + `align` buffer pre-reserve.
-  Measured: per-frame allocation is **1, O(1)** (SVD-internal; `compute_derivatives` is 0). Residual
-  risks (unbounded neighbors, kd-tree O(N) traversal, the SVD alloc, no timing benchmark) → the E4e
-  hardening slice.
+- **Engine E4e — WCET audit + hardening (DONE):** `rust-realtime-review` audit
+  (`porting_notes/ndt_wcet_audit.md`) + WCET-contract docstrings, then the hardening: the hot path is
+  now **zero-allocation per frame** (the 1 alloc was a `trans_cloud` over-reserve, fixed — the SVD is
+  stack-only; `tests/zero_alloc.rs` asserts `align == 0`), the per-cell neighbor count is bounded
+  (`max_nn = MAX_NEIGHBORS = 64`), and a frame-time benchmark exists (`examples/wcet_frame.rs`;
+  baseline ≈0.43 ms mean / 0.92 ms max). The kd-tree worst-case O(N) traversal is an **accepted
+  residual** (benign for physical maps). Remaining engine work: `ParReduce` (serial + rayon).
 
 Branches: scaffold/helpers/no_std on `ndt_in_rust_phase1`; engine work on `ndt_in_rust_engine` (off phase1).
 
@@ -103,7 +105,7 @@ Bottom-up steps (all `no_std`-capable; std+rayon for the node now):
     from exact, e.g. row 6 `+sy` vs exact `−sy`); we replicate pcl verbatim, so the **angle-angle
     Hessian block is validated against the C++ `NdtResult.hessian` at E4d, not by FD**. See
     [[ndt-pcl-hessian-quirk]]. `f64`, `no_std`, **allocation-free** (fixed-size nalgebra on the
-    stack), no FFI (C++ counterparts are private). **← NEXT (E4c)**
+    stack), no FFI (C++ counterparts are private).
   - **E4c (DONE):** `src/ndt.rs` — `compute_derivatives` (source-point loop over the map's
     `radius_search`/`leaf` + regularization) and the two score-only loops
     (`transformation_probability`, `nearest_voxel_transformation_likelihood`). Serial; reuses an
@@ -121,20 +123,18 @@ Bottom-up steps (all `no_std`-capable; std+rayon for the node now):
     (`test/test_align.cpp`): pose / iteration_num / scores / **full 6×6 Hessian** (incl. the
     angle-angle quirk block) / per-iteration `transformation_array` all match the C++ engine within
     tolerance (✅ passing under `NDT_USE_RUST=ON`). Rust-internal: recover-known-translation +
-    identity-stays + FFI==pure marshaling test. **← NEXT (E4e)**
-  - **E4e — audit slice (DONE):** `rust-realtime-review` WCET audit of the E4a–d hot path
-    (`porting_notes/ndt_wcet_audit.md`) + WCET-contract docstrings (`rust-realtime-implementation`) on
-    `align`/`compute_derivatives`/kernels + buffer **pre-reserve** in `align`. Measured: the per-frame
-    allocation is **1, O(1)** (SVD-internal; constant in points + iterations — `tests/zero_alloc.rs`);
-    `compute_derivatives` is 0. No behavior change (differential test still green). **← NEXT (E4e
-    hardening)**
-  - **E4e — hardening + ParReduce:** from the audit's residual risks — `max_nn = N` + fixed-capacity
-    neighbor buffer; **direct voxel-neighbor lookup** (bounds the kd-tree worst-case O(N) traversal);
-    iterative kd-tree; **fixed 6×6 solve** (removes the 1 SVD allocation; re-tune the C++ differential
-    tolerance); a worst-case **frame-time benchmark**. Then `ParReduce` (serial + rayon,
-    serial==rayon bit-for-bit; per-chunk workspaces pre-reserved) — parallel adds scheduling jitter,
-    so the serial backend stays the predictable WCET baseline. Full More-Thuente behind
-    `use_line_search`. Apply `rust-realtime-implementation`.
+    identity-stays + FFI==pure marshaling test.
+  - **E4e — WCET audit + hardening (DONE):** `rust-realtime-review` WCET audit
+    (`porting_notes/ndt_wcet_audit.md`) + WCET-contract docstrings. Hardening: **zero-allocation per
+    frame** (the 1 alloc was a `trans_cloud` over-reserve, fixed — the fixed-size 6×6 SVD is
+    stack-only, probe-verified; `tests/zero_alloc.rs` asserts `align == 0`); per-cell neighbors bounded
+    (`max_nn = MAX_NEIGHBORS = 64`); a frame-time benchmark (`examples/wcet_frame.rs`, baseline ≈0.43 ms
+    mean / 0.92 ms max). The kd-tree worst-case O(N) traversal is an **accepted residual** (benign for
+    physical maps; user-confirmed). No behavior change (differential test green). **← NEXT (E4e ParReduce)**
+  - **E4e — ParReduce (remaining):** `ParReduce` (serial + rayon, serial==rayon bit-for-bit; per-chunk
+    workspaces pre-reserved) — parallel adds scheduling jitter, so the serial backend stays the
+    predictable WCET baseline. Full More-Thuente behind `use_line_search`. Apply
+    `rust-realtime-implementation`.
 - **E5 — covariance module (pure helpers DONE; estimation pending):** the 6 pure
   `estimate_covariance` helpers are ported (gtest-verified). Remaining: `propose_poses_to_search`
   (variable-length `Vec<Matrix4f>` output) and the multi-NDT estimation (`estimate_xy_covariance_by_multi_ndt[_score]`,
@@ -142,9 +142,10 @@ Bottom-up steps (all `no_std`-capable; std+rayon for the node now):
 - **E6 — C ABI + C++ adapter + node swap:** expose the NDT interface; swap behind `NDT_USE_RUST`;
   verify with the node integration tests (`standard_sequence_*`) OFF vs ON.
 
-**Next:** E4e — `ParReduce` (serial + rayon, serial==rayon bit-for-bit) + the WCET hardening
-(pre-reserved buffers, `max_nn = N`, direct voxel-neighbor lookup, iterative kd-tree, a worst-case
-frame-time benchmark). The engine (E4a–d) is functionally complete and C++-differential-verified.
+**Next:** E4e — `ParReduce` (serial + rayon, serial==rayon bit-for-bit). The engine (E4a–d) is
+functionally complete and C++-differential-verified; the E4e WCET hardening (zero-alloc hot path,
+`max_nn = N`, frame-time benchmark) is done, with the kd-tree O(N) traversal an accepted residual.
+After the engine: E5 (covariance estimation) and E6 (node FFI swap).
 
 ## Phase N — node port (after the engine)
 
