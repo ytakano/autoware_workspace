@@ -65,7 +65,12 @@ constraints must not gate progress, but the `no_std`-capability and `ParReduce` 
   stack-only; `tests/zero_alloc.rs` asserts `align == 0`), the per-cell neighbor count is bounded
   (`max_nn = MAX_NEIGHBORS = 64`), and a frame-time benchmark exists (`examples/wcet_frame.rs`;
   baseline ≈0.43 ms mean / 0.92 ms max). The kd-tree worst-case O(N) traversal is an **accepted
-  residual** (benign for physical maps). Remaining engine work: `ParReduce` (serial + rayon).
+  residual** (benign for physical maps).
+- **Engine E4e — ParReduce (DONE):** `compute_derivatives` has a **serial** backend (zero-alloc WCET
+  baseline, no_std/default) and an optional **rayon** backend (`parallel` feature, `num_threads > 1`),
+  **bit-for-bit identical** (per-point contributions reduced in point-index order). Verified by exact-`==`
+  serial-vs-parallel tests at both the `compute_derivatives` and `align` level; C++ differential still
+  green. The engine (E4a–e) is now complete; remaining is E5 (covariance estimation) and E6 (node swap).
 
 Branches: scaffold/helpers/no_std on `ndt_in_rust_phase1`; engine work on `ndt_in_rust_engine` (off phase1).
 
@@ -130,11 +135,21 @@ Bottom-up steps (all `no_std`-capable; std+rayon for the node now):
     stack-only, probe-verified; `tests/zero_alloc.rs` asserts `align == 0`); per-cell neighbors bounded
     (`max_nn = MAX_NEIGHBORS = 64`); a frame-time benchmark (`examples/wcet_frame.rs`, baseline ≈0.43 ms
     mean / 0.92 ms max). The kd-tree worst-case O(N) traversal is an **accepted residual** (benign for
-    physical maps; user-confirmed). No behavior change (differential test green). **← NEXT (E4e ParReduce)**
-  - **E4e — ParReduce (remaining):** `ParReduce` (serial + rayon, serial==rayon bit-for-bit; per-chunk
-    workspaces pre-reserved) — parallel adds scheduling jitter, so the serial backend stays the
-    predictable WCET baseline. Full More-Thuente behind `use_line_search`. Apply
-    `rust-realtime-implementation`.
+    physical maps; user-confirmed). No behavior change (differential test green).
+  - **E4e — ParReduce (DONE):** `compute_derivatives` split into a **serial** backend (the
+    zero-alloc, no_std/default WCET baseline) and an optional **rayon** backend (`parallel` feature,
+    `NdtParams.num_threads > 1`), **bit-for-bit identical** — per-point `PointContribution`s collected
+    in point-index order (rayon `IndexedParallelIterator`) and folded in that order, so enabling
+    parallelism never changes output. Both backends use per-point-local grouping (the serial loop was
+    restructured off interleaved-global accumulation; the slight numeric shift re-verified within the
+    C++ differential tolerance). Verified by `serial_and_parallel_compute_derivatives_are_bit_identical`
+    + `align_serial_equals_parallel_bit_identical` (exact `==`). Parallel is **not** the WCET baseline
+    (per-frame `ws.contribs` + worker-buffer allocation + scheduling jitter). Only `compute_derivatives`
+    is parallelized; the score-only loops stay serial (their score grouping was aligned). Applied
+    `rust-realtime-implementation`. **← NEXT (E5 / E6)**
+  - **E4e — remaining:** full More-Thuente line search behind `use_line_search` (the default path
+    `use_line_search = false` is done); parallelizing the score-only loops + `computeHessian` and
+    wiring `num_threads` through the C ABI are optional follow-ups (low value / deferred).
 - **E5 — covariance module (pure helpers DONE; estimation pending):** the 6 pure
   `estimate_covariance` helpers are ported (gtest-verified). Remaining: `propose_poses_to_search`
   (variable-length `Vec<Matrix4f>` output) and the multi-NDT estimation (`estimate_xy_covariance_by_multi_ndt[_score]`,
@@ -142,10 +157,11 @@ Bottom-up steps (all `no_std`-capable; std+rayon for the node now):
 - **E6 — C ABI + C++ adapter + node swap:** expose the NDT interface; swap behind `NDT_USE_RUST`;
   verify with the node integration tests (`standard_sequence_*`) OFF vs ON.
 
-**Next:** E4e — `ParReduce` (serial + rayon, serial==rayon bit-for-bit). The engine (E4a–d) is
-functionally complete and C++-differential-verified; the E4e WCET hardening (zero-alloc hot path,
-`max_nn = N`, frame-time benchmark) is done, with the kd-tree O(N) traversal an accepted residual.
-After the engine: E5 (covariance estimation) and E6 (node FFI swap).
+**Next:** E5 (covariance estimation) and E6 (node FFI swap). The engine (E4a–e) is complete and
+C++-differential-verified: WCET hardening (zero-alloc serial hot path, `max_nn = N`, frame-time
+benchmark; kd-tree O(N) accepted residual) and the `ParReduce` serial+rayon backends (bit-for-bit
+identical) are done. Remaining engine extras (full More-Thuente, score-loop parallelism, FFI
+`num_threads`) are optional/deferred.
 
 ## Phase N — node port (after the engine)
 
