@@ -207,6 +207,18 @@ directly). C++ provides a small "host interface" (vtable + opaque handles) for t
 can't do (tf2 lookups, publishers, params, time). Reuses the ported helpers and the Rust engine.
 End state: only the rclcpp shell is C++.
 
+**End-state diff goal (vs upstream `autoware_core` main): callbacks + tests only.** The C++ diff must
+concentrate in (1) the node callback/state glue (thin Rust dispatchers + the host-interface shim) and
+(2) tests — plus the one unavoidable residual: minimal `CMakeLists.txt` build glue (link the Rust lib
++ the host-interface source). This means the **E6 C++-side changes are transitional and get reverted
+in Phase N**: `ndt_rust_adapter.hpp`, the `estimate_xy_covariance_by_multi_ndt[_score]`
+templatization, the `NormalDistributionsTransform`/`NdtType` typedef swap, and the helper twins
+(`*_helper_rs.cpp`, `estimate_covariance_math_rs.cpp`, `rs_ffi_mock.cpp`). Post-Phase-N the Rust
+callbacks call `NdtEngine` + `cov_estimate` **directly** (Rust→Rust, no FFI), so the C++ engine
+scaffold is unnecessary on the node path; the upstream engine files (`multigrid_ndt_omp`,
+`estimate_covariance`) stay **identical to upstream** (dead on the node path, or test-only). The
+remaining FFI inverts to the host interface (Rust→C++) at coarse per-callback / per-I/O granularity.
+
 ## Engine design details
 
 - **no_std:** crate already `no_std`-capable; engine math via `nalgebra`(no_std+`libm`). `alloc`
