@@ -252,11 +252,24 @@ End state: only the rclcpp shell is C++.
   (`Recorder` via `ctx`, parallel-safe); `standard_sequence_*` pass ON + OFF (the localizer's
   initial-pose path now routes through Rust); `node.rs` 100% covered; gates green; `no_std` rlib
   excludes `node.rs`.
-- **N3+ (remaining):** the map-update glue (`callback_timer` → `MapUpdateModule` — heavy PCD-loader
-  ROS-service I/O) → `callback_sensor_points_main` (rest) + move plain-data state into Rust →
-  **N4: revert the E6 scaffolding** (adapter / typedef swap / `estimate_covariance` templatization /
-  helper twins, incl. the `count_oscillation` helper-swap) to reach the "C++ diff = callbacks + tests
-  only" end state. Reassess before each (Phase N is orthogonal to the already-met engine/awkernel goal).
+- **N3 — map-update distance decision (DONE):** `MapUpdateModule::should_update_map` /
+  `out_of_map_range` distance math ported to a pure `evaluate_map_update` +
+  `autoware_ndt_scan_matcher_rs_node_evaluate_map_update` FFI in `node.rs` (no host vtable — pure
+  scalar `hypot` + threshold logic, like N1). C++ keeps the `nullopt` short-circuits, the diagnostics
+  (`distance_…` kv + the "not keeping up" ERROR), and the `need_rebuild` mutation; under `#ifdef
+  NDT_USE_RUST` the has-last branch routes through the FFI, `#else` the original inline math.
+  **Scoped to the decision logic** because the rest of `callback_sensor_points_main` is already
+  Rust-routed (align/convergence/covariance/scores) or publisher/tf2/PCL plumbing. Verified: a C++
+  differential gtest (`test_map_update_verdict`, `EXPECT_DOUBLE_EQ` on distance + `EXPECT_EQ` on the
+  flags across a boundary grid) + Rust unit/FFI/null tests; `standard_sequence_*` +
+  `once_initialize_at_out_of_map_*` (exercises `out_of_map_range`/reload) pass ON + OFF; `node.rs`
+  100% covered; gates green; `no_std` rlib excludes `node.rs`.
+- **N4+ (remaining):** the PCD-loader ROS service + NDT map mutation (`update_ndt`), the optional full
+  `callback_sensor_points_main` orchestration (publishers/tf2/PCL plumbing — compute already Rust),
+  + move plain-data state into Rust → **revert the E6 scaffolding** (adapter / typedef swap /
+  `estimate_covariance` templatization / helper twins, incl. the `count_oscillation` helper-swap) to
+  reach the "C++ diff = callbacks + tests only" end state. Reassess before each (Phase N is orthogonal
+  to the already-met engine/awkernel goal).
 
 **End-state diff goal (vs upstream `autoware_core` main): callbacks + tests only.** The C++ diff must
 concentrate in (1) the node callback/state glue (thin Rust dispatchers + the host-interface shim) and
