@@ -129,6 +129,11 @@ node object), gated on a small Corrosion×cxx spike. (`https://docs.rs/cxx`.)
   pointer to a Rust instance — every "mutating" op goes through a `&self` FFI backed by `Sync` interior
   mutability; (2) unsafe Rust forms only **`&*ptr`**, never `&mut *ptr` — so a shared `&NdtEngine` is
   sound across concurrent ROS callbacks without an external lock. See [[ndt-engine-ffi-locking]].
+- **The C FFI header is cbindgen-generated** (`autoware_ndt_scan_matcher_rs/cbindgen.toml`, run by
+  Corrosion's `corrosion_experimental_cbindgen`) — a single source of truth from the Rust `#[repr(C)]`
+  structs / `extern "C"` fns, not hand-synced. Do **not** hand-write the C header; change the Rust FFI
+  and rebuild (a stale C++ vtable mismatch then becomes a compile error, not runtime UB). Needs
+  `cbindgen >= 0.29` (earlier versions skip edition-2024 `#[unsafe(no_mangle)]`).
 - **`no_std`-capable core + `ParReduce` seam** (serial / rayon now, async-fan-out backend later for
   awkernel). Serial is the predictable WCET baseline; backends are bit-identical via an ordered reduction.
 - **Commit conventions:** sign off every commit (`git commit -s --no-gpg-sign` — upstream DCO);
