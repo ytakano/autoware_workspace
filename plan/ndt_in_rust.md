@@ -159,12 +159,27 @@ Bottom-up steps (all `no_std`-capable; std+rayon for the node now):
   `test_estimate_covariance_multi` (propose + multi_ndt + multi_ndt_score vs `pclomp`, within
   tolerance) + Rust-side property/FFI==pure tests. `transform_cloud_by_matrix` added (and
   `transform_cloud_f32` delegates to it).
-- **E6 — C ABI + C++ adapter + node swap:** expose the NDT interface; swap behind `NDT_USE_RUST`;
-  verify with the node integration tests (`standard_sequence_*`) OFF vs ON.
+- **E6 — C ABI + C++ adapter + node swap (phased):**
+  - **E6a — persistent C-ABI engine handle (DONE):** `src/engine.rs` `NdtEngine` (map + params +
+    workspace + last result), **clone-able** (the node double-buffers the NDT), exposed as an opaque
+    `AwNdtEngine*`: new/free/clone, set_params, set_regularization, add_target(`u64` id)/remove_target/
+    create_kdtree/has_target, align→get_result, calc_transformation_probability /
+    calc_nearest_voxel_likelihood, max_iterations. Reuses the engine + pure helpers; `no_std`
+    (control-plane). Verified by the C++ differential `test_ndt_engine` (incremental-map handle vs C++
+    `MultiGridNDT`) + Rust property/clone-independence/FFI==pure tests. `VoxelGridMap`/`VoxelGrid`/
+    `KdTree`/`Node` gained `Clone`; `VoxelGridMap::is_empty` added.
+  - **E6b — drop-in C++ adapter:** a class mirroring `MultiGridNormalDistributionsTransform` holding
+    the handle (string `cell_id`↔`u64` map + `getCurrentMapIDs`, copy=clone, forwards); port
+    `calculateNearestVoxelScoreEachPoint`; swap the node's `NormalDistributionsTransform` typedef
+    under `NDT_USE_RUST`.
+  - **E6c — node wiring + covariance dispatch** (route `estimate_covariance` through the handle's
+    loaded map; dispatcher + markers stay C++).
+  - **E6d — integration verify:** `standard_sequence_*` OFF vs ON (pending PCD-map availability) or a
+    node-level differential on recorded frames.
 
-**Next:** E6 — node FFI swap. The engine (E4a–e) and covariance estimation (E5) are complete and
-C++-differential-verified. Remaining engine extras (full More-Thuente, score-loop parallelism, FFI
-`num_threads`, the dispatcher/marker publishing that lives in the node) are optional or part of E6.
+**Next:** E6b — the drop-in C++ adapter. The engine (E4a–e), covariance estimation (E5), and the
+persistent engine handle (E6a) are complete and C++-differential-verified. Remaining engine extras
+(full More-Thuente, score-loop parallelism, FFI `num_threads`) are optional.
 
 ## Phase N — node port (after the engine)
 
