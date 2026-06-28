@@ -229,9 +229,21 @@ End state: only the rclcpp shell is C++.
   NDT_USE_RUST` (keeping the diagnostics wrapper). State stays C++ (Rust orchestrates via the vtable).
   Verified: `standard_sequence_*` (which call the trigger) pass ON + OFF; `node.rs` 100% covered;
   Rust gates green; `no_std` rlib excludes `node.rs`. Establishes the pattern for N1+.
-- **N1+ (remaining):** `callback_initial_pose_main` (data path) → regularization / map-update glue →
-  `callback_sensor_points_main` + move plain-data state into Rust → **N4: revert the E6 scaffolding**
-  (adapter / typedef swap / `estimate_covariance` templatization / helper twins) to reach the
+- **N1 — convergence-validation decision (DONE):** the convergence gate of `callback_sensor_points_main`
+  (iteration-limit / oscillation / score-type dispatch / `is_converged`) ported to a pure
+  `evaluate_convergence` + `autoware_ndt_scan_matcher_rs_node_evaluate_convergence` FFI in `node.rs`
+  (no host vtable — pure scalar logic, reuses the `count_oscillation` port for `oscillation_num`).
+  C++ keeps the diagnostics; under `#ifdef NDT_USE_RUST` the gate flags are computed once via the FFI
+  (order-preserving), `#else` the original inline C++. **Pivoted here** from `callback_initial_pose_main`
+  because that callback is thin plumbing (diagnostics + 2 gates + buffer push) with little logic worth
+  porting; the convergence decision is the first slice with real, differential-testable logic and a
+  concrete chunk of N3. Verified: a 108-case C++ differential gtest (`test_convergence_verdict`,
+  bit-exact `EXPECT_EQ`) + Rust truth-table/FFI/null tests; `standard_sequence_*` pass ON + OFF;
+  `node.rs` 100% covered; gates green; `no_std` rlib still excludes `node.rs`.
+- **N2+ (remaining):** the thin callbacks `callback_initial_pose_main` / `callback_regularization_pose`
+  (data path) → map-update glue → `callback_sensor_points_main` (rest) + move plain-data state into
+  Rust → **N4: revert the E6 scaffolding** (adapter / typedef swap / `estimate_covariance`
+  templatization / helper twins, incl. the `count_oscillation` helper-swap) to reach the
   "C++ diff = callbacks + tests only" end state. Reassess before each (Phase N is orthogonal to the
   already-met engine/awkernel goal).
 
