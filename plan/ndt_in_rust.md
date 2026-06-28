@@ -97,19 +97,25 @@ is not portable, so host-only), parameters, time, logging, **the async pcd_loade
 trickiest — a future-based request/wait), ~54 diagnostics `add_key_value` calls (exact key order/values
 are the differential surface), and the map-update timer.
 
-**FFI mechanism — OPEN decision (resolve before starting; spike first):**
-- **`cxx`** (https://docs.rs/cxx) for the Rust↔C++ object/method calls (C++ holds a Rust `NDTScanMatcherRS`
-  and calls its `callback_*`; Rust calls C++ host helpers) — safer + less boilerplate, but ROS-message /
-  rclcpp types still cross opaquely (with C++ accessor shims), and integrating `cxx_build` codegen with
-  Corrosion + ament/colcon is non-trivial.
-- **Extend the existing C-ABI + bindgen + host vtable** to whole-callback granularity — no new dependency,
-  consistent with what already works; more hand-written shims.
-- Recommendation: a small **cxx×Corrosion integration spike** first; otherwise extend the proven vtable.
+**FFI mechanism — RESOLVED: extend the C-ABI + bindgen + host vtable; `cxx` deferred.** The early
+host-interface slices call **templated** C++ APIs (`DiagnosticsInterface::add_key_value<T>`,
+`Publisher<MsgT>`, tf2) that `cxx` can't bind — monomorphized C++ shims are hand-written either way —
+so `cxx` adds `cxx_build`×Corrosion/ament build-integration risk for little near-term gain. `cxx`'s real
+payoff is the *other* direction (C++ owning a rich Rust node object): it removes the manual `Box`/`*mut`
+management **and the hand-synced C header drift class**. So **reconsider `cxx` at slice 6** (the Rust
+node object), gated on a small Corrosion×cxx spike. (`https://docs.rs/cxx`.)
 
 **Incremental slices** (callback-by-callback; reuse/grow the host interface; each verified ON vs OFF):
-trigger / initial_pose / regularization are ~reached via N0/N2 → then `service_ndt_align` or the
-timer/`map_update` (the async service) → then the heavy `sensor_points` (tf2 + align + cov + ~20
-publishers). Not big-bang.
+1. **DONE** — `AwDiagnostics` host-interface vtable (the reusable diagnostics-over-host mechanism:
+   clear / `add_key_value{bool,i64,f64,str}` / `update_level_and_message` / publish) + `service_trigger_node`
+   fully in Rust (`autoware_ndt_scan_matcher_rs_node_on_trigger` owns the whole body).
+2. **DONE** — `callback_initial_pose` + `callback_regularization_pose` fully in Rust: the diagnostics
+   (clear / topic_time_stamp / is_activated / is_expected_frame_id / WARN-ERROR / publish) moved into the
+   `on_initial_pose` / `on_regularization_pose` FFIs; the C++ wrappers are thin `#ifdef` forwarders and
+   `callback_initial_pose_main` is `#ifndef NDT_USE_RUST` (OFF baseline only).
+3. **NEXT** — `callback_timer` / `map_update`: the async `pcd_loader` service is the hard part (host ops
+   to issue + poll the future). 4. `service_ndt_align`. 5. the heavy `callback_sensor_points` (tf2 + align
+   + cov + ~20 publishers). Not big-bang.
 
 **Verification shift:** the differential oracle moves from per-function bit-exact gtests to
 **whole-callback observable equivalence** — published topics + diagnostics + state transitions — via the
