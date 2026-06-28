@@ -70,7 +70,13 @@ constraints must not gate progress, but the `no_std`-capability and `ParReduce` 
   baseline, no_std/default) and an optional **rayon** backend (`parallel` feature, `num_threads > 1`),
   **bit-for-bit identical** (per-point contributions reduced in point-index order). Verified by exact-`==`
   serial-vs-parallel tests at both the `compute_derivatives` and `align` level; C++ differential still
-  green. The engine (E4a–e) and covariance estimation (E5) are complete; remaining is E6 (node swap).
+  green.
+- **E5 — covariance estimation (DONE)** and **E6 — node swap (DONE, E6a–d):** the persistent engine
+  handle (`engine.rs`), the drop-in `NdtRustAdapter`, the node typedef swap under `NDT_USE_RUST` +
+  templatized covariance, and the end-to-end run. **The ROS node localizes on the Rust NDT engine**,
+  ON-vs-OFF behaviorally equivalent on the stub integration tests, C++-differential-verified at the
+  function + node levels. The engine port (E2–E6) is functionally complete; remaining is Phase N +
+  optional extras + real-vehicle dataset validation.
 
 Branches: scaffold/helpers/no_std on `ndt_in_rust_phase1`; engine work on `ndt_in_rust_engine` (off phase1).
 
@@ -190,13 +196,21 @@ Bottom-up steps (all `no_std`-capable; std+rayon for the node now):
     executable) against the Rust engine; all differential tests (`test_align` / `test_voxel_grid` /
     `test_estimate_covariance{,_multi}` / `test_ndt_engine` / `test_ndt_rust_adapter`) green. The node
     now embeds the Rust NDT engine end-to-end (build-verified).
-  - **E6d — integration verify:** *run* the node ON vs OFF — `standard_sequence_*` launch tests
-    (pending PCD-map availability) or a node-level differential on recorded frames; compare output.
+  - **E6d — end-to-end node verification (DONE):** the node's stub-driven integration tests are
+    self-contained (no external PCD/rosbag — `stub_pcd_loader` serves a synthetic map, stub
+    clients drive the node over real rclcpp). Ran `standard_sequence_for_initial_pose_estimation`
+    (asserts the node converges to the initial pose within ±2.0), `once_initialize_at_out_of_map…`,
+    `particles_num_less_than_publish_num`, and the launch test — **all pass under `NDT_USE_RUST=ON`
+    (node on the Rust engine) and OFF (C++ baseline)**, plus all function-level differential tests.
+    The Rust-backed node localizes correctly end-to-end, behaviorally equivalent to the C++ node on
+    the stub sequence. (Real-vehicle dataset / rosbag validation is the remaining real-world step,
+    outside this synthetic-test environment.)
 
-**Next:** E6d — run the node ON vs OFF (`standard_sequence_*` / recorded-frame differential). The
-engine (E4a–e), covariance estimation (E5), and the full node-side swap (E6a–c) are complete and
-C++-differential-verified; the node compiles + links with the Rust engine under `NDT_USE_RUST`.
-Remaining engine extras (full More-Thuente, score-loop parallelism, FFI `num_threads`) are optional.
+**Next:** the engine port is functionally **complete** (E2–E6): the ROS node localizes end-to-end on
+the Rust NDT engine under `NDT_USE_RUST`, ON-vs-OFF behaviorally equivalent and C++-differential-
+verified at the function and node levels. Remaining is **Phase N** (callback bodies → Rust; end-state
+"C++ diff = callbacks + tests only", see the Phase N section) and optional engine extras (full
+More-Thuente, score-loop parallelism, FFI `num_threads`) + real-vehicle dataset validation.
 
 ## Phase N — node port (after the engine)
 
