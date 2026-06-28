@@ -330,6 +330,21 @@ End state: only the rclcpp shell is C++.
     the `NDT_USE_RUST` flag + typedef swaps + `#else` pclomp + helper twins + `estimate_covariance`
     templatization + the differential (no Rust-crate change). Verified: all gtests + `standard_sequence_*` /
     `once_initialize_*` / `particles_*` (the latter two drive `service_ndt_align`/TPE) pass ON + OFF.
+  - **案B — concentrate `NDT_USE_RUST` (DONE):** the "concentrate, don't eliminate" tidy after N4e —
+    the flag now lives **only** in (a) one engine-type typedef in the new `ndt_backend.hpp`
+    (`NdtBackend` = adapter ON / pclomp OFF; `core.hpp`/`map_update_module.hpp` alias their
+    `NormalDistributionsTransform`/`NdtType` to it unconditionally — the duplicated `#ifdef` typedef is
+    gone) and (b) the per-callback dispatch `#ifdef`s in the `.cpp`. **Deleted** the now-dead
+    `_rs.cpp` helper twins (`ndt_scan_matcher_helper_rs.cpp`, `estimate_covariance_math_rs.cpp`), the
+    FFI mock (`rs_ffi_mock.cpp/.hpp` + `test_rs_ffi.cpp`), and the CMake file-swap vars
+    (`NDT_HELPER_SRC`/`NDT_COV_MATH_SRC`/`NDT_RUST_GLUE`) — the libs now always build the original
+    `*.cpp`. **De-templatized** `estimate_xy_covariance_by_multi_ndt[_score]` back to the concrete
+    pclomp engine (declarations in `estimate_covariance.hpp`, definitions in `estimate_covariance.cpp`,
+    reverting E6c) → `estimate_covariance.{hpp,cpp}` are upstream-identical again. **Kept** the crate
+    link + `NDT_USE_RUST` compile-def + the Rust→C FFI (still exported + Rust-unit-tested) + every
+    differential gtest. Verified: build + tests pass ON **and** OFF (`test_estimate_covariance_multi`
+    now references pure-C++ cov-math and still holds the E5 tolerance; the 3 node integration tests
+    pass both configs).
   - **Full single-path collapse (optional, deferred):** delete `ndt_rust_adapter.hpp` + the typedef swaps
     + the `estimate_covariance` templatization + the helper twins + the CMake file-swaps + the
     `NDT_USE_RUST` flag, making the node Rust-only and the engine files upstream-identical (test oracle).
@@ -471,9 +486,10 @@ the C++ adapter still wraps the engine under `NDT_USE_RUST`.
 - **rosidl structs via bindgen** (`use_core()`, `--target=$HOST`, layout tests + C++ `static_assert`),
   behind the `ros` feature (independent of `std`; no_std-usable). awkernel would **vendor** the
   generated bindings (bindgen needs libclang + ROS headers, absent there).
-- **Build switch (方式2):** `NDT_USE_RUST` selects `_rs.cpp` twins; original C++ untouched where a TU
-  is purely portable. For mixed TUs (`estimate_covariance.cpp` has NDT-dependent fns;
-  `ndt_scan_matcher_core.cpp` is the big node file), first extract the portable part into its own TU.
+- **Build switch (方式2 → 案B):** `NDT_USE_RUST` originally selected `_rs.cpp` twins; after 案B (see
+  Phase N) the twins + CMake file-swaps are deleted and the flag is concentrated to the one
+  `ndt_backend.hpp` engine typedef + the per-callback dispatch `#ifdef`s — the C++ sources are now the
+  same in both configs (link the Rust lib + set the compile-def under `if(NDT_USE_RUST)`).
 - **Rust-instance handles — end-state rules (binding at the engine refactor; see "End-state engine
   concurrency"):**
   - **C++ holds only a `const` pointer to a Rust instance** (`const AwNdtEngine*`): no mutable handle
