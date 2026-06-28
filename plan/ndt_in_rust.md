@@ -350,11 +350,32 @@ End state: only the rclcpp shell is C++.
     `NDT_USE_RUST` flag, making the node Rust-only and the engine files upstream-identical (test oracle).
     Only if the upstream PR wants a Rust-only node; it removes the OFF build / node-level differential
     (the function-level gtests remain).
-  - **Engine concurrency refactor (at/after the state-ownership move):** once Rust owns the engine
-    state (not the C++ adapter under `NDT_USE_RUST`), drop the `*mut NdtEngine` + `&mut *engine` +
-    `ndt_ptr_` giant lock for the **const-handle + `&self`-only + `ArcSwap`-map + per-call-workspace**
-    model (see "End-state engine concurrency" and the FFI handle rules). Distinct from N4c/N4d; the
-    giant lock stays required until then.
+  - **Engine concurrency refactor — DONE (3 slices; `arc-swap`).** User constraints fixed the design:
+    the map is dynamically replaced during driving (double-buffer REQUIRED) + no mutex (C++
+    `std::atomic<shared_ptr>` is mutex-backed on libstdc++ → the lock-free double-buffer must be
+    Rust-side `arc-swap`). So OFF keeps the C++ `Guarded`+`secondary_ndt_ptr`+`std::swap` unchanged;
+    ON uses a Rust `arc-swap` double-buffer + a `Sync` engine.
+    - **Slice 1 (commit `e787d13f`, Rust-only):** `NdtEngine` is `Sync`, `&self`-only. Map+params+id
+      in `ArcSwap<EngineState>` (no_std single-core: `RefCell<Arc<…>>`); per-align scratch (workspace +
+      last) in a **thread-local** (engine `RefCell` for no_std); regularization in a dedicated tiny
+      `ArcSwap<Option<Regularization>>` (set per-frame without cloning the map). Every FFI is `*const`
+      + `&*engine`. Invisible to C++ (passes a compatible pointer); giant lock still present (redundant).
+    - **Slice 2 (commit `31e22f2b`):** giant lock removed on the ON path. `guarded.hpp` gains
+      `Unguarded<T>` (same `.with`, no lock); `ndt_backend.hpp` picks `EngineHolder` =
+      `Unguarded`(ON)/`Guarded`(OFF) so the node's reader sites are unchanged; `raw_handle()` →
+      `const AwNdtEngine*` + all engine FFI decls `const`. New atomic map-update commit: `commit_from`
+      publishes a staging engine's fully-built map into the live engine in **one** `ArcSwap::store`;
+      the ON `map_update` builds on the private `secondary_ndt_ptr` then `commitFrom` (no C++ swap, no
+      per-tile publish on the shared engine). C++ `secondary`/`std::swap` compiled out under ON.
+    - **Slice 3:** stale lock-era comments cleaned; RT residual recorded (`ndt_wcet_audit.md`): align
+      stays lock-free + 0-alloc, but `ArcSwap` reclamation can drop the superseded map on the align
+      thread (rare, low-rate updates; future: deferred reclamation off the align thread).
+    - Honors both FFI handle rules: C++ holds only a `const` engine pointer; unsafe Rust forms only
+      `&*ptr`. Verified each slice: `cargo test`/clippy/fmt/no_std + a `tests/concurrency.rs` stress
+      test (3 readers + 1 committer; compiles+links under TSan via `-Zbuild-std`); ON 17/17 + OFF 5/5.
+      The **per-call-workspace** wording above became **thread-local scratch** (equivalent: no shared
+      `&mut self.workspace`, 0-alloc preserved); the `ArcSwap<VoxelGridMap>` became
+      `ArcSwap<EngineState>` (map+params+id together).
 
 **End-state diff goal (vs upstream `autoware_core` main): callbacks + tests only.** The C++ diff must
 concentrate in (1) the node callback/state glue (thin Rust dispatchers + the host-interface shim) and
