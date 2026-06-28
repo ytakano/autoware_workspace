@@ -282,10 +282,24 @@ End state: only the rclcpp shell is C++.
     tests; C++ `test_node_run_align` (exact match vs the adapter's own align + verdict consistency);
     `standard_sequence_*` / `once_initialize_*` / `particles_*` pass ON + OFF; `node.rs` 100%; gates
     green; no_std rlib excludes the orchestrator (`std`-gated).
-  - **N4b–e (remaining):** covariance → scoring → map_update → delete. Reassess before each (Phase N is
-    orthogonal to the already-met engine/awkernel goal). Note: after the engine compute leaves the C++
-    node, the node-level ON/OFF differential weakens — keep the function-level differential gtests
-    (C++ pclomp oracle) permanently + treat integration tests as golden ON / baseline OFF.
+  - **N4b (DONE):** `estimate_pose_covariance` orchestrator in `engine.rs` +
+    `autoware_ndt_scan_matcher_rs_node_estimate_pose_covariance` FFI run the whole covariance block
+    (rotate the configured 6x6 + dispatch FIXED/LAPLACE/MULTI_NDT[_SCORE] against the **live** engine
+    map + scale + adjust) in Rust, returning `ndt_covariance[36]` + the debug pose buffers + a
+    `publish_kind`; C++ publishes `multi_ndt_pose`/`multi_initial_pose` from the buffers (MULTI_NDT both
+    / MULTI_NDT_SCORE initial-only). `MultiNdtCovResult` gained `candidate_result_poses` (re-aligned
+    poses for the publish). The node's `estimate_covariance` method + the `rotate_covariance`/
+    `adjust_diagonal_covariance`/templated-estimator/`propose_poses_to_search` calls are now
+    `#ifndef NDT_USE_RUST` (OFF only). Verified: Rust unit (per-type composition + FFI==pure + null +
+    cap-truncate) + C++ `test_estimate_pose_covariance` (vs the templated estimator on the same
+    adapter; 2x2 within the E5 cov tolerance `5e-2 + 0.2·|x|`, off-block exact) + integration ON/OFF +
+    `test_estimate_covariance_multi`/`test_estimate_covariance` still pass; `node.rs` 100%; gates green;
+    no_std rlib excludes the orchestrator.
+  - **N4c–e (remaining):** RGB/no-ground scoring → map_update → delete the scaffolding. Reassess before
+    each (Phase N is orthogonal to the already-met engine/awkernel goal). Note: after the engine compute
+    leaves the C++ node, the node-level ON/OFF differential weakens — keep the function-level
+    differential gtests (C++ pclomp oracle) permanently + treat integration tests as golden ON /
+    baseline OFF.
 
 **End-state diff goal (vs upstream `autoware_core` main): callbacks + tests only.** The C++ diff must
 concentrate in (1) the node callback/state glue (thin Rust dispatchers + the host-interface shim) and
