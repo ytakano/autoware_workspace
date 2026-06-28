@@ -85,8 +85,8 @@ Branches: scaffold/helpers/no_std on `ndt_in_rust_phase1`; engine work on `ndt_i
 | Stays C++ (rclcpp I/O shell) | Becomes Rust |
 |---|---|
 | `rclcpp::Node`, subscriptions/publishers, services, timers | Each callback's body, orchestration, sequencing |
-| tf2 buffer/listener, agnocast wrapper | Node logic **state** (pose buffers, flags, `HyperParameters`, latest EKF pos) — Rust-owned, `Mutex`-guarded (MultiThreadedExecutor) |
-| ROS message types (cross via bindgen `#[repr(C)]`, zero-copy) | **NDT engine** (voxel grid, kdtree, align, line search, covariance) — replaces PCL + Eigen + `multigrid_ndt_omp` |
+| tf2 buffer/listener, agnocast wrapper | Node logic **state** (pose buffers, flags, `HyperParameters`, latest EKF pos) — Rust-owned, **fine-grained** guards (small `Mutex`/atomic per item, MultiThreadedExecutor) |
+| ROS message types (cross via bindgen `#[repr(C)]`, zero-copy) | **NDT engine** (voxel grid, kdtree, align, line search, covariance) — replaces PCL + Eigen + `multigrid_ndt_omp`. End state: a **`Sync`, `&self`-only** engine behind a `const` handle, **lock-free reads** (`ArcSwap<VoxelGridMap>` + per-call workspace) — **no giant lock** (see "End-state engine concurrency") |
 
 C++ callbacks shrink to: decompose msg / pass handles → call Rust → (Rust calls back for ROS I/O it
 can't do). Engine swap is done behind the NDT interface (below), so node logic is untouched by it.
@@ -300,6 +300,11 @@ End state: only the rclcpp shell is C++.
     leaves the C++ node, the node-level ON/OFF differential weakens — keep the function-level
     differential gtests (C++ pclomp oracle) permanently + treat integration tests as golden ON /
     baseline OFF.
+  - **Engine concurrency refactor (at/after the state-ownership move):** once Rust owns the engine
+    state (not the C++ adapter under `NDT_USE_RUST`), drop the `*mut NdtEngine` + `&mut *engine` +
+    `ndt_ptr_` giant lock for the **const-handle + `&self`-only + `ArcSwap`-map + per-call-workspace**
+    model (see "End-state engine concurrency" and the FFI handle rules). Distinct from N4c/N4d; the
+    giant lock stays required until then.
 
 **End-state diff goal (vs upstream `autoware_core` main): callbacks + tests only.** The C++ diff must
 concentrate in (1) the node callback/state glue (thin Rust dispatchers + the host-interface shim) and
@@ -379,6 +384,37 @@ allocate); and the bounded / fixed-capacity / `Result`-on-full patterns. The cra
 (deny `unwrap`/`expect`/`panic`/`indexing_slicing`/overflow) already provide the panic-free RT lint
 set, so `rust-hardening` + `rust-realtime-implementation` are complementary, not redundant.
 
+### End-state engine concurrency (fine-grained locks)
+
+Target (post-Phase-N) model that **removes the giant `ndt_ptr_` mutex**. Today the node serializes all
+engine access behind one coarse `Guarded<>` lock held for the whole `align` (unbounded hold →
+priority-inversion risk; required during N4 only because the FFIs reborrow `&mut *engine`). The Rust
+engine is already structured for a reader/writer split (`ndt::align` is a pure fn over `&VoxelGridMap`
++ a caller-supplied workspace), so the end state is:
+
+- **`NdtEngine` exposes only `&self` methods and is `Sync`** → C++ passes the same `const AwNdtEngine*`
+  to concurrent callbacks; the FFIs form only `&NdtEngine` (the two FFI handle rules above). All
+  synchronization is fine-grained, *inside* the engine.
+- **Target map → `ArcSwap<VoxelGridMap>`** (or `Mutex<Arc<…>>` locked only for the O(1) `Arc`
+  clone/swap, never during an align). Aligns load an immutable snapshot lock-free; map-update builds a
+  fresh map off the hot path and atomically stores it. Replaces the C++ double-buffer
+  (`secondary_ndt_ptr` + `std::swap`) **and** the giant lock's map role; the "rebuild locks `ndt_ptr`
+  entirely" critical path disappears (readers keep the old `Arc` until the swap).
+- **Align scratch → per-call, not shared.** `align(&self, …) -> AlignResult` takes its workspace per
+  call: allocate-per-call on the host control plane, or check out from a small **bounded pool** behind
+  a lightweight lock held only for checkout/return (sized to the max concurrent aligns: sensor +
+  `service_ndt_align`; the covariance re-aligns are sequential within one call). For the awkernel/RT
+  path: a fixed pool / per-CPU workspace. No `&mut self.workspace`.
+- **Last result → eliminated** (the orchestrators `run_align` / `estimate_pose_covariance` already
+  *return* the result; no shared `last` to guard). **Params / regularization → per-call** (the
+  per-align regularization pose travels with the call) or `ArcSwap<NdtParams>`.
+
+Net: the sensor align holds no lock; the map swap is a single atomic store; concurrent
+sensor-align + map-update + `service_ndt_align` no longer serialize. The read path is bounded and
+lock-free — RT-friendlier than the coarse mutex and consistent with the awkernel `Arc<TargetMap:
+Send+Sync>` note above. This refactor lands with the state-ownership move (after N4e), **not** while
+the C++ adapter still wraps the engine under `NDT_USE_RUST`.
+
 ### Engine module breakdown (C++ → Rust)
 | Rust module | Replaces (C++) |
 |---|---|
@@ -403,6 +439,17 @@ set, so `rust-hardening` + `rust-realtime-implementation` are complementary, not
 - **Build switch (方式2):** `NDT_USE_RUST` selects `_rs.cpp` twins; original C++ untouched where a TU
   is purely portable. For mixed TUs (`estimate_covariance.cpp` has NDT-dependent fns;
   `ndt_scan_matcher_core.cpp` is the big node file), first extract the portable part into its own TU.
+- **Rust-instance handles — end-state rules (binding at the engine refactor; see "End-state engine
+  concurrency"):**
+  - **C++ holds only a `const` pointer to a Rust instance** (`const AwNdtEngine*`): no mutable handle
+    crosses the boundary. Every "mutating" op (map update, regularization) goes through a `&self` FFI
+    backed by Rust-side interior mutability.
+  - **Unsafe Rust forms only `&T` from an incoming pointer** (`&*ptr`), **never `&mut *ptr`**; mutation
+    lives behind `Sync` interior-mutability, so a shared `&NdtEngine` is sound across concurrent ROS
+    callbacks **without** an external lock.
+  - **Transitional (N4a/N4b):** the engine FFIs currently take `*mut NdtEngine` + reborrow
+    `&mut *engine`, sound **only** under the `ndt_ptr_` giant mutex ([[ndt-engine-ffi-locking]]). That
+    is replaced by the two rules above at the end-state engine refactor.
 
 ## Verification strategy
 
