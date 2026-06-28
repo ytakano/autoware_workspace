@@ -317,13 +317,24 @@ End state: only the rclcpp shell is C++.
     (add/remove/sorted-ids, u64 reuse, clone-carries-id-map, the two-pass FFI round-trip, null) +
     `test_ndt_rust_adapter` (now asserts the id contents) + `test_ndt_engine` + integration ON/OFF;
     `node.rs`/`engine.rs` covered; gates green; no_std rlib builds (the string FFIs use `alloc`).
-  - **N4e (remaining):** the combined adapter removal — migrate `service_ndt_align`/TPE off the
-    adapter (route align/getResult to FFIs like N4c), collapse the ON/OFF typedef to a single Rust
-    path, and delete `ndt_rust_adapter.hpp` + the typedef swaps + the `estimate_covariance`
-    templatization + the helper twins + the CMake file-swaps; make the engine files upstream-identical.
-    Reassess before it. Note: after the engine compute leaves the C++ node, the node-level ON/OFF
-    differential weakens — keep the function-level differential gtests (C++ pclomp oracle) permanently
-    + treat integration tests as golden ON / baseline OFF.
+  - **N4e (scoped — DONE; chose "keep the flag + slim", not the full collapse):** migrated
+    `service_ndt_align_main` + the TPE `align_pose` loop off the adapter (per-particle `align`/`getResult`
+    → the engine `align` FFI + `ndt_result_from_engine` on `raw_handle`; `hasTarget` → FFI), so **no node
+    code calls the adapter's compute methods under `NDT_USE_RUST`**. **Slimmed `NdtRustAdapter`** to a thin
+    engine handle: removed `align`/`getResult`/`calculate*`/`set[/unset]RegularizationPose`; kept
+    lifecycle/`clone`/`raw_handle`/`setParams`/`getParams`/`getMaximumIterations` + the map-management
+    surface (`addTarget`/`removeTarget`/`createVoxelKdtree`/`hasTarget`/`getCurrentMapIDs`) that
+    `map_update` + setup still use. Reworked the adapter-compute differential tests (coverage moved to the
+    engine-FFI tests): `test_ndt_rust_adapter` → thin-handle map-mgmt + clone; `test_estimate_pose_covariance`
+    + `test_node_run_align` → reference via a pclomp `Cpp` engine / the bare engine `align` FFI. **Kept**
+    the `NDT_USE_RUST` flag + typedef swaps + `#else` pclomp + helper twins + `estimate_covariance`
+    templatization + the differential (no Rust-crate change). Verified: all gtests + `standard_sequence_*` /
+    `once_initialize_*` / `particles_*` (the latter two drive `service_ndt_align`/TPE) pass ON + OFF.
+  - **Full single-path collapse (optional, deferred):** delete `ndt_rust_adapter.hpp` + the typedef swaps
+    + the `estimate_covariance` templatization + the helper twins + the CMake file-swaps + the
+    `NDT_USE_RUST` flag, making the node Rust-only and the engine files upstream-identical (test oracle).
+    Only if the upstream PR wants a Rust-only node; it removes the OFF build / node-level differential
+    (the function-level gtests remain).
   - **Engine concurrency refactor (at/after the state-ownership move):** once Rust owns the engine
     state (not the C++ adapter under `NDT_USE_RUST`), drop the `*mut NdtEngine` + `&mut *engine` +
     `ndt_ptr_` giant lock for the **const-handle + `&self`-only + `ArcSwap`-map + per-call-workspace**
