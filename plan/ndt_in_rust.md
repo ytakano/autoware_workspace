@@ -221,6 +221,20 @@ directly). C++ provides a small "host interface" (vtable + opaque handles) for t
 can't do (tf2 lookups, publishers, params, time). Reuses the ported helpers and the Rust engine.
 End state: only the rclcpp shell is C++.
 
+- **N0 — host-interface mechanism + first callback (DONE):** `src/node.rs` (std-gated) defines the
+  `NdtHost` C-ABI vtable (fn pointers + opaque `ctx`) and `autoware_ndt_scan_matcher_rs_node_on_trigger`
+  — the migrated body of `service_trigger_node` (set `is_activated_`; clear the pose buffer on enable),
+  driving node state through the vtable. C++ provides static trampolines (`host_set_activated` /
+  `host_clear_initial_pose_buffer`, `ctx == this`) and routes the callback core under `#ifdef
+  NDT_USE_RUST` (keeping the diagnostics wrapper). State stays C++ (Rust orchestrates via the vtable).
+  Verified: `standard_sequence_*` (which call the trigger) pass ON + OFF; `node.rs` 100% covered;
+  Rust gates green; `no_std` rlib excludes `node.rs`. Establishes the pattern for N1+.
+- **N1+ (remaining):** `callback_initial_pose_main` (data path) → regularization / map-update glue →
+  `callback_sensor_points_main` + move plain-data state into Rust → **N4: revert the E6 scaffolding**
+  (adapter / typedef swap / `estimate_covariance` templatization / helper twins) to reach the
+  "C++ diff = callbacks + tests only" end state. Reassess before each (Phase N is orthogonal to the
+  already-met engine/awkernel goal).
+
 **End-state diff goal (vs upstream `autoware_core` main): callbacks + tests only.** The C++ diff must
 concentrate in (1) the node callback/state glue (thin Rust dispatchers + the host-interface shim) and
 (2) tests — plus the one unavoidable residual: minimal `CMakeLists.txt` build glue (link the Rust lib
