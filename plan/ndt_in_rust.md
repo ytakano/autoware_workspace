@@ -134,6 +134,23 @@ node object), gated on a small Corrosion×cxx spike. (`https://docs.rs/cxx`.)
   structs / `extern "C"` fns, not hand-synced. Do **not** hand-write the C header; change the Rust FFI
   and rebuild (a stale C++ vtable mismatch then becomes a compile error, not runtime UB). Needs
   `cbindgen >= 0.29` (earlier versions skip edition-2024 `#[unsafe(no_mangle)]`).
+- **ROS message types cross as rosidl C types (bindgen) or extracted POD/buffers — never C++ message
+  types.** The C++ message ABI (`std::string`/`std::vector`/`shared_ptr`) is unstable and not
+  bindgen-able; the rosidl **C** structs (`geometry_msgs__msg__*`, `rosidl_runtime_c__String`/`…__Sequence`)
+  have stable layouts that bindgen binds directly. But rclcpp delivers **C++** messages (separate memory
+  from the C type), so by message shape:
+  - **forward-only** callbacks (push the message to a buffer) → pass it as an **opaque token**
+    (`const void*`), never dereferenced in Rust;
+  - **fixed/POD messages** (no string/sequence — `Pose`/`Point`/`Quaternion`/…) → the C and C++ layouts
+    coincide, so read them **zero-copy via the bindgen C type** (as `count_oscillation` does), guarded by
+    a C++ `static_assert(sizeof/offsetof)` + a Rust layout test;
+  - **messages with strings/sequences** (`PoseWithCovarianceStamped`, `PointCloud2`, …) → do **not**
+    reinterpret the C++ object as the C type; pass the **needed scalars + raw data buffer**
+    (`const float* + len`, `(ptr, len)` strings) as plain C args;
+  - **publishing** → Rust returns POD; a C++ host shim builds + publishes the C++ message (a future
+    rcl/C-typesupport path could let Rust build the C message directly, deferred with the rcl-shell idea).
+  The maximal end state (node shell on **rcl (C)** so all messages arrive as C types Rust binds
+  natively) is deferred — the agnocast/rclcpp shell stays C++ for now.
 - **`no_std`-capable core + `ParReduce` seam** (serial / rayon now, async-fan-out backend later for
   awkernel). Serial is the predictable WCET baseline; backends are bit-identical via an ordered reduction.
 - **Commit conventions:** sign off every commit (`git commit -s --no-gpg-sign` — upstream DCO);
