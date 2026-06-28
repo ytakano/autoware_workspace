@@ -168,18 +168,27 @@ Bottom-up steps (all `no_std`-capable; std+rayon for the node now):
     (control-plane). Verified by the C++ differential `test_ndt_engine` (incremental-map handle vs C++
     `MultiGridNDT`) + Rust property/clone-independence/FFI==pure tests. `VoxelGridMap`/`VoxelGrid`/
     `KdTree`/`Node` gained `Clone`; `VoxelGridMap::is_empty` added.
-  - **E6b — drop-in C++ adapter:** a class mirroring `MultiGridNormalDistributionsTransform` holding
-    the handle (string `cell_id`↔`u64` map + `getCurrentMapIDs`, copy=clone, forwards); port
-    `calculateNearestVoxelScoreEachPoint`; swap the node's `NormalDistributionsTransform` typedef
-    under `NDT_USE_RUST`.
+  - **E6b — drop-in C++ adapter (DONE, standalone):** `include/.../ndt_rust_adapter.hpp` —
+    `NdtRustAdapter` mirrors `MultiGridNormalDistributionsTransform`'s full surface over the handle
+    (string `cell_id`↔`u64` map + `getCurrentMapIDs`, Rule-of-Five copy = `ndt_engine_clone`, forwards
+    align/getResult/scoring/params/regularization). Ported the last method,
+    `calculateNearestVoxelScoreEachPoint` (per-point score → `ndt::nearest_voxel_score_each_point` +
+    FFI; `>0` ⇔ found), and added a `get_score_arrays` FFI for the per-iteration traces the node
+    size-checks. `NdtEngine::set_params` now rebuilds the empty map at the new resolution (C++ applies
+    leaf size at `addTarget`). Verified by the C++ differential `test_ndt_rust_adapter` (adapter vs C++
+    over map mgmt / align / scoring / per-point cloud / score arrays / **copy**) + extended Rust
+    FFI==pure. **The typedef swap + node build is E6c** (not done — the adapter is validated
+    standalone; nothing in the node points at it yet).
   - **E6c — node wiring + covariance dispatch** (route `estimate_covariance` through the handle's
     loaded map; dispatcher + markers stay C++).
   - **E6d — integration verify:** `standard_sequence_*` OFF vs ON (pending PCD-map availability) or a
     node-level differential on recorded frames.
 
-**Next:** E6b — the drop-in C++ adapter. The engine (E4a–e), covariance estimation (E5), and the
-persistent engine handle (E6a) are complete and C++-differential-verified. Remaining engine extras
-(full More-Thuente, score-loop parallelism, FFI `num_threads`) are optional.
+**Next:** E6c — swap the node's `NormalDistributionsTransform`/`NdtType` typedef to `NdtRustAdapter`
+under `NDT_USE_RUST`, route covariance, and build the full node ON. The engine (E4a–e), covariance
+estimation (E5), the persistent engine handle (E6a), and the drop-in adapter (E6b, validated
+standalone) are complete and C++-differential-verified. Remaining engine extras (full More-Thuente,
+score-loop parallelism, FFI `num_threads`) are optional.
 
 ## Phase N — node port (after the engine)
 
