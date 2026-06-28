@@ -240,12 +240,23 @@ End state: only the rclcpp shell is C++.
   concrete chunk of N3. Verified: a 108-case C++ differential gtest (`test_convergence_verdict`,
   bit-exact `EXPECT_EQ`) + Rust truth-table/FFI/null tests; `standard_sequence_*` pass ON + OFF;
   `node.rs` 100% covered; gates green; `no_std` rlib still excludes `node.rs`.
-- **N2+ (remaining):** the thin callbacks `callback_initial_pose_main` / `callback_regularization_pose`
-  (data path) → map-update glue → `callback_sensor_points_main` (rest) + move plain-data state into
-  Rust → **N4: revert the E6 scaffolding** (adapter / typedef swap / `estimate_covariance`
-  templatization / helper twins, incl. the `count_oscillation` helper-swap) to reach the
-  "C++ diff = callbacks + tests only" end state. Reassess before each (Phase N is orthogonal to the
-  already-met engine/awkernel goal).
+- **N2 — thin pose callbacks + host-interface data-path mechanism (DONE):** `callback_initial_pose_main`
+  + `callback_regularization_pose` migrated to `autoware_ndt_scan_matcher_rs_node_on_initial_pose`
+  (activation/frame gates → status code; on accept push + `set_latest_ekf_position` via the vtable)
+  and `…_node_on_regularization_pose` in `node.rs`. Their logic is thin; the value was **building and
+  de-risking the data-path mechanism** N3 needs: the `NdtHost` vtable grew 4 ops
+  (`is_activated`, `push_initial_pose`, `push_regularization_pose`, `set_latest_ekf_position`) +
+  a `make_host()` helper, and the C++ message is **passed through Rust as an opaque token** (never
+  dereferenced) back to the push trampoline. C++ keeps the diagnostics (maps the status code). State
+  stays C++. Verified: a C++ mock-host gtest (`test_node_pose_callbacks`) + Rust mock-host tests
+  (`Recorder` via `ctx`, parallel-safe); `standard_sequence_*` pass ON + OFF (the localizer's
+  initial-pose path now routes through Rust); `node.rs` 100% covered; gates green; `no_std` rlib
+  excludes `node.rs`.
+- **N3+ (remaining):** the map-update glue (`callback_timer` → `MapUpdateModule` — heavy PCD-loader
+  ROS-service I/O) → `callback_sensor_points_main` (rest) + move plain-data state into Rust →
+  **N4: revert the E6 scaffolding** (adapter / typedef swap / `estimate_covariance` templatization /
+  helper twins, incl. the `count_oscillation` helper-swap) to reach the "C++ diff = callbacks + tests
+  only" end state. Reassess before each (Phase N is orthogonal to the already-met engine/awkernel goal).
 
 **End-state diff goal (vs upstream `autoware_core` main): callbacks + tests only.** The C++ diff must
 concentrate in (1) the node callback/state glue (thin Rust dispatchers + the host-interface shim) and
