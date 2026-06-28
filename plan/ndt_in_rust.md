@@ -295,11 +295,21 @@ End state: only the rclcpp shell is C++.
     adapter; 2x2 within the E5 cov tolerance `5e-2 + 0.2·|x|`, off-block exact) + integration ON/OFF +
     `test_estimate_covariance_multi`/`test_estimate_covariance` still pass; `node.rs` 100%; gates green;
     no_std rlib excludes the orchestrator.
-  - **N4c–e (remaining):** RGB/no-ground scoring → map_update → delete the scaffolding. Reassess before
-    each (Phase N is orthogonal to the already-met engine/awkernel goal). Note: after the engine compute
-    leaves the C++ node, the node-level ON/OFF differential weakens — keep the function-level
-    differential gtests (C++ pclomp oracle) permanently + treat integration tests as golden ON /
-    baseline OFF.
+  - **N4c (DONE):** routed the sensor callback's remaining adapter-method calls to engine FFIs on
+    `raw_handle()` — `getResult` (via a file-local `ndt_result_from_engine` helper, the adapter's
+    `getResult` body lifted in, so downstream `ndt_result.*` is unchanged), `hasTarget`,
+    `getMaximumIterations` (replaced by `outcome.max_iterations` in the WARN), the no-ground
+    `calculateTransformationProbability`/`…NearestVoxelTransformationLikelihood`, the RGB viz
+    `calculateNearestVoxelScoreEachPoint` (in `visualize_point_score`), and the
+    `setRegularizationPose`/`unset` in `add_regularization_pose`. All FFIs pre-existed (behavior-
+    identical rerouting). **`callback_sensor_points_main` now touches the adapter only via
+    `raw_handle()`.** No new Rust FFI. Verified: integration ON + OFF unchanged; `test_ndt_rust_adapter`
+    / `test_ndt_engine` (which differential-test these FFIs vs the C++ engine) pass.
+  - **N4d–e (remaining):** map_update off the adapter → delete the scaffolding. (`service_ndt_align` /
+    TPE still use the adapter — separate slice if the PR needs it.) Reassess before each. Note: after
+    the engine compute leaves the C++ node, the node-level ON/OFF differential weakens — keep the
+    function-level differential gtests (C++ pclomp oracle) permanently + treat integration tests as
+    golden ON / baseline OFF.
   - **Engine concurrency refactor (at/after the state-ownership move):** once Rust owns the engine
     state (not the C++ adapter under `NDT_USE_RUST`), drop the `*mut NdtEngine` + `&mut *engine` +
     `ndt_ptr_` giant lock for the **const-handle + `&self`-only + `ArcSwap`-map + per-call-workspace**
