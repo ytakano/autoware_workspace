@@ -95,3 +95,26 @@ statically bounded (`max_iterations`) and the per-cell neighbor count bounded (`
 remaining residual is the kd-tree worst-case O(N) traversal (accepted for physical maps) and the
 absence of hardware WCET validation. Suitable for the intended use; not a formally-proven hard-RT
 bound under adversarial inputs / unvalidated hardware.
+
+## Concurrency refactor update (engine becomes `Sync`; the giant lock is gone, ON path)
+
+The align path is still **lock-free + 0-alloc per frame**, now without the C++ giant `ndt_ptr_` mutex:
+
+- **Map/params read:** `align(&self)` does `ArcSwap::load_full()` (engine state) + a second for the
+  regularization — each a wait-free atomic `Arc` refcount bump (O(1), no alloc, no lock). It replaces
+  the previous **unbounded** wait on the giant mutex (held for the whole align / the entire map
+  rebuild), so worst-case acquisition latency strictly improves.
+- **Scratch:** the reused workspace + last result moved to a **thread-local** — exclusive per thread
+  with no lock; the 0-alloc-after-warmup invariant holds (`tests/zero_alloc.rs` still passes; the free
+  `align` keeps `&mut ws`).
+- **Map publish:** map-update builds on a private staging engine and commits with **one** atomic
+  `ArcSwap::store` (`commit_from`), so the align reader never observes a partial map.
+
+**Residual RT risk (new, documented):** with `ArcSwap`, after a map-update store the **last reader to
+drop the old `Arc<EngineState>` runs its `Drop`** — freeing the whole voxel map + kd-tree, an
+*unbounded* (O(map size)) cleanup that can land on the **align thread** (not only the map-update
+thread). It is rare (only when an align is the last holder of a just-superseded map) and map updates
+are low-rate, and it is still strictly better than the old giant lock (which blocked the align for the
+entire rebuild). Mitigation if hard-RT reclamation matters later: hand the superseded `Arc` to a
+dedicated cleanup/map-update thread to drop (deferred reclamation), or an epoch/hazard scheme — keep
+the heavy free off the align thread. Not done now (soft ~10 Hz use; the giant-lock removal is the win).
