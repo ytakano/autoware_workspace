@@ -179,16 +179,24 @@ Bottom-up steps (all `no_std`-capable; std+rayon for the node now):
     over map mgmt / align / scoring / per-point cloud / score arrays / **copy**) + extended Rust
     FFI==pure. **The typedef swap + node build is E6c** (not done — the adapter is validated
     standalone; nothing in the node points at it yet).
-  - **E6c — node wiring + covariance dispatch** (route `estimate_covariance` through the handle's
-    loaded map; dispatcher + markers stay C++).
-  - **E6d — integration verify:** `standard_sequence_*` OFF vs ON (pending PCD-map availability) or a
-    node-level differential on recorded frames.
+  - **E6c — node typedef swap + covariance (DONE):** under `NDT_USE_RUST` the node's
+    `NormalDistributionsTransform` (`ndt_scan_matcher_core.hpp`) and `NdtType`
+    (`map_update_module.hpp`) alias `NdtRustAdapter` (conditional `#ifdef`, with a `PUBLIC
+    NDT_USE_RUST` compile def on the node lib so the executable + sequence tests see it). The two
+    covariance functions `estimate_xy_covariance_by_multi_ndt[_score]` were **templatized** over the
+    NDT type (defs moved to `estimate_covariance.hpp`), so the node call sites are unchanged and
+    covariance runs through the adapter → Rust engine (pure helpers already `_rs`). Verified: **OFF
+    build compiles** (C++ NDT path not regressed) and **ON build compiles + links the node** (lib +
+    executable) against the Rust engine; all differential tests (`test_align` / `test_voxel_grid` /
+    `test_estimate_covariance{,_multi}` / `test_ndt_engine` / `test_ndt_rust_adapter`) green. The node
+    now embeds the Rust NDT engine end-to-end (build-verified).
+  - **E6d — integration verify:** *run* the node ON vs OFF — `standard_sequence_*` launch tests
+    (pending PCD-map availability) or a node-level differential on recorded frames; compare output.
 
-**Next:** E6c — swap the node's `NormalDistributionsTransform`/`NdtType` typedef to `NdtRustAdapter`
-under `NDT_USE_RUST`, route covariance, and build the full node ON. The engine (E4a–e), covariance
-estimation (E5), the persistent engine handle (E6a), and the drop-in adapter (E6b, validated
-standalone) are complete and C++-differential-verified. Remaining engine extras (full More-Thuente,
-score-loop parallelism, FFI `num_threads`) are optional.
+**Next:** E6d — run the node ON vs OFF (`standard_sequence_*` / recorded-frame differential). The
+engine (E4a–e), covariance estimation (E5), and the full node-side swap (E6a–c) are complete and
+C++-differential-verified; the node compiles + links with the Rust engine under `NDT_USE_RUST`.
+Remaining engine extras (full More-Thuente, score-loop parallelism, FFI `num_threads`) are optional.
 
 ## Phase N — node port (after the engine)
 
