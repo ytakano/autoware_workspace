@@ -305,11 +305,25 @@ End state: only the rclcpp shell is C++.
     identical rerouting). **`callback_sensor_points_main` now touches the adapter only via
     `raw_handle()`.** No new Rust FFI. Verified: integration ON + OFF unchanged; `test_ndt_rust_adapter`
     / `test_ndt_engine` (which differential-test these FFIs vs the C++ engine) pass.
-  - **N4d–e (remaining):** map_update off the adapter → delete the scaffolding. (`service_ndt_align` /
-    TPE still use the adapter — separate slice if the PR needs it.) Reassess before each. Note: after
-    the engine compute leaves the C++ node, the node-level ON/OFF differential weakens — keep the
-    function-level differential gtests (C++ pclomp oracle) permanently + treat integration tests as
-    golden ON / baseline OFF.
+  - **N4d (DONE — id-map into Rust, the map_update prerequisite):** the Rust engine now owns the
+    cell-id→tile `u64` mapping (`NdtEngine.id_map: BTreeMap<Vec<u8>,u64>` + `next_id`, cloned with the
+    tiles), exposed via `…_ndt_engine_add_target_str` / `_remove_target_str` /
+    `_get_current_map_ids` (two-pass string-list FFI). The adapter dropped its `id_map_`/`next_id_`/
+    `id_for` and delegates `addTarget`/`removeTarget`/`getCurrentMapIDs` to these FFIs; its copy/move
+    now clone only the handle (the engine clone carries the id-map — fixes the latent handle/id-map
+    sync). `map_update` is **unchanged** (its calls go through Rust transparently). The actual adapter
+    removal (map_update + service_ndt_align off the type + the typedef/ON-OFF collapse) is the combined
+    N4e — it's coupled via the shared `ndt_ptr_` type + the double-buffer. Verified: Rust unit
+    (add/remove/sorted-ids, u64 reuse, clone-carries-id-map, the two-pass FFI round-trip, null) +
+    `test_ndt_rust_adapter` (now asserts the id contents) + `test_ndt_engine` + integration ON/OFF;
+    `node.rs`/`engine.rs` covered; gates green; no_std rlib builds (the string FFIs use `alloc`).
+  - **N4e (remaining):** the combined adapter removal — migrate `service_ndt_align`/TPE off the
+    adapter (route align/getResult to FFIs like N4c), collapse the ON/OFF typedef to a single Rust
+    path, and delete `ndt_rust_adapter.hpp` + the typedef swaps + the `estimate_covariance`
+    templatization + the helper twins + the CMake file-swaps; make the engine files upstream-identical.
+    Reassess before it. Note: after the engine compute leaves the C++ node, the node-level ON/OFF
+    differential weakens — keep the function-level differential gtests (C++ pclomp oracle) permanently
+    + treat integration tests as golden ON / baseline OFF.
   - **Engine concurrency refactor (at/after the state-ownership move):** once Rust owns the engine
     state (not the C++ adapter under `NDT_USE_RUST`), drop the `*mut NdtEngine` + `&mut *engine` +
     `ndt_ptr_` giant lock for the **const-handle + `&self`-only + `ArcSwap`-map + per-call-workspace**
