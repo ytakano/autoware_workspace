@@ -7,7 +7,10 @@ any change to `src/ndt.rs` / `src/derivatives.rs` / `src/transform.rs` / `src/kd
 **Scope.** RT-critical path = `align` loop → per iteration: `svd_solve` (nalgebra fixed-size SVD),
 `se3_matrix_f32` + `transform_cloud_f32` (f32 cloud transform), `compute_derivatives` (per-source-point
 loop: `VoxelGridMap::radius_search` + per-cell `update_derivatives`). Control-plane (not RT) = map
-build/update (`add_target` / `create_kdtree`). Serial; the no_std async backend is future work.
+build/update (`add_target` / `create_kdtree`) **and the multi-NDT covariance estimation**
+(`cov_estimate.rs`: `propose_poses_to_search` + `estimate_xy_covariance_by_multi_ndt[_score]`, which
+run once per localization frame, re-align/score per candidate, and allocate `Vec`s — not the RT hot
+loop). Serial; the no_std async backend is future work.
 
 ## Boundedness table
 

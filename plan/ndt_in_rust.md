@@ -70,7 +70,7 @@ constraints must not gate progress, but the `no_std`-capability and `ParReduce` 
   baseline, no_std/default) and an optional **rayon** backend (`parallel` feature, `num_threads > 1`),
   **bit-for-bit identical** (per-point contributions reduced in point-index order). Verified by exact-`==`
   serial-vs-parallel tests at both the `compute_derivatives` and `align` level; C++ differential still
-  green. The engine (E4a–e) is now complete; remaining is E5 (covariance estimation) and E6 (node swap).
+  green. The engine (E4a–e) and covariance estimation (E5) are complete; remaining is E6 (node swap).
 
 Branches: scaffold/helpers/no_std on `ndt_in_rust_phase1`; engine work on `ndt_in_rust_engine` (off phase1).
 
@@ -150,18 +150,21 @@ Bottom-up steps (all `no_std`-capable; std+rayon for the node now):
   - **E4e — remaining:** full More-Thuente line search behind `use_line_search` (the default path
     `use_line_search = false` is done); parallelizing the score-only loops + `computeHessian` and
     wiring `num_threads` through the C ABI are optional follow-ups (low value / deferred).
-- **E5 — covariance module (pure helpers DONE; estimation pending):** the 6 pure
-  `estimate_covariance` helpers are ported (gtest-verified). Remaining: `propose_poses_to_search`
-  (variable-length `Vec<Matrix4f>` output) and the multi-NDT estimation (`estimate_xy_covariance_by_multi_ndt[_score]`,
-  need the engine) — fold in once E4 exists.
+- **E5 — covariance module (DONE):** the 6 pure `estimate_covariance` helpers (gtest-verified) plus
+  the engine-driving estimators in `src/cov_estimate.rs` — `propose_poses_to_search` (rotated-offset
+  candidate poses), `estimate_xy_covariance_by_multi_ndt` (re-`align` per candidate → uniform weights
+  → unbiased `(n-1)/n`), and `estimate_xy_covariance_by_multi_ndt_score` (transform + nearest-voxel
+  score per candidate → temperature softmax). Reuses the engine (`align`, `nearest_voxel_…`) + pure
+  helpers; `no_std` (control-plane `Vec` allocation). Verified by the C++ differential
+  `test_estimate_covariance_multi` (propose + multi_ndt + multi_ndt_score vs `pclomp`, within
+  tolerance) + Rust-side property/FFI==pure tests. `transform_cloud_by_matrix` added (and
+  `transform_cloud_f32` delegates to it).
 - **E6 — C ABI + C++ adapter + node swap:** expose the NDT interface; swap behind `NDT_USE_RUST`;
   verify with the node integration tests (`standard_sequence_*`) OFF vs ON.
 
-**Next:** E5 (covariance estimation) and E6 (node FFI swap). The engine (E4a–e) is complete and
-C++-differential-verified: WCET hardening (zero-alloc serial hot path, `max_nn = N`, frame-time
-benchmark; kd-tree O(N) accepted residual) and the `ParReduce` serial+rayon backends (bit-for-bit
-identical) are done. Remaining engine extras (full More-Thuente, score-loop parallelism, FFI
-`num_threads`) are optional/deferred.
+**Next:** E6 — node FFI swap. The engine (E4a–e) and covariance estimation (E5) are complete and
+C++-differential-verified. Remaining engine extras (full More-Thuente, score-loop parallelism, FFI
+`num_threads`, the dispatcher/marker publishing that lives in the node) are optional or part of E6.
 
 ## Phase N — node port (after the engine)
 
