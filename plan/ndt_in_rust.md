@@ -264,12 +264,28 @@ End state: only the rclcpp shell is C++.
   flags across a boundary grid) + Rust unit/FFI/null tests; `standard_sequence_*` +
   `once_initialize_at_out_of_map_*` (exercises `out_of_map_range`/reload) pass ON + OFF; `node.rs`
   100% covered; gates green; `no_std` rlib excludes `node.rs`.
-- **N4+ (remaining):** the PCD-loader ROS service + NDT map mutation (`update_ndt`), the optional full
-  `callback_sensor_points_main` orchestration (publishers/tf2/PCL plumbing — compute already Rust),
-  + move plain-data state into Rust → **revert the E6 scaffolding** (adapter / typedef swap /
-  `estimate_covariance` templatization / helper twins, incl. the `count_oscillation` helper-swap) to
-  reach the "C++ diff = callbacks + tests only" end state. Reassess before each (Phase N is orthogonal
-  to the already-met engine/awkernel goal).
+- **N4 — migrate the sensor callback to Rust, then revert the E6 scaffolding (IN PROGRESS).** The
+  scaffolding (adapter / typedef swaps / `estimate_covariance` templatization / helper twins) is shared
+  by both `callback_sensor_points_main` and `MapUpdateModule::update_ndt`, so deletion is the *last*
+  slice; compute moves to Rust first. Slice arc: **N4a** align+oscillation+convergence orchestrator →
+  **N4b** covariance → **N4c** RGB/no-ground scoring (sensor callback then adapter-free) → **N4d**
+  map_update off the adapter → **N4e** delete scaffolding + de-templatize + collapse CMake swaps.
+  - **N4a (DONE):** `run_align` orchestrator in `engine.rs` +
+    `autoware_ndt_scan_matcher_rs_node_run_align` FFI drive the live engine handle directly (align +
+    `helper::count_oscillation` + `node::evaluate_convergence`), returning pose/scalars/verdict. C++
+    `callback_sensor_points_main` (under `#ifdef NDT_USE_RUST`) flattens the cloud, calls `run_align`
+    via the adapter's new `raw_handle()`, and reads the verdict — replacing `ndt_ptr->align()`, the C++
+    `count_oscillation`, and the separate convergence FFI. `getResult()` still supplies the
+    marker/score-arrays/covariance (Option-1; folded in N4c). **Soundness:** the handle is reborrowed
+    `&mut` only inside `ndt_ptr_.with` (the `Guarded` mutex) — ROS callbacks are concurrent, so all
+    engine FFI must stay under that lock ([[ndt-engine-ffi-locking]]). Verified: Rust unit + FFI/null
+    tests; C++ `test_node_run_align` (exact match vs the adapter's own align + verdict consistency);
+    `standard_sequence_*` / `once_initialize_*` / `particles_*` pass ON + OFF; `node.rs` 100%; gates
+    green; no_std rlib excludes the orchestrator (`std`-gated).
+  - **N4b–e (remaining):** covariance → scoring → map_update → delete. Reassess before each (Phase N is
+    orthogonal to the already-met engine/awkernel goal). Note: after the engine compute leaves the C++
+    node, the node-level ON/OFF differential weakens — keep the function-level differential gtests
+    (C++ pclomp oracle) permanently + treat integration tests as golden ON / baseline OFF.
 
 **End-state diff goal (vs upstream `autoware_core` main): callbacks + tests only.** The C++ diff must
 concentrate in (1) the node callback/state glue (thin Rust dispatchers + the host-interface shim) and
