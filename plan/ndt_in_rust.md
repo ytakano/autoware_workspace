@@ -100,8 +100,21 @@ end state is reached when every callback's logic is in Rust over the ports.
   `Arc<ScanMatcher>`, the two concurrency models a kernel might use). Verified: `cargo run --example` (×2,
   transform recovered) + clippy/fmt + the no_std rlib builds (`x86_64`/`aarch64-unknown-none`). PCD /
   recorded-scan input and the no_std-kernel `Host` impl come later.
-- **ROS adoption (NEXT)** — wire `NDTScanMatcher` to the `Host` trait via the `FfiHost` adapter; the
-  existing C-ABI vtables become its implementation; callbacks `block_on` the async node fns.
+- **Match verdict in the portable core DONE** — additive, no ROS-path change. The convergence decision
+  is now `no_std` and exposed through `ScanMatcher`: new `src/convergence.rs` (`evaluate_convergence` +
+  `ConvergenceInput/Verdict`, moved out of the std-gated `node`), `run_align`/`AlignOutcome` un-gated to
+  no_std, `NdtEngine` stores the score-gate params (`set_convergence_params`) + `align_outcome`, and
+  `MatchResult` gained `converged` + `oscillation_num`. Both examples now assert `converged`. So the
+  portable matcher reports the same verdict the node gates on — the prerequisite that **unblocks ROS
+  adoption** (there is now real `ScanMatcher` behaviour for an `FfiHost` to drive). Verified: examples
+  (`converged=true`), `cargo test`/clippy/fmt, no_std rlib (both bare targets), and C++ ON
+  (`test_convergence_verdict` + `test_node_run_align` green) / OFF.
+- **Covariance in the portable core (NEXT)** — the other half of the sensor match: expose
+  `estimate_pose_covariance` (the 2×2 grid / multi-NDT modes) through `ScanMatcher` the same way (un-gate
+  from std + wire), so the portable matcher also produces the published covariance.
+- **ROS adoption (`FfiHost`)** — wire `NDTScanMatcher` to the `Host` trait via the `FfiHost` adapter; the
+  existing C-ABI vtables become its implementation; callbacks `block_on` the async node fns. Now
+  unblocked by the verdict (and, once done, the covariance) living in the portable core.
 - **Port the callbacks over the ports** — `sensor_points` (highest value; align/cov/score already Rust)
   → `service_ndt_align` → `map_update` (tf/async-service/publishers become port methods). Each keeps
   the ON-vs-OFF integration tests green; the kernel `Host` stub closes the loop (no_std link of the
