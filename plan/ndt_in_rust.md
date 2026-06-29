@@ -109,12 +109,19 @@ end state is reached when every callback's logic is in Rust over the ports.
   adoption** (there is now real `ScanMatcher` behaviour for an `FfiHost` to drive). Verified: examples
   (`converged=true`), `cargo test`/clippy/fmt, no_std rlib (both bare targets), and C++ ON
   (`test_convergence_verdict` + `test_node_run_align` green) / OFF.
-- **Covariance in the portable core (NEXT)** — the other half of the sensor match: expose
-  `estimate_pose_covariance` (the 2×2 grid / multi-NDT modes) through `ScanMatcher` the same way (un-gate
-  from std + wire), so the portable matcher also produces the published covariance.
-- **ROS adoption (`FfiHost`)** — wire `NDTScanMatcher` to the `Host` trait via the `FfiHost` adapter; the
-  existing C-ABI vtables become its implementation; callbacks `block_on` the async node fns. Now
-  unblocked by the verdict (and, once done, the covariance) living in the portable core.
+- **Covariance in the portable core DONE** — additive, no ROS-path change. `estimate_pose_covariance`
+  (FIXED_VALUE / LAPLACE / MULTI_NDT / MULTI_NDT_SCORE, the candidate re-align/score against the live
+  map) is un-gated to no_std (`cov_estimate`/`covariance` were already no_std), `NdtEngine` stores the
+  `CovarianceConfig` (`set_covariance_config`) + a self-contained `estimate_covariance` (derives the
+  rotation from the result pose), `host::CovarianceResult` carries the 6×6, and
+  `ScanMatcher::match_scan_with_covariance` returns `(MatchResult, CovarianceResult)`. tokio_ndt
+  estimates by MULTI_NDT and asserts a finite, positive-diagonal covariance. So the portable matcher now
+  produces the **full** sensor-match output (pose + verdict + covariance). Verified: examples, `cargo
+  test`/clippy/fmt, no_std rlib (both bare targets), C++ ON (`test_estimate_pose_covariance` +
+  `test_estimate_covariance_multi` green) / OFF.
+- **ROS adoption (`FfiHost`) — NEXT** — the portable core now covers the whole sensor match (pose +
+  verdict + covariance), so wire `NDTScanMatcher` to the `Host` trait via the `FfiHost` adapter; the
+  existing C-ABI vtables become its implementation; callbacks `block_on` the async node fns.
 - **Port the callbacks over the ports** — `sensor_points` (highest value; align/cov/score already Rust)
   → `service_ndt_align` → `map_update` (tf/async-service/publishers become port methods). Each keeps
   the ON-vs-OFF integration tests green; the kernel `Host` stub closes the loop (no_std link of the
