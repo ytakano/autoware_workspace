@@ -119,9 +119,21 @@ end state is reached when every callback's logic is in Rust over the ports.
   produces the **full** sensor-match output (pose + verdict + covariance). Verified: examples, `cargo
   test`/clippy/fmt, no_std rlib (both bare targets), C++ ON (`test_estimate_pose_covariance` +
   `test_estimate_covariance_multi` green) / OFF.
-- **ROS adoption (`FfiHost`) — NEXT** — the portable core now covers the whole sensor match (pose +
-  verdict + covariance), so wire `NDTScanMatcher` to the `Host` trait via the `FfiHost` adapter; the
-  existing C-ABI vtables become its implementation; callbacks `block_on` the async node fns.
+- **ROS adoption (`FfiHost`) — map-update slice DONE** — the production node's map-update now runs
+  through the portable `apply_map_update` (the async `MapSource` Host port). New std-gated
+  `node_map_update.rs`: `AwMapSource { ctx, fill }` vtable + an `FfiHost` impl of `MapSource` (load
+  builds a `MapDelta`, calls `fill`, returns a ready future) + push-builder FFIs
+  (`..._map_delta_add`/`_remove` over an opaque `*mut MapDelta`) + `..._ndt_engine_update_map` which
+  `block_on`s the orchestration (the C++ pcd wait is synchronous, so one poll). `apply_map_update`
+  factored out of `ScanMatcher::update_map` (+ a `rebuild` mode using `NdtEngine::clone_empty`; empty
+  delta → no-op). C++ `map_update_module.cpp` replaced the staging+commit sequence with one FFI call
+  whose `fill` runs the existing pcd-loader and pushes the add/remove delta — no engine-ownership move,
+  the sensor hot path untouched. Verified: ON build + **all 18 tests** (incl. the
+  `standard_sequence` / `once_initialize_at_out_of_map` (rebuild) / `particles_num` integration tests,
+  the real map-update oracle) / OFF build; Rust examples behave identically; no_std rlib both targets.
+- **Sensor-match consolidation — NEXT** — route `callback_sensor_points_main` through
+  `match_scan_with_covariance` (needs the portable result extended, or kept getters, for the publish
+  surface: markers, score traces, multi-NDT debug poses, validity flags). Then `service_ndt_align`.
 - **Port the callbacks over the ports** — `sensor_points` (highest value; align/cov/score already Rust)
   → `service_ndt_align` → `map_update` (tf/async-service/publishers become port methods). Each keeps
   the ON-vs-OFF integration tests green; the kernel `Host` stub closes the loop (no_std link of the
