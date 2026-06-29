@@ -90,13 +90,18 @@ end state is reached when every callback's logic is in Rust over the ports.
 **Plan (foundation first, then ROS adoption, then callbacks):**
 - **Slices 1–2 DONE** (the function/callback-level wins with minimal ROS I/O): `AwDiagnostics` vtable +
   `service_trigger_node`; `callback_initial_pose` + `callback_regularization_pose` fully in Rust.
-- **Foundation (IN PROGRESS)** — additive, no ROS-path change: `src/host.rs` (the `Host`/port traits,
-  async via RPITIT, no_std+alloc) + `src/scan_matcher.rs` (a minimal async orchestration over the
-  existing `NdtEngine`: `update_map` via `MapSource` + `commit_from`; sync `match_scan`) +
-  `examples/tokio_ndt.rs` (a Tokio `Host` impl on **synthetic** data — proves standalone async-Rust
-  operation; PCD input later). Verified by `cargo run --example` + the no_std rlib still building.
-- **ROS adoption** — wire `NDTScanMatcher` to the `Host` trait via the `FfiHost` adapter; the existing
-  C-ABI vtables become its implementation; callbacks `block_on` the async node fns.
+- **Foundation DONE** — additive, no ROS-path change: `src/host.rs` (the `Host`/port traits —
+  `MapSource` async via RPITIT, `OutputSink`, `Clock` — no_std+alloc, static dispatch) +
+  `src/scan_matcher.rs` (a `no_std` async orchestration over the existing `NdtEngine`: `update_map` via
+  `MapSource` → staging clone → `commit_from`; sync `match_scan`). Two reference `Host` impls on
+  **synthetic** data prove standalone, no-ROS operation (both recover the known transform):
+  `examples/tokio_ndt.rs` (Tokio async/await) and `examples/threads_ndt.rs` (`std::thread` + a
+  hand-rolled `core::task` `block_on` — no async runtime; concurrent align + map-update on a shared
+  `Arc<ScanMatcher>`, the two concurrency models a kernel might use). Verified: `cargo run --example` (×2,
+  transform recovered) + clippy/fmt + the no_std rlib builds (`x86_64`/`aarch64-unknown-none`). PCD /
+  recorded-scan input and the no_std-kernel `Host` impl come later.
+- **ROS adoption (NEXT)** — wire `NDTScanMatcher` to the `Host` trait via the `FfiHost` adapter; the
+  existing C-ABI vtables become its implementation; callbacks `block_on` the async node fns.
 - **Port the callbacks over the ports** — `sensor_points` (highest value; align/cov/score already Rust)
   → `service_ndt_align` → `map_update` (tf/async-service/publishers become port methods). Each keeps
   the ON-vs-OFF integration tests green; the kernel `Host` stub closes the loop (no_std link of the
@@ -108,8 +113,8 @@ the C++-owns-a-Rust-object direction; reconsider at the ROS-adoption step gated 
 
 **Verification shift:** ROS-side, the oracle is **whole-callback observable equivalence** (published
 topics + diagnostics + state) via the `standard_sequence_*` / `once_initialize_*` / `particles_num_*`
-integration tests, ON vs OFF; portability-side, the **no_std rlib build** + the **Tokio example** prove
-the node logic runs without ROS.
+integration tests, ON vs OFF; portability-side, the **no_std rlib build** + the **`tokio_ndt` /
+`threads_ndt` examples** prove the node logic runs without ROS (async and thread/no-runtime models).
 
 ## Key decisions (still binding)
 
