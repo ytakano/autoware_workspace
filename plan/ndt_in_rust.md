@@ -63,63 +63,53 @@ Branches: engine + node work on `ndt_in_rust_engine`; scaffold/helpers on `ndt_i
 | tf2 buffer/listener, agnocast wrapper | Node logic **state** (pose buffers, flags, `HyperParameters`, latest EKF pos) — Rust-owned |
 | ROS message types (cross via bindgen `#[repr(C)]`, zero-copy) | **NDT engine** — DONE (`Sync`, `&self`-only, lock-free reads; replaces PCL + Eigen + `multigrid_ndt_omp`) |
 
-## Roadmap — callback-level Rust (the remaining phase)
+## Roadmap — full Rust port via a `Host` trait (portability is the driver)
 
-The migration is currently **function-level**: C++ callback wrappers keep the ROS plumbing and call
-individual Rust FFIs for sub-decisions. The end state is **callback-level**: each C++ callback is a thin
-forwarder to a Rust node instance that owns the state and runs the whole body; C++ provides ROS I/O via
-the host interface. Then `NDT_USE_RUST` appears only in the node `.hpp` (the member) and `.cpp` (the
-forwarders) — the engine typedef/adapter and the per-callback compute `#ifdef`s disappear on the Rust
-path (Rust→Rust to its own engine), reaching the **"diff vs upstream = callbacks + tests only"** goal.
+**Why:** the NDT scan matcher must run **outside ROS** — on bare-metal / the no_std async kernel
+target — so the node logic (callbacks' bodies + state + sequencing) must live in Rust, expressed
+against an **abstract port interface**, with each environment supplying its own implementation. This is
+not just "tidy the ROS node"; it is "the matcher is reusable anywhere."
 
-Target shape:
-```cpp
-void NDTScanMatcher::callback_initial_pose(Msg::ConstSharedPtr msg) {
-#ifdef NDT_USE_RUST
-  callback_initial_pose_in_rs(ndt_scan_matcher_rs_, msg);   // Rust owns the body + state
-#else
-  diagnostics_initial_pose_->clear();
-  callback_initial_pose_main(msg);
-  diagnostics_initial_pose_->publish(msg->header.stamp);
-#endif
-}
-```
-The C++ class keeps the rclcpp entities (node, pubs/subs, tf2, timers, services) **plus** a
-`NDTScanMatcherRS*` (created/destroyed in the ctor/dtor); it is **not** Rust-only — rclcpp stays C++.
+**Architecture — a Rust `Host` trait (decided):** the node orchestration is **no_std + alloc** Rust,
+**generic over `H: Host`** (static dispatch — no `dyn`/boxing). I/O **ports are `async`**
+(`MapSource::load`, output sink, clock, later tf/params/log/diagnostics); the **engine align hot path
+stays sync** (WCET — called between awaits). Implementations:
+- **ROS**: C++ implements the ports; a Rust **`FfiHost`** adapter wraps the existing C-ABI vtables
+  (`NdtHost`/`AwDiagnostics`) as a `Host`; the sync rclcpp callbacks `block_on` the async node fns.
+- **no_std async kernel**: implements the same `Host` natively (its async runtime).
+- **Tokio reference** (`examples/`): a std `Host` impl with async/await + synthetic data — the
+  portability + async-boundary proof, and the std stand-in for the kernel's async backend.
 
-**State that flips to Rust:** the engine (already Rust); `initial_pose_buffer_` /
-`regularization_pose_buffer_` (`SmartPoseBuffer`, C++ `autoware_localization_util` — port to Rust or
-wrap via host calls); `is_activated_`, `latest_ekf_position_`, `sensor_points_in_baselink_frame_`; the
-map-update `BuilderState` / `loaded_map_`.
+**Why this shape:** the remaining callbacks (`map_update`, `service_ndt_align`, `sensor_points`) are all
+**ROS-I/O-heavy** — tf2 lookups, the async `pcd_loader` service, ~20 publishers, PCL — with the compute
+already in Rust. So the right structure is to make that ROS I/O the **port boundary**: the Rust logic
+above it is reusable; ROS/kernel/Tokio differ only below it. (Messages cross per the C-types/POD policy
+in Key decisions; ROS messages are marshaled at the `FfiHost` boundary.) The full "rclcpp shell only"
+end state is reached when every callback's logic is in Rust over the ports.
 
-**Host interface scope (grows from today's 6 ops):** ~20 publishers, tf2 lookups (~85 references — tf2
-is not portable, so host-only), parameters, time, logging, **the async pcd_loader service** (the
-trickiest — a future-based request/wait), ~54 diagnostics `add_key_value` calls (exact key order/values
-are the differential surface), and the map-update timer.
+**Plan (foundation first, then ROS adoption, then callbacks):**
+- **Slices 1–2 DONE** (the function/callback-level wins with minimal ROS I/O): `AwDiagnostics` vtable +
+  `service_trigger_node`; `callback_initial_pose` + `callback_regularization_pose` fully in Rust.
+- **Foundation (IN PROGRESS)** — additive, no ROS-path change: `src/host.rs` (the `Host`/port traits,
+  async via RPITIT, no_std+alloc) + `src/scan_matcher.rs` (a minimal async orchestration over the
+  existing `NdtEngine`: `update_map` via `MapSource` + `commit_from`; sync `match_scan`) +
+  `examples/tokio_ndt.rs` (a Tokio `Host` impl on **synthetic** data — proves standalone async-Rust
+  operation; PCD input later). Verified by `cargo run --example` + the no_std rlib still building.
+- **ROS adoption** — wire `NDTScanMatcher` to the `Host` trait via the `FfiHost` adapter; the existing
+  C-ABI vtables become its implementation; callbacks `block_on` the async node fns.
+- **Port the callbacks over the ports** — `sensor_points` (highest value; align/cov/score already Rust)
+  → `service_ndt_align` → `map_update` (tf/async-service/publishers become port methods). Each keeps
+  the ON-vs-OFF integration tests green; the kernel `Host` stub closes the loop (no_std link of the
+  node logic).
 
-**FFI mechanism — RESOLVED: extend the C-ABI + bindgen + host vtable; `cxx` deferred.** The early
-host-interface slices call **templated** C++ APIs (`DiagnosticsInterface::add_key_value<T>`,
-`Publisher<MsgT>`, tf2) that `cxx` can't bind — monomorphized C++ shims are hand-written either way —
-so `cxx` adds `cxx_build`×Corrosion/ament build-integration risk for little near-term gain. `cxx`'s real
-payoff is the *other* direction (C++ owning a rich Rust node object): it removes the manual `Box`/`*mut`
-management **and the hand-synced C header drift class**. So **reconsider `cxx` at slice 6** (the Rust
-node object), gated on a small Corrosion×cxx spike. (`https://docs.rs/cxx`.)
+**FFI mechanism — RESOLVED:** the C-ABI + bindgen + host **vtable** stays the C↔Rust boundary (the
+`FfiHost` adapter wraps it as the Rust `Host` trait); `cxx` deferred (see the prior note — its payoff is
+the C++-owns-a-Rust-object direction; reconsider at the ROS-adoption step gated on a Corrosion×cxx spike).
 
-**Incremental slices** (callback-by-callback; reuse/grow the host interface; each verified ON vs OFF):
-1. **DONE** — `AwDiagnostics` host-interface vtable (the reusable diagnostics-over-host mechanism:
-   clear / `add_key_value{bool,i64,f64,str}` / `update_level_and_message` / publish) + `service_trigger_node`
-   fully in Rust (`autoware_ndt_scan_matcher_rs_node_on_trigger` owns the whole body).
-2. **DONE** — `callback_initial_pose` + `callback_regularization_pose` fully in Rust: the diagnostics
-   (clear / topic_time_stamp / is_activated / is_expected_frame_id / WARN-ERROR / publish) moved into the
-   `on_initial_pose` / `on_regularization_pose` FFIs; the C++ wrappers are thin `#ifdef` forwarders and
-   `callback_initial_pose_main` is `#ifndef NDT_USE_RUST` (OFF baseline only).
-3. **NEXT** — `callback_timer` / `map_update`: the async `pcd_loader` service is the hard part (host ops
-   to issue + poll the future). 4. `service_ndt_align`. 5. the heavy `callback_sensor_points` (tf2 + align
-   + cov + ~20 publishers). Not big-bang.
-
-**Verification shift:** the differential oracle moves from per-function bit-exact gtests to
-**whole-callback observable equivalence** — published topics + diagnostics + state transitions — via the
-`standard_sequence_*` / `once_initialize_at_out_of_map_*` / `particles_num_*` integration tests, ON vs OFF.
+**Verification shift:** ROS-side, the oracle is **whole-callback observable equivalence** (published
+topics + diagnostics + state) via the `standard_sequence_*` / `once_initialize_*` / `particles_num_*`
+integration tests, ON vs OFF; portability-side, the **no_std rlib build** + the **Tokio example** prove
+the node logic runs without ROS.
 
 ## Key decisions (still binding)
 
