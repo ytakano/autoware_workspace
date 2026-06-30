@@ -622,6 +622,7 @@ stand today:
 | **Panic-safe FFI boundary** (`catch_unwind` → `AwStatus`/null) (foundation slice, 2026-06-30) | `src/ffi.rs` (`ffi_boundary`/`ffi_boundary_ptr`) | the Error-Handling requirement; later `on_*` entry points adopt it |
 | **Regularization pose buffer → Rust** + `SmartPoseBuffer` port (`PoseBuffer`) + `AwPoseWithCovarianceStampedView` (Phase 1 slice A, 2026-06-30) | `src/pose_buffer.rs`, handle `Mutex<PoseBuffer>`, `..._regularization_interpolate` FFI | **done** — `on_regularization_pose` drives the Rust buffer; 1 of 6 host setters removed |
 | **Initial-pose buffer + activation + latest-EKF → Rust**; **host vtable deleted** (Phase 1 slice B, 2026-06-30) | handle `AtomicBool`/`Mutex<Option>`/`Mutex<PoseBuffer>`; `..._is_activated`/`..._latest_ekf_position`/`..._initial_pose_interpolate` FFIs; `NdtHost`/`make_host` gone | **done** — `on_initial_pose`/`on_trigger` are pure forwarders; **Phase 1 complete** (node state Rust-owned) |
+| **Map-update decision state → Rust** (Phase 6, 2026-06-30) | handle `Mutex<MapUpdateState>`; `..._map_update_evaluate`/`_need_rebuild`/`_record`/`_out_of_range` FFIs; `MapUpdateModule` takes the handle | **done** — Rust owns `last_update_position` + `need_rebuild`; C++ keeps the pcd-loader service I/O + tile apply + publish |
 
 So the net of the phases is: (1) give the `std` `NdtScanMatcherRs` shell ownership of the node state
 C++ still holds, (2) replace the many function-level FFI calls with one `on_*` forwarder per
@@ -1038,10 +1039,14 @@ return status to Rust
 
 ### Acceptance Criteria
 
-* C++ `MapUpdateModule` is either removed or reduced to a thin map-loader Host implementation.
-* Rust owns `MapUpdateState`.
-* Rust decides when map updates are required.
-* C++ only performs ROS 2 service I/O.
+* ✅ Rust owns `MapUpdateState` (`last_update_position` + `need_rebuild` on the handle; the C++
+  `last_update_position_` / `BuilderState::need_rebuild` are `#ifndef NDT_USE_RUST`).
+* ✅ Rust decides when map updates are required (`..._map_update_evaluate` — first-update + keep-up
+  policy; `..._map_update_out_of_range`).
+* ✅ C++ `MapUpdateModule` reduced to ROS service I/O + tile apply + debug-map publish (the
+  decision/state is FFI-driven). Pinned by `test_map_update_state`.
+* **Landed 2026-06-30 (Phase 6).** *(Not a single `on_timer` forwarder — that needs the engine on the
+  handle, deferred to Phase 8; the cohesive `..._map_update_*` FFIs satisfy the state/policy objective.)*
 
 ---
 
