@@ -620,6 +620,7 @@ stand today:
 | Transitional `NdtHost` vtable with **node-state setters** (`set_activated`, `push_initial_pose`, …) | `src/node.rs` | deleted as state moves to Rust (Phases 1–4) |
 | **Opaque node handle `NdtScanMatcherRs` + `_new`/`_free`** + `AwNdtParams` param conversion (foundation slice, 2026-06-30) | `src/node_handle.rs`, C++ `ndt_scan_matcher_rs.hpp` (`NDTScanMatcherRS` RAII + `make_aw_ndt_params`), node member `rs_` | **inert today** — fills with state over Phases 1–6 |
 | **Panic-safe FFI boundary** (`catch_unwind` → `AwStatus`/null) (foundation slice, 2026-06-30) | `src/ffi.rs` (`ffi_boundary`/`ffi_boundary_ptr`) | the Error-Handling requirement; later `on_*` entry points adopt it |
+| **Regularization pose buffer → Rust** + `SmartPoseBuffer` port (`PoseBuffer`) + `AwPoseWithCovarianceStampedView` (Phase 1 slice A, 2026-06-30) | `src/pose_buffer.rs`, handle `Mutex<PoseBuffer>`, `..._regularization_interpolate` FFI | **done** — `on_regularization_pose` drives the Rust buffer; 1 of 6 host setters removed |
 
 So the net of the phases is: (1) give the `std` `NdtScanMatcherRs` shell ownership of the node state
 C++ still holds, (2) replace the many function-level FFI calls with one `on_*` forwarder per
@@ -838,9 +839,11 @@ diagnostic content generation
 
 ### Acceptance Criteria
 
-* C++ callback only forwards to Rust.
-* Rust owns the regularization pose buffer.
-* Regularization behavior matches the existing C++ implementation.
+* ✅ C++ callback only forwards to Rust (`on_regularization_pose(handle, diag, view)`).
+* ✅ Rust owns the regularization pose buffer (`Mutex<PoseBuffer>` on the handle; the C++
+  `regularization_pose_buffer_` is now `#ifndef NDT_USE_RUST` only).
+* ✅ Regularization behavior matches the existing C++ implementation (differential test
+  `test_regularization_buffer`, 50 random sequences). **Landed 2026-06-30 (Phase 1 slice A).**
 
 ---
 
