@@ -621,6 +621,7 @@ stand today:
 | **Opaque node handle `NdtScanMatcherRs` + `_new`/`_free`** + `AwNdtParams` param conversion (foundation slice, 2026-06-30) | `src/node_handle.rs`, C++ `ndt_scan_matcher_rs.hpp` (`NDTScanMatcherRS` RAII + `make_aw_ndt_params`), node member `rs_` | **inert today** — fills with state over Phases 1–6 |
 | **Panic-safe FFI boundary** (`catch_unwind` → `AwStatus`/null) (foundation slice, 2026-06-30) | `src/ffi.rs` (`ffi_boundary`/`ffi_boundary_ptr`) | the Error-Handling requirement; later `on_*` entry points adopt it |
 | **Regularization pose buffer → Rust** + `SmartPoseBuffer` port (`PoseBuffer`) + `AwPoseWithCovarianceStampedView` (Phase 1 slice A, 2026-06-30) | `src/pose_buffer.rs`, handle `Mutex<PoseBuffer>`, `..._regularization_interpolate` FFI | **done** — `on_regularization_pose` drives the Rust buffer; 1 of 6 host setters removed |
+| **Initial-pose buffer + activation + latest-EKF → Rust**; **host vtable deleted** (Phase 1 slice B, 2026-06-30) | handle `AtomicBool`/`Mutex<Option>`/`Mutex<PoseBuffer>`; `..._is_activated`/`..._latest_ekf_position`/`..._initial_pose_interpolate` FFIs; `NdtHost`/`make_host` gone | **done** — `on_initial_pose`/`on_trigger` are pure forwarders; **Phase 1 complete** (node state Rust-owned) |
 
 So the net of the phases is: (1) give the `std` `NdtScanMatcherRs` shell ownership of the node state
 C++ still holds, (2) replace the many function-level FFI calls with one `on_*` forwarder per
@@ -739,9 +740,14 @@ pub struct NdtScanMatcherRs {
 
 ### Acceptance Criteria
 
-* Rust owns the scan matcher’s algorithmic state.
-* C++ no longer directly mutates activation, pose buffers, or skipping counters.
-* Behavior remains equivalent to the existing implementation.
+* ✅ Rust owns the scan matcher’s node state — both pose buffers, activation, latest-EKF (the
+  C++ members are now `#ifndef NDT_USE_RUST`). *(`skipping_publish_num` is a function-`static` in the
+  C++ sensor callback, not a member; it migrates with the sensor callback in Phase 5.)*
+* ✅ C++ no longer mutates activation or the pose buffers (it reads them via transitional FFIs:
+  `..._is_activated` / `..._latest_ekf_position` / `..._initial_pose_interpolate`, removed in Phase 5).
+* ✅ Behavior preserved — differential tests `test_initial_pose_buffer` + `test_regularization_buffer`.
+* **Landed 2026-06-30 (slices A + B). Phase 1 complete.** (The whole `NdtHost` setter vtable was
+  removed as a result — see Phase 2/3/4, which are subsumed.)
 
 ---
 
@@ -795,11 +801,10 @@ diagnostic record generation
 
 ### Acceptance Criteria
 
-* C++ initial pose callback only creates views and calls Rust.
-* Rust owns the initial pose buffer.
-* Rust owns the latest EKF pose state.
-* Existing tests still pass.
-* No new `#ifdef` blocks are added inside the callback body.
+* ✅ C++ initial pose callback only builds the view + diag and calls `on_initial_pose(rs_.raw(), …)`.
+* ✅ Rust owns the initial pose buffer + latest-EKF state (on the handle).
+* ✅ Existing + new tests pass; no new in-body `#ifdef`.
+* **Landed 2026-06-30 (Phase 1 slice B).**
 
 ---
 
@@ -884,9 +889,10 @@ publish diagnostics if required
 
 ### Acceptance Criteria
 
-* C++ does not own `is_activated`.
-* C++ trigger service only forwards request and fills response.
-* Behavior matches the existing trigger service.
+* ✅ C++ does not own `is_activated` (Rust handle `AtomicBool`; read via `..._is_activated`).
+* ✅ C++ trigger service only forwards (`on_trigger(rs_.raw(), …)`) and fills `res->success`.
+* ✅ Behavior matches the existing trigger service.
+* **Landed 2026-06-30 (Phase 1 slice B).**
 
 ---
 
