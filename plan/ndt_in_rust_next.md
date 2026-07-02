@@ -1192,12 +1192,14 @@ Do not keep conditional compilation inside large callback bodies.
 * Rust is the primary implementation of NDT Scan Matcher behavior.
 * Legacy C++ code is removed, isolated, or clearly marked as temporary.
 
-> **Status (2026-07-02): Phase 8 cleanup slice landed.** The Rust-enabled sensor callback is now the
-> single top-level `on_sensor_points` forwarder plus C++ `execution_time`/`skipping_publish_num`
+> **Status (2026-07-02): Phase 8 cleanup slices landed.** The Rust-enabled sensor callback is now
+> the single top-level `on_sensor_points` forwarder plus C++ `execution_time`/`skipping_publish_num`
 > diagnostics; dead Phase 5 transitional `on_sensor_points_prepare` / `on_sensor_points_match` code
-> inside the legacy branch was removed. Remaining Phase 8 debt is broader source-file isolation and
-> the deferred Phase 7 align-service path, which still keeps `NdtRustAdapter`, `NdtBackend`, and the
-> temporary `sensor_points_in_baselink_frame_` store alive.
+> inside the legacy branch was removed. The map-update implementation is also split into shared,
+> Rust-only, and legacy-only translation units selected by CMake, removing the dense function-body
+> `NDT_USE_RUST` branches from `map_update_module.cpp`. Remaining Phase 8 debt is broader node
+> source-file isolation and the deferred Phase 7 align-service path, which still keeps
+> `NdtRustAdapter`, `NdtBackend`, and the temporary `sensor_points_in_baselink_frame_` store alive.
 
 ---
 
