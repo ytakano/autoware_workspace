@@ -982,16 +982,21 @@ After behavior is stable, optimize:
 
 ### Acceptance Criteria
 
-> **Status (2026-07-02): sub-slices 1 + 2 landed.** (1) the `AwHost` side-effects vtable
+> **Status (2026-07-02): sub-slices 1 + 2 + 3 landed.** (1) the `AwHost` side-effects vtable
 > (`ffi_host.rs`) + the prologue (decode/TF/transform/validation) are in Rust
 > (`on_sensor_points_prepare`), pinned by `test_sensor_points_prepare`. (2) the align→convergence→
-> covariance middle + its diagnostics are one Rust call `on_sensor_points_match` (takes the node +
-> engine handles + host + diag; returns an `AwSensorPointsMatchOutput` the C++ shell publishes from);
-> the C++ middle collapsed to a single top-level `#ifdef`/`#else`/`#endif` (no inner `#ifdef` in the
-> align→covariance region), pinned by differential `test_sensor_points_match`. `execution_time` +
-> `skipping_publish_num` stay C++-measured (wall-clock/wrapper concerns). Remaining sub-slices: (3) the
-> ~19 publishers behind `AwHost` publish ops (+ markers, cov debug arrays); (4) collapse to one
-> `on_sensor_points`, deleting the transitional read-FFIs + the base_link round-trip.
+> covariance middle + its diagnostics are one Rust call `on_sensor_points_match`; the C++ middle
+> collapsed to a single top-level `#ifdef`/`#else`/`#endif`. (3) `AwHost` gained publish ops
+> (`publish_pose`/`publish_pose_array`/`publish_marker`/`publish_float32`/`publish_int32`/`publish_tf`/
+> `publish_initial_to_result` + `AwPose` + topic enums); `on_sensor_points_match` now requests the ~14
+> POD publishers through the host (C++ trampolines build the messages + markers, catch-guarded), so
+> `AwSensorPointsMatchOutput` shrank to `{result_pose, is_converged}` and the C++ epilogue dropped to
+> `exe_time` + the cloud block (the legacy 14 publishers are now `#ifndef NDT_USE_RUST`). Pinned by
+> the rewritten `test_sensor_points_match` (recording mock host). `execution_time` +
+> `skipping_publish_num` stay C++-measured. Remaining sub-slice: (4) move the cloud publishers
+> (`points_aligned`/`voxel_score_points`/`no_ground_*`) — transforming the base_link cloud → map +
+> per-point scores Rust-side — collapse to one `on_sensor_points`, and delete the transitional
+> read-FFIs + the base_link round-trip.
 
 * C++ no longer contains the algorithmic body of `callback_sensor_points_main`.
 * Sensor point callback contains no internal `NDT_USE_RUST` branches.
