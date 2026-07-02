@@ -623,6 +623,7 @@ stand today:
 | **Regularization pose buffer → Rust** + `SmartPoseBuffer` port (`PoseBuffer`) + `AwPoseWithCovarianceStampedView` (Phase 1 slice A, 2026-06-30) | `src/pose_buffer.rs`, handle `Mutex<PoseBuffer>`, `..._regularization_interpolate` FFI | **done** — `on_regularization_pose` drives the Rust buffer; 1 of 6 host setters removed |
 | **Initial-pose buffer + activation + latest-EKF → Rust**; **host vtable deleted** (Phase 1 slice B, 2026-06-30) | handle `AtomicBool`/`Mutex<Option>`/`Mutex<PoseBuffer>`; `..._is_activated`/`..._latest_ekf_position`/`..._initial_pose_interpolate` FFIs; `NdtHost`/`make_host` gone | **done** — `on_initial_pose`/`on_trigger` are pure forwarders; **Phase 1 complete** (node state Rust-owned) |
 | **Map-update decision state → Rust** (Phase 6, 2026-06-30) | handle `Mutex<MapUpdateState>`; `..._map_update_evaluate`/`_need_rebuild`/`_record`/`_out_of_range` FFIs; `MapUpdateModule` takes the handle | **done** — Rust owns `last_update_position` + `need_rebuild`; C++ keeps the pcd-loader service I/O + tile apply + publish |
+| **`AwHost` side-effects vtable + sensor-callback prologue → Rust** (Phase 5 sub-slice 1, 2026-07-02) | `src/ffi_host.rs` (`AwHost`/`AwStr`), `src/sensor_points.rs` (`AwPointCloud2View` + `on_sensor_points_prepare`); C++ `make_host`/`make_pointcloud2_view` | **partial (Phase 5)** — decode/TF/transform/validation in Rust; publish tail + align middle still C++ (sub-slices 2–4). **Phase 7 deferred** (TPE RNG non-portable) |
 
 So the net of the phases is: (1) give the `std` `NdtScanMatcherRs` shell ownership of the node state
 C++ still holds, (2) replace the many function-level FFI calls with one `on_*` forwarder per
@@ -981,6 +982,12 @@ After behavior is stable, optimize:
 
 ### Acceptance Criteria
 
+> **Status (2026-07-02): sub-slice 1 landed** — the `AwHost` side-effects vtable (`ffi_host.rs`) +
+> the prologue (decode/TF/transform/validation) are in Rust (`on_sensor_points_prepare`), pinned by
+> `test_sensor_points_prepare`. Remaining sub-slices: (2) align→convergence→covariance→publish-decision
+> middle; (3) the ~19 publishers behind `AwHost` publish ops (+ markers); (4) collapse to one
+> `on_sensor_points`, deleting the transitional read-FFIs + the base_link round-trip.
+
 * C++ no longer contains the algorithmic body of `callback_sensor_points_main`.
 * Sensor point callback contains no internal `NDT_USE_RUST` branches.
 * Rust produces the same output poses, diagnostics, and status decisions as the previous
@@ -1055,6 +1062,14 @@ return status to Rust
 ### Objective
 
 Move `service_ndt_align_main` and `align_pose` behavior into Rust.
+
+> **DEFERRED (2026-07-02).** `align_pose` runs a TPE (`autoware::localization_util::TreeStructuredParzenEstimator`)
+> that samples with a **static** `std::mt19937_64` + `std::normal_distribution` / `std::uniform_real_distribution`.
+> Those distribution transforms are **implementation-defined** (libstdc++-specific) and not portable to
+> Rust, so a faithful port cannot be validated by the C++ differential-test oracle (the sampled
+> candidate poses would diverge). Revisit only with either statistical/tolerance-based verification or
+> an exact reimplementation of libstdc++'s engine + distributions. Not a blocker for Phase 5 (which is
+> deterministic).
 
 ### Target C++ Shape
 
