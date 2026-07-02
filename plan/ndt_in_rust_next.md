@@ -623,7 +623,7 @@ stand today:
 | **Regularization pose buffer → Rust** + `SmartPoseBuffer` port (`PoseBuffer`) + `AwPoseWithCovarianceStampedView` (Phase 1 slice A, 2026-06-30) | `src/pose_buffer.rs`, handle `Mutex<PoseBuffer>`, `..._regularization_interpolate` FFI | **done** — `on_regularization_pose` drives the Rust buffer; 1 of 6 host setters removed |
 | **Initial-pose buffer + activation + latest-EKF → Rust**; **host vtable deleted** (Phase 1 slice B, 2026-06-30) | handle `AtomicBool`/`Mutex<Option>`/`Mutex<PoseBuffer>`; `..._is_activated`/`..._latest_ekf_position`/`..._initial_pose_interpolate` FFIs; `NdtHost`/`make_host` gone | **done** — `on_initial_pose`/`on_trigger` are pure forwarders; **Phase 1 complete** (node state Rust-owned) |
 | **Map-update decision state → Rust** (Phase 6, 2026-06-30) | handle `Mutex<MapUpdateState>`; `..._map_update_evaluate`/`_need_rebuild`/`_record`/`_out_of_range` FFIs; `MapUpdateModule` takes the handle | **done** — Rust owns `last_update_position` + `need_rebuild`; C++ keeps the pcd-loader service I/O + tile apply + publish |
-| **`AwHost` side-effects vtable + sensor-callback prologue → Rust** (Phase 5 sub-slice 1, 2026-07-02) | `src/ffi_host.rs` (`AwHost`/`AwStr`), `src/sensor_points.rs` (`AwPointCloud2View` + `on_sensor_points_prepare`); C++ `make_host`/`make_pointcloud2_view` | **partial (Phase 5)** — decode/TF/transform/validation in Rust; publish tail + align middle still C++ (sub-slices 2–4). **Phase 7 deferred** (TPE RNG non-portable) |
+| **Sensor callback body → Rust** (Phase 5, 2026-07-02) | `src/ffi_host.rs` (`AwHost`/`AwStr` + publish/cloud side-effect vtable), `src/sensor_points.rs` (`AwPointCloud2View`, `on_sensor_points_prepare`, `on_sensor_points_match`, one-shot `on_sensor_points`); C++ `make_host`/`make_pointcloud2_view` | **done for Phase 5** — Rust owns decode/TF/transform/validation, align→convergence→covariance, POD publishers, aligned/voxel-score/no-ground cloud publishers, and no-ground scores. C++ keeps ROS runtime/publication construction plus `execution_time`/`skipping_publish_num`; a temporary host store preserves `sensor_points_in_baselink_frame_` for the deferred Phase 7 align service. **Phase 7 deferred** (TPE RNG non-portable) |
 
 So the net of the phases is: (1) give the `std` `NdtScanMatcherRs` shell ownership of the node state
 C++ still holds, (2) replace the many function-level FFI calls with one `on_*` forwarder per
@@ -982,32 +982,36 @@ After behavior is stable, optimize:
 
 ### Acceptance Criteria
 
-> **Status (2026-07-02): sub-slices 1 + 2 + 3 landed.** (1) the `AwHost` side-effects vtable
+> **Status (2026-07-02): Phase 5 landed.** (1) the `AwHost` side-effects vtable
 > (`ffi_host.rs`) + the prologue (decode/TF/transform/validation) are in Rust
 > (`on_sensor_points_prepare`), pinned by `test_sensor_points_prepare`. (2) the align→convergence→
 > covariance middle + its diagnostics are one Rust call `on_sensor_points_match`; the C++ middle
 > collapsed to a single top-level `#ifdef`/`#else`/`#endif`. (3) `AwHost` gained publish ops
 > (`publish_pose`/`publish_pose_array`/`publish_marker`/`publish_float32`/`publish_int32`/`publish_tf`/
-> `publish_initial_to_result` + `AwPose` + topic enums); `on_sensor_points_match` now requests the ~14
-> POD publishers through the host (C++ trampolines build the messages + markers, catch-guarded), so
-> `AwSensorPointsMatchOutput` shrank to `{result_pose, is_converged}` and the C++ epilogue dropped to
-> `exe_time` + the cloud block (the legacy 14 publishers are now `#ifndef NDT_USE_RUST`). Pinned by
-> the rewritten `test_sensor_points_match` (recording mock host). `execution_time` +
-> `skipping_publish_num` stay C++-measured. Remaining sub-slice: (4) move the cloud publishers
-> (`points_aligned`/`voxel_score_points`/`no_ground_*`) — transforming the base_link cloud → map +
-> per-point scores Rust-side — collapse to one `on_sensor_points`, and delete the transitional
-> read-FFIs + the base_link round-trip.
+> `publish_initial_to_result` + `AwPose` + topic enums); `on_sensor_points_match` requests the POD
+> publishers through the host (C++ trampolines build ROS messages + markers, catch-guarded). (4) the
+> cloud publishers moved Rust-side too: Rust transforms the base_link cloud to map, publishes
+> `points_aligned`, computes per-point nearest-voxel scores for `voxel_score_points`, filters and
+> publishes `points_aligned_no_ground`, and publishes the no-ground TP/NVTL scalars through `AwHost`.
+> The Rust-enabled C++ callback now calls one `on_sensor_points` entry and only adds C++-measured
+> `execution_time` plus the outer `skipping_publish_num` diagnostic. A temporary
+> `store_sensor_points_base_link` host callback keeps the deferred C++ `service_ndt_align` path working
+> until Phase 7 removes its dependency on `sensor_points_in_baselink_frame_`. Pinned by the expanded
+> `test_sensor_points_match` recording mock host + the existing integration tests.
 
-* C++ no longer contains the algorithmic body of `callback_sensor_points_main`.
-* Sensor point callback contains no internal `NDT_USE_RUST` branches.
+* ✅ Under `NDT_USE_RUST`, C++ no longer contains the algorithmic body of
+  `callback_sensor_points_main`; it builds views/host params, calls one Rust `on_sensor_points`,
+  records `execution_time`, and returns the Rust convergence result.
+* ✅ The remaining sensor-callback `NDT_USE_RUST` branch is a top-level transition between the Rust
+  one-call path and the legacy C++ baseline, not interleaved algorithmic logic.
 * Rust produces the same output poses, diagnostics, and status decisions as the previous
   implementation, verified against the **C++ engine differential-test oracle** (the
   `trace-state-machine-port-verification` workflow; findings logged in
   `porting_notes/ndt_in_rust.md`). Tolerance: pose translation ≤ 1e-3 m, rotation ≤ 1e-3 rad,
   transform-probability / NVTL ≤ 1e-4, iteration count exact; mirror any documented upstream
   divergence (e.g. the pcl Hessian quirk) rather than "fixing" it.
-* Existing integration tests pass.
-* New regression tests compare Rust output against the legacy C++ implementation where possible.
+* ✅ Existing focused integration/regression tests pass (`sensor_points|ndt_rust|map_update|pose_buffer|initial_pose|regularization`).
+* ✅ New/expanded regression tests compare Rust output against the legacy C++ implementation where possible, including aligned map-cloud output, voxel-score output, and no-ground cloud/score publication.
 
 ---
 
