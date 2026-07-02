@@ -982,10 +982,15 @@ After behavior is stable, optimize:
 
 ### Acceptance Criteria
 
-> **Status (2026-07-02): sub-slice 1 landed** — the `AwHost` side-effects vtable (`ffi_host.rs`) +
-> the prologue (decode/TF/transform/validation) are in Rust (`on_sensor_points_prepare`), pinned by
-> `test_sensor_points_prepare`. Remaining sub-slices: (2) align→convergence→covariance→publish-decision
-> middle; (3) the ~19 publishers behind `AwHost` publish ops (+ markers); (4) collapse to one
+> **Status (2026-07-02): sub-slices 1 + 2 landed.** (1) the `AwHost` side-effects vtable
+> (`ffi_host.rs`) + the prologue (decode/TF/transform/validation) are in Rust
+> (`on_sensor_points_prepare`), pinned by `test_sensor_points_prepare`. (2) the align→convergence→
+> covariance middle + its diagnostics are one Rust call `on_sensor_points_match` (takes the node +
+> engine handles + host + diag; returns an `AwSensorPointsMatchOutput` the C++ shell publishes from);
+> the C++ middle collapsed to a single top-level `#ifdef`/`#else`/`#endif` (no inner `#ifdef` in the
+> align→covariance region), pinned by differential `test_sensor_points_match`. `execution_time` +
+> `skipping_publish_num` stay C++-measured (wall-clock/wrapper concerns). Remaining sub-slices: (3) the
+> ~19 publishers behind `AwHost` publish ops (+ markers, cov debug arrays); (4) collapse to one
 > `on_sensor_points`, deleting the transitional read-FFIs + the base_link round-trip.
 
 * C++ no longer contains the algorithmic body of `callback_sensor_points_main`.
