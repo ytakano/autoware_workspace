@@ -1211,9 +1211,10 @@ Do not keep conditional compilation inside large callback bodies.
 > legacy sensor callback, so shared core no longer declares or defines the OFF-only
 > `estimate_covariance` method. The legacy initial-pose/regularization/activation state
 > declarations are also unconditional now, and `is_activated_` is initialized without a
-> constructor `NDT_USE_RUST` branch. Remaining Phase 8 header debt is the Rust host vtable
-> declarations/`rs_` member plus the true Phase 7 align-service Rust algorithm migration,
-> which still keeps `NdtRustAdapter`, `NdtBackend`, and the temporary
+> constructor `NDT_USE_RUST` branch. Rust host vtable trampolines are moved behind the
+> implementation-only `NdtRustHostAccess` friend, leaving only `make_host()`/`rs_` in the core
+> header. Remaining Phase 8 header debt is the `rs_` member plus the true Phase 7 align-service
+> Rust algorithm migration, which still keeps `NdtRustAdapter`, `NdtBackend`, and the temporary
 > `sensor_points_in_baselink_frame_` store alive.
 
 ---
