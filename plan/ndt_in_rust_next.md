@@ -1197,11 +1197,11 @@ Do not keep conditional compilation inside large callback bodies.
 > diagnostics; dead Phase 5 transitional `on_sensor_points_prepare` / `on_sensor_points_match` code
 > inside the legacy branch was removed. The map-update implementation is split into shared,
 > Rust-only, and legacy-only translation units selected by CMake. The light node shells
-> (`callback_timer`, pose callbacks, and trigger service) and the sensor callback body
-> (`callback_sensor_points_main`) are also split into Rust-only and legacy-only translation units,
-> removing those function-body `NDT_USE_RUST` branches from `ndt_scan_matcher_core.cpp`. Remaining
-> Phase 8 debt is mainly host-vtable/support-code isolation and the deferred Phase 7 align-service
-> path, which still keeps `NdtRustAdapter`, `NdtBackend`, and the temporary
+> (`callback_timer`, pose callbacks, and trigger service), the sensor callback body
+> (`callback_sensor_points_main`), and the Rust `AwHost` side-effect vtable support are also split
+> into build-selected translation units, removing those function-body/support-code `NDT_USE_RUST`
+> branches from `ndt_scan_matcher_core.cpp`. Remaining Phase 8 debt is mainly the deferred Phase 7
+> align-service path, which still keeps `NdtRustAdapter`, `NdtBackend`, and the temporary
 > `sensor_points_in_baselink_frame_` store alive.
 
 ---
