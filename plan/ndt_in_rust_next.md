@@ -1196,7 +1196,10 @@ Do not keep conditional compilation inside large callback bodies.
 > the single top-level `on_sensor_points` forwarder plus C++ `execution_time`/`skipping_publish_num`
 > diagnostics; dead Phase 5 transitional `on_sensor_points_prepare` / `on_sensor_points_match` code
 > inside the legacy branch was removed. The map-update implementation is split into shared,
-> Rust-only, and legacy-only translation units selected by CMake. The light node shells
+> Rust-only, and legacy-only translation units selected by CMake; `map_update_module.hpp` now
+> has an unconditional constructor/member layout with only an opaque Rust-handle forward
+> declaration, and the generated Rust FFI header is included only by the Rust map-update source.
+> The light node shells
 > (`callback_timer`, pose callbacks, and trigger service), the sensor callback body
 > (`callback_sensor_points_main`), the Rust `AwHost` side-effect vtable support, the runtime
 > helpers (`visualize_point_score`, `add_regularization_pose`), the deferred align-service
