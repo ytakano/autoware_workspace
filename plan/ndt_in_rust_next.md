@@ -1204,7 +1204,9 @@ Do not keep conditional compilation inside large callback bodies.
 > access are also split into build-selected translation units/helpers. Constructor-body
 > mode-specific buffer setup and map-update construction are likewise delegated to build-selected
 > helpers, removing those function-body/support-code `NDT_USE_RUST` branches from
-> `ndt_scan_matcher_core.cpp`. Remaining Phase 8 debt is mainly the true Phase 7 align-service Rust
+> `ndt_scan_matcher_core.cpp`. The legacy-only covariance helper is also isolated beside the
+> legacy sensor callback, so shared core no longer declares or defines the OFF-only
+> `estimate_covariance` method. Remaining Phase 8 debt is mainly the true Phase 7 align-service Rust
 > algorithm migration, which still keeps `NdtRustAdapter`, `NdtBackend`, and the temporary
 > `sensor_points_in_baselink_frame_` store alive, plus header/member-layout conditionals.
 
