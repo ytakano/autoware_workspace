@@ -1201,11 +1201,12 @@ Do not keep conditional compilation inside large callback bodies.
 > (`callback_sensor_points_main`), the Rust `AwHost` side-effect vtable support, the runtime
 > helpers (`visualize_point_score`, `add_regularization_pose`), the deferred align-service
 > implementation (`service_ndt_align_main`, `align_pose`), and shared sensor-wrapper activation
-> access are also split into build-selected translation units/helpers, removing those
-> function-body/support-code `NDT_USE_RUST` branches from `ndt_scan_matcher_core.cpp`. Remaining
-> Phase 8 debt is mainly the true Phase 7 align-service Rust algorithm migration, which still keeps
-> `NdtRustAdapter`, `NdtBackend`, and the temporary `sensor_points_in_baselink_frame_` store alive,
-> plus constructor/header conditionals.
+> access are also split into build-selected translation units/helpers. Constructor-body
+> mode-specific buffer setup and map-update construction are likewise delegated to build-selected
+> helpers, removing those function-body/support-code `NDT_USE_RUST` branches from
+> `ndt_scan_matcher_core.cpp`. Remaining Phase 8 debt is mainly the true Phase 7 align-service Rust
+> algorithm migration, which still keeps `NdtRustAdapter`, `NdtBackend`, and the temporary
+> `sensor_points_in_baselink_frame_` store alive, plus header/member-layout conditionals.
 
 ---
 
