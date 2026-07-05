@@ -1085,6 +1085,52 @@ Move `service_ndt_align_main` and `align_pose` behavior into Rust.
 > an exact reimplementation of libstdc++'s engine + distributions. Not a blocker for Phase 5 (which is
 > deterministic).
 
+### Verification Strategy
+
+The align-service port must split verification by determinism instead of requiring one global
+byte-for-byte trace match. Keep exact differential checks for deterministic control flow and use
+numeric/statistical checks only where TPE/NDT search makes exact candidate traces unstable.
+
+```text
+Exact C++ vs Rust trace checks:
+  request validation
+  activation/map/sensor availability
+  initial-pose buffer lookup and branch selection
+  response status and error handling
+  covariance/diagnostic/response field packaging
+  host publish side-effect summary: topic, type, count, and required frame/stamp fields
+
+Tolerance-based align-result checks:
+  final pose translation/yaw error
+  fitness / nearest-voxel score absolute or relative error
+  covariance element-wise absolute or relative error
+  convergence/status enum exact match
+
+Property/statistical TPE checks:
+  success rate over repeated fixed-dataset runs
+  median and p95 final-pose error bounded against the C++ baseline envelope
+  best score within the accepted baseline envelope
+  invalid input always returns the same failure status
+  max-iteration / timeout / candidate-count bounds are respected
+```
+
+Before moving the TPE/search implementation, add a temporary abstract trace for the C++ service and
+mirror it in Rust. Store only semantic fields needed by the comparisons above, not full ROS message
+byte dumps. Establish tolerances by measuring repeated C++ baseline runs on the fixed datasets first;
+do not invent thresholds before observing baseline self-variance.
+
+### Suggested Staging
+
+1. Instrument the existing C++ `service_ndt_align_main` / `align_pose` path with the abstract trace.
+2. Add FFI request/response/trace view types and Rust unit tests for validation, status decisions,
+   covariance conversion, and response assembly.
+3. Move deterministic service checks and response assembly into Rust while keeping TPE/search behind
+   a temporary strategy boundary.
+4. Run differential tests with exact checks for deterministic trace fields and tolerance checks for
+   final align outcomes.
+5. Replace the temporary TPE/search boundary with a Rust implementation once the statistical/property
+   tests protect search quality and failure modes.
+
 ### Target C++ Shape
 
 ```cpp
@@ -1213,8 +1259,10 @@ Do not keep conditional compilation inside large callback bodies.
 > declarations are also unconditional now, and `is_activated_` is initialized without a
 > constructor `NDT_USE_RUST` branch. Rust host vtable trampolines are moved behind the
 > implementation-only `NdtRustHostAccess` friend, leaving only `make_host()`/`rs_` in the core
-> header. Remaining Phase 8 header debt is the `rs_` member plus the true Phase 7 align-service
-> Rust algorithm migration, which still keeps `NdtRustAdapter`, `NdtBackend`, and the temporary
+> header. Phase 7A also moves the align-service deterministic gate/response decision into Rust,
+> while keeping the existing C++ TPE/search body behind the deferred strategy boundary. Remaining
+> Phase 8 header debt is the `rs_` member plus the true Phase 7 align-service Rust algorithm
+> migration, which still keeps `NdtRustAdapter`, `NdtBackend`, and the temporary
 > `sensor_points_in_baselink_frame_` store alive.
 
 ---
