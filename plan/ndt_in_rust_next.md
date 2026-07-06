@@ -1267,7 +1267,9 @@ Do not keep conditional compilation inside large callback bodies.
 > decision events when tests provide a trace buffer. Phase 7D moves the post-search align-service
 > response assembly into Rust: C++ still owns TPE/search and ROS frame assignment, while Rust now
 > decides aligned success/reliability and copies the selected pose plus request covariance into a
-> POD response. Remaining Phase 8 header debt is the
+> POD response. Phase 7E moves deterministic gate actions into Rust too: C++ still formats ROS
+> messages/logs, but Rust now returns the gate status, diagnostic level, and message kind for the
+> TF/map/sensor early-return branches. Remaining Phase 8 header debt is the
 > `rs_` member plus the true Phase 7 align-service Rust algorithm migration, which still keeps
 > `NdtRustAdapter`, `NdtBackend`, and the temporary `sensor_points_in_baselink_frame_` store alive.
 
