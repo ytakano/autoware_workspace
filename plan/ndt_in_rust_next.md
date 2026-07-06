@@ -1286,9 +1286,12 @@ Do not keep conditional compilation inside large callback bodies.
 > production service wiring deferred because exact libstdc++ candidate-sequence equivalence remains out
 > of scope. Phase 7K exposes that TPE core through an opaque C ABI test surface and C++ gtest coverage,
 > so construction, sampling, trial updates, and bounded-buffer error paths are verified before the
-> align service starts using Rust-generated candidates. Remaining Phase 8 header debt is the `rs_`
-> member plus the true Phase 7 align-service Rust algorithm migration, which still keeps
-> `NdtRustAdapter`, `NdtBackend`, and the temporary `sensor_points_in_baselink_frame_` store alive.
+> align service starts using Rust-generated candidates. Phase 7L wires those Rust TPE candidates into
+> the Rust-enabled production align-service loop with a fixed per-request Rust seed while keeping C++
+> responsible for NDT execution, particle selection, ROS debug publishing, diagnostics, and response
+> assembly. Remaining Phase 8 header debt is the `rs_` member plus the final align-service Rust
+> algorithm migration, which still keeps `NdtRustAdapter`, `NdtBackend`, and the temporary
+> `sensor_points_in_baselink_frame_` store alive.
 
 ---
 
