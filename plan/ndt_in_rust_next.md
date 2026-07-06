@@ -1284,9 +1284,11 @@ Do not keep conditional compilation inside large callback bodies.
 > the future Rust search port concrete envelope checks before replacing the C++ TPE boundary. Phase 7J
 > adds the portable Rust TPE core with deterministic Rust-owned sampling and property tests, but keeps
 > production service wiring deferred because exact libstdc++ candidate-sequence equivalence remains out
-> of scope. Remaining Phase 8 header debt is the `rs_` member plus the true Phase 7 align-service Rust
-> algorithm migration, which still keeps `NdtRustAdapter`, `NdtBackend`, and the temporary
-> `sensor_points_in_baselink_frame_` store alive.
+> of scope. Phase 7K exposes that TPE core through an opaque C ABI test surface and C++ gtest coverage,
+> so construction, sampling, trial updates, and bounded-buffer error paths are verified before the
+> align service starts using Rust-generated candidates. Remaining Phase 8 header debt is the `rs_`
+> member plus the true Phase 7 align-service Rust algorithm migration, which still keeps
+> `NdtRustAdapter`, `NdtBackend`, and the temporary `sensor_points_in_baselink_frame_` store alive.
 
 ---
 
