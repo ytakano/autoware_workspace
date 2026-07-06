@@ -1273,8 +1273,14 @@ Do not keep conditional compilation inside large callback bodies.
 > the existing C++ TPE/search loop: the Rust-enabled `align_pose` can now append the requested and
 > evaluated particle counts, marker/cloud publish counts, best iteration, best score, and reliability
 > threshold into the semantic trace without changing production behavior when no trace buffer is
-> supplied. Remaining Phase 8 header debt is the `rs_` member plus the true Phase 7 align-service
-> Rust algorithm migration, which still keeps `NdtRustAdapter`, `NdtBackend`, and the temporary
+> supplied. Phase 7G threads that trace through the real Rust-enabled align-service path for
+> integration tests: tests can install a caller-owned trace buffer and now observe the ready decision,
+> search summary, and aligned decision emitted by one service request without changing production
+> behavior when no trace sink is installed. Phase 7H extends the semantic trace with response payload
+> summaries and gate diagnostic/message metadata, and adds a missing-sensor service test so failure
+> branches and successful response packaging are observable before the align algorithm moves. Remaining
+> Phase 8 header debt is the `rs_` member plus the true Phase 7 align-service Rust algorithm
+> migration, which still keeps `NdtRustAdapter`, `NdtBackend`, and the temporary
 > `sensor_points_in_baselink_frame_` store alive.
 
 ---
