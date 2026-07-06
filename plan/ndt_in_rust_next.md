@@ -1264,7 +1264,10 @@ Do not keep conditional compilation inside large callback bodies.
 > the semantic align-service decision trace ABI for exact deterministic trace comparisons. Phase 7C
 > wires the Rust-enabled C++ align-service decision helper through the traced FFI with a default
 > null trace, so production behavior stays unchanged while the path can append deterministic
-> decision events when tests provide a trace buffer. Remaining Phase 8 header debt is the
+> decision events when tests provide a trace buffer. Phase 7D moves the post-search align-service
+> response assembly into Rust: C++ still owns TPE/search and ROS frame assignment, while Rust now
+> decides aligned success/reliability and copies the selected pose plus request covariance into a
+> POD response. Remaining Phase 8 header debt is the
 > `rs_` member plus the true Phase 7 align-service Rust algorithm migration, which still keeps
 > `NdtRustAdapter`, `NdtBackend`, and the temporary `sensor_points_in_baselink_frame_` store alive.
 
