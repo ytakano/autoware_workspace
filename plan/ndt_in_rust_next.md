@@ -1260,10 +1260,11 @@ Do not keep conditional compilation inside large callback bodies.
 > constructor `NDT_USE_RUST` branch. Rust host vtable trampolines are moved behind the
 > implementation-only `NdtRustHostAccess` friend, leaving only `make_host()`/`rs_` in the core
 > header. Phase 7A also moves the align-service deterministic gate/response decision into Rust,
-> while keeping the existing C++ TPE/search body behind the deferred strategy boundary. Remaining
-> Phase 8 header debt is the `rs_` member plus the true Phase 7 align-service Rust algorithm
-> migration, which still keeps `NdtRustAdapter`, `NdtBackend`, and the temporary
-> `sensor_points_in_baselink_frame_` store alive.
+> while keeping the existing C++ TPE/search body behind the deferred strategy boundary. Phase 7B adds
+> the semantic align-service decision trace ABI for exact deterministic trace comparisons, with
+> production still using the non-traced compatibility wrapper. Remaining Phase 8 header debt is the
+> `rs_` member plus the true Phase 7 align-service Rust algorithm migration, which still keeps
+> `NdtRustAdapter`, `NdtBackend`, and the temporary `sensor_points_in_baselink_frame_` store alive.
 
 ---
 
