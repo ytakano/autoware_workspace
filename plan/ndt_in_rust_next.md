@@ -1269,9 +1269,13 @@ Do not keep conditional compilation inside large callback bodies.
 > decides aligned success/reliability and copies the selected pose plus request covariance into a
 > POD response. Phase 7E moves deterministic gate actions into Rust too: C++ still formats ROS
 > messages/logs, but Rust now returns the gate status, diagnostic level, and message kind for the
-> TF/map/sensor early-return branches. Remaining Phase 8 header debt is the
-> `rs_` member plus the true Phase 7 align-service Rust algorithm migration, which still keeps
-> `NdtRustAdapter`, `NdtBackend`, and the temporary `sensor_points_in_baselink_frame_` store alive.
+> TF/map/sensor early-return branches. Phase 7F adds a Rust-owned search-summary trace event for
+> the existing C++ TPE/search loop: the Rust-enabled `align_pose` can now append the requested and
+> evaluated particle counts, marker/cloud publish counts, best iteration, best score, and reliability
+> threshold into the semantic trace without changing production behavior when no trace buffer is
+> supplied. Remaining Phase 8 header debt is the `rs_` member plus the true Phase 7 align-service
+> Rust algorithm migration, which still keeps `NdtRustAdapter`, `NdtBackend`, and the temporary
+> `sensor_points_in_baselink_frame_` store alive.
 
 ---
 
