@@ -1278,7 +1278,10 @@ Do not keep conditional compilation inside large callback bodies.
 > search summary, and aligned decision emitted by one service request without changing production
 > behavior when no trace sink is installed. Phase 7H extends the semantic trace with response payload
 > summaries and gate diagnostic/message metadata, and adds a missing-sensor service test so failure
-> branches and successful response packaging are observable before the align algorithm moves. Remaining
+> branches and successful response packaging are observable before the align algorithm moves. Phase 7I
+> adds repeated-run baseline coverage for the existing align-service TPE/search loop: the test records
+> pose and score spread over fixed inputs while asserting exact deterministic trace structure, giving
+> the future Rust search port concrete envelope checks before replacing the C++ TPE boundary. Remaining
 > Phase 8 header debt is the `rs_` member plus the true Phase 7 align-service Rust algorithm
 > migration, which still keeps `NdtRustAdapter`, `NdtBackend`, and the temporary
 > `sensor_points_in_baselink_frame_` store alive.
