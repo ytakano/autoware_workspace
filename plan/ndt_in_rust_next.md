@@ -1261,8 +1261,10 @@ Do not keep conditional compilation inside large callback bodies.
 > implementation-only `NdtRustHostAccess` friend, leaving only `make_host()`/`rs_` in the core
 > header. Phase 7A also moves the align-service deterministic gate/response decision into Rust,
 > while keeping the existing C++ TPE/search body behind the deferred strategy boundary. Phase 7B adds
-> the semantic align-service decision trace ABI for exact deterministic trace comparisons, with
-> production still using the non-traced compatibility wrapper. Remaining Phase 8 header debt is the
+> the semantic align-service decision trace ABI for exact deterministic trace comparisons. Phase 7C
+> wires the Rust-enabled C++ align-service decision helper through the traced FFI with a default
+> null trace, so production behavior stays unchanged while the path can append deterministic
+> decision events when tests provide a trace buffer. Remaining Phase 8 header debt is the
 > `rs_` member plus the true Phase 7 align-service Rust algorithm migration, which still keeps
 > `NdtRustAdapter`, `NdtBackend`, and the temporary `sensor_points_in_baselink_frame_` store alive.
 
