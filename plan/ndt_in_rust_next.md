@@ -1301,12 +1301,12 @@ Do not keep conditional compilation inside large callback bodies.
 > owns the live `NdtEngine` from `AwNdtParams`, C++ borrows that engine through the node handle for
 > existing engine FFIs, and Rust-mode sensor, align-service, and map-update paths no longer route their
 > production engine access through `NdtRustAdapter` / `ndt_ptr_`. Phase 8P removes the Rust-enabled
-> node's compiled dependency on the legacy persistent C++ engine holder and sensor cache: `ndt_ptr_`,
-> `sensor_points_in_baselink_frame_`, and the `NormalDistributionsTransform` helper alias are now
-> legacy-only members/declarations, and Rust-mode runtime helper signatures no longer accept a dummy
-> C++ engine reference. Phase 8Q removes `NdtRustAdapter` from production backend selection: `NdtBackend`
-> and `EngineHolder` now describe only the legacy pclomp holder, while the adapter remains available
-> for direct differential tests and later compatibility cleanup. Phase 8R removes adapter usage from
+> node's compiled dependency on the legacy persistent C++ engine holder and sensor cache:
+> `ndt_ptr_` and `sensor_points_in_baselink_frame_` are now legacy-only members, and
+> Rust-mode production engine access no longer depends on the legacy holder. Phase 8Q removes
+> `NdtRustAdapter` from production backend selection: `NdtBackend` and `EngineHolder` now describe
+> only the legacy pclomp holder, with remaining tests moved to direct Rust engine/node-handle APIs.
+> Phase 8R removes adapter usage from
 > node/orchestrator tests: `test_node_run_align` now drives a raw `AwNdtEngine` RAII helper, and
 > `test_sensor_points_match` loads map tiles into the `NdtScanMatcherRs`-owned engine borrowed from
 > the node handle. Phase 8S removes adapter usage from the covariance orchestrator test too:
@@ -1320,8 +1320,12 @@ Do not keep conditional compilation inside large callback bodies.
 > `EngineHolder` reference and secondary engine live only in the legacy translation unit. Phase 8V
 > moves the node constructor's mode-specific setup into build-selected helpers: Rust handle
 > initialization now runs through `initialize_mode_specific_state`, and the legacy engine param setup
-> moved to the legacy shell. Remaining Phase 8 debt is now limited to final core-header conditional
-> cleanup while preserving the `NDT_USE_RUST=OFF` build.
+> moved to the legacy shell. Phase 8W unifies the private `align_pose`,
+> `visualize_point_score`, and `add_regularization_pose` declarations in `ndt_scan_matcher_core.hpp`:
+> Rust implementations ignore the optional legacy engine pointer, while legacy call sites pass their
+> selected engine explicitly. Remaining Phase 8 debt is now limited to ownership-member and wrapper
+> header conditionals (`make_host`, `rs_`, `ndt_ptr_`, `sensor_points_in_baselink_frame_`, and
+> `ndt_scan_matcher_rs.hpp`) while preserving the `NDT_USE_RUST=OFF` build.
 
 ---
 
