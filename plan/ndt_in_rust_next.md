@@ -1306,9 +1306,12 @@ Do not keep conditional compilation inside large callback bodies.
 > legacy-only members/declarations, and Rust-mode runtime helper signatures no longer accept a dummy
 > C++ engine reference. Phase 8Q removes `NdtRustAdapter` from production backend selection: `NdtBackend`
 > and `EngineHolder` now describe only the legacy pclomp holder, while the adapter remains available
-> for direct differential tests and later compatibility cleanup. Remaining Phase 8 debt is now narrower:
-> remove or rewrite the adapter-specific tests/shims once their coverage has moved to the node-handle
-> or engine-FFI surfaces.
+> for direct differential tests and later compatibility cleanup. Phase 8R removes adapter usage from
+> node/orchestrator tests: `test_node_run_align` now drives a raw `AwNdtEngine` RAII helper, and
+> `test_sensor_points_match` loads map tiles into the `NdtScanMatcherRs`-owned engine borrowed from
+> the node handle. Remaining Phase 8 debt is now narrower: remove or rewrite the dedicated adapter and
+> covariance compatibility tests/shims once their coverage has moved to the node-handle or engine-FFI
+> surfaces.
 
 ---
 
