@@ -1296,9 +1296,13 @@ Do not keep conditional compilation inside large callback bodies.
 > response assembly. Phase 8N removes the Rust-enabled align-service dependency on the C++
 > `sensor_points_in_baselink_frame_` cache: the Rust node handle now owns the latest validated
 > `base_link` sensor cloud, the Rust align-service search snapshots that cloud directly, and C++ only
-> receives a caller-owned source snapshot for existing debug cloud publication. Remaining Phase 8 debt
-> is now narrower: the `rs_` member and `NdtRustAdapter` / `NdtBackend` transitional backend shape
-> remain, while `sensor_points_in_baselink_frame_` is legacy-only state kept for `NDT_USE_RUST=OFF`.
+> receives a caller-owned source snapshot for existing debug cloud publication. Phase 8O moves the
+> Rust-enabled production engine ownership into `NdtScanMatcherRs`: the Rust handle now constructs and
+> owns the live `NdtEngine` from `AwNdtParams`, C++ borrows that engine through the node handle for
+> existing engine FFIs, and Rust-mode sensor, align-service, and map-update paths no longer route their
+> production engine access through `NdtRustAdapter` / `ndt_ptr_`. Remaining Phase 8 debt is now narrower:
+> `NdtRustAdapter` / `NdtBackend` remain as test/compatibility scaffolding until final cleanup, and
+> `sensor_points_in_baselink_frame_` is legacy-only state kept for `NDT_USE_RUST=OFF`.
 
 ---
 
