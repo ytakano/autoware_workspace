@@ -1323,9 +1323,11 @@ Do not keep conditional compilation inside large callback bodies.
 > moved to the legacy shell. Phase 8W unifies the private `align_pose`,
 > `visualize_point_score`, and `add_regularization_pose` declarations in `ndt_scan_matcher_core.hpp`:
 > Rust implementations ignore the optional legacy engine pointer, while legacy call sites pass their
-> selected engine explicitly. Remaining Phase 8 debt is now limited to ownership-member and wrapper
-> header conditionals (`make_host`, `rs_`, `ndt_ptr_`, `sensor_points_in_baselink_frame_`, and
-> `ndt_scan_matcher_rs.hpp`) while preserving the `NDT_USE_RUST=OFF` build.
+> selected engine explicitly. Phase 8X makes `NDTScanMatcherRS` an always-declared wrapper:
+> Rust builds keep the FFI-backed owner, legacy builds get an inert empty owner, and
+> `ndt_scan_matcher_core.hpp` no longer gates `make_host()` or `rs_` declarations. Remaining Phase 8
+> debt is now limited to the legacy ownership members (`ndt_ptr_` and
+> `sensor_points_in_baselink_frame_`) while preserving the `NDT_USE_RUST=OFF` build.
 
 ---
 
