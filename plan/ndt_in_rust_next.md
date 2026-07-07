@@ -1304,8 +1304,11 @@ Do not keep conditional compilation inside large callback bodies.
 > node's compiled dependency on the legacy persistent C++ engine holder and sensor cache: `ndt_ptr_`,
 > `sensor_points_in_baselink_frame_`, and the `NormalDistributionsTransform` helper alias are now
 > legacy-only members/declarations, and Rust-mode runtime helper signatures no longer accept a dummy
-> C++ engine reference. Remaining Phase 8 debt is now narrower: `NdtRustAdapter` / `NdtBackend` remain
-> as test/compatibility scaffolding until final cleanup.
+> C++ engine reference. Phase 8Q removes `NdtRustAdapter` from production backend selection: `NdtBackend`
+> and `EngineHolder` now describe only the legacy pclomp holder, while the adapter remains available
+> for direct differential tests and later compatibility cleanup. Remaining Phase 8 debt is now narrower:
+> remove or rewrite the adapter-specific tests/shims once their coverage has moved to the node-handle
+> or engine-FFI surfaces.
 
 ---
 
