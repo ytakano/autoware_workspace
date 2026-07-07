@@ -1325,9 +1325,12 @@ Do not keep conditional compilation inside large callback bodies.
 > Rust implementations ignore the optional legacy engine pointer, while legacy call sites pass their
 > selected engine explicitly. Phase 8X makes `NDTScanMatcherRS` an always-declared wrapper:
 > Rust builds keep the FFI-backed owner, legacy builds get an inert empty owner, and
-> `ndt_scan_matcher_core.hpp` no longer gates `make_host()` or `rs_` declarations. Remaining Phase 8
-> debt is now limited to the legacy ownership members (`ndt_ptr_` and
-> `sensor_points_in_baselink_frame_`) while preserving the `NDT_USE_RUST=OFF` build.
+> `ndt_scan_matcher_core.hpp` no longer gates `make_host()` or `rs_` declarations. Phase 8Y
+> moves the final legacy-only engine/sensor-cache members behind `NdtLegacyState`: the core node
+> now has an unconditional legacy-state member, while only the internal wrapper carries the
+> build-selected storage for `ndt_ptr_` and `sensor_points_in_baselink_frame_`. Remaining Phase 8
+> cleanup is now limited to comments and target-level legacy algorithm isolation while preserving the
+> `NDT_USE_RUST=OFF` build.
 
 ---
 
