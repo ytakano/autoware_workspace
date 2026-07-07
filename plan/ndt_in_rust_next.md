@@ -618,18 +618,18 @@ stand today:
 | Tokio reference adapter | `examples/tokio_ndt.rs` | proves the `Host` seam |
 | Fine-grained, **function-level** FFI (e.g. `..._ndt_engine_align`, `..._node_on_initial_pose`, `..._node_estimate_pose_covariance`) | `src/engine.rs`, `src/node.rs` | collapses into the `on_*` callback forwarders (Phases 2–7) |
 | Transitional `NdtHost` vtable with **node-state setters** (`set_activated`, `push_initial_pose`, …) | `src/node.rs` | deleted as state moves to Rust (Phases 1–4) |
-| **Opaque node handle `NdtScanMatcherRs` + `_new`/`_free`** + `AwNdtParams` param conversion (foundation slice, 2026-06-30) | `src/node_handle.rs`, C++ `ndt_scan_matcher_rs.hpp` (`NDTScanMatcherRS` RAII + `make_aw_ndt_params`), node member `rs_` | **inert today** — fills with state over Phases 1–6 |
+| **Opaque node handle `NdtScanMatcherRs` + `_new`/`_free`** + `AwNdtParams` param conversion (foundation slice, 2026-06-30) | `src/node_handle.rs`, C++ `ndt_scan_matcher_rs.hpp` (`NDTScanMatcherRS` RAII + `make_aw_ndt_params`), node member `rs_` | **active in Rust builds** — owns the Rust engine and node-level state; legacy builds keep an inert C++ owner for a uniform node layout |
 | **Panic-safe FFI boundary** (`catch_unwind` → `AwStatus`/null) (foundation slice, 2026-06-30) | `src/ffi.rs` (`ffi_boundary`/`ffi_boundary_ptr`) | the Error-Handling requirement; later `on_*` entry points adopt it |
 | **Regularization pose buffer → Rust** + `SmartPoseBuffer` port (`PoseBuffer`) + `AwPoseWithCovarianceStampedView` (Phase 1 slice A, 2026-06-30) | `src/pose_buffer.rs`, handle `Mutex<PoseBuffer>`, `..._regularization_interpolate` FFI | **done** — `on_regularization_pose` drives the Rust buffer; 1 of 6 host setters removed |
 | **Initial-pose buffer + activation + latest-EKF → Rust**; **host vtable deleted** (Phase 1 slice B, 2026-06-30) | handle `AtomicBool`/`Mutex<Option>`/`Mutex<PoseBuffer>`; `..._is_activated`/`..._latest_ekf_position`/`..._initial_pose_interpolate` FFIs; `NdtHost`/`make_host` gone | **done** — `on_initial_pose`/`on_trigger` are pure forwarders; **Phase 1 complete** (node state Rust-owned) |
 | **Map-update decision state → Rust** (Phase 6, 2026-06-30) | handle `Mutex<MapUpdateState>`; `..._map_update_evaluate`/`_need_rebuild`/`_record`/`_out_of_range` FFIs; `MapUpdateModule` takes the handle | **done** — Rust owns `last_update_position` + `need_rebuild`; C++ keeps the pcd-loader service I/O + tile apply + publish |
-| **Sensor callback body → Rust** (Phase 5, 2026-07-02) | `src/ffi_host.rs` (`AwHost`/`AwStr` + publish/cloud side-effect vtable), `src/sensor_points.rs` (`AwPointCloud2View`, `on_sensor_points_prepare`, `on_sensor_points_match`, one-shot `on_sensor_points`); C++ `make_host`/`make_pointcloud2_view` | **done for Phase 5** — Rust owns decode/TF/transform/validation, align→convergence→covariance, POD publishers, aligned/voxel-score/no-ground cloud publishers, and no-ground scores. C++ keeps ROS runtime/publication construction plus `execution_time`/`skipping_publish_num`; a temporary host store preserves `sensor_points_in_baselink_frame_` for the deferred Phase 7 align service. **Phase 7 deferred** (TPE RNG non-portable) |
+| **Sensor callback body → Rust** (Phase 5, 2026-07-02) | `src/ffi_host.rs` (`AwHost`/`AwStr` + publish/cloud side-effect vtable), `src/sensor_points.rs` (`AwPointCloud2View`, one-shot `on_sensor_points`); C++ `make_host`/`make_pointcloud2_view` | **done for Phase 5 and later cleanup** — Rust owns decode/TF/transform/validation, align→convergence→covariance, POD publishers, aligned/voxel-score/no-ground cloud publishers, no-ground scores, and the latest validated source cloud needed by the Rust align service. C++ keeps ROS runtime/publication construction plus `execution_time`/`skipping_publish_num`. |
 
-So the net of the phases is: (1) give the `std` `NdtScanMatcherRs` shell ownership of the node state
-C++ still holds, (2) replace the many function-level FFI calls with one `on_*` forwarder per
-callback, and (3) shrink the host vtable to ROS side effects only. **The opaque handle + panic
-boundary (commit-sequence items 2 & 4) landed 2026-06-30** — Phase 0 is substantially complete; the
-handle is held as the node's `rs_` member but does not yet own state or drive any callback.
+So the net of the phases is: (1) keep the `std` `NdtScanMatcherRs` shell as the Rust-build owner of
+the engine and node state, (2) replace function-level FFI call chains with one `on_*` forwarder per
+callback where practical, and (3) shrink the host vtable to ROS side effects only. **The opaque
+handle + panic boundary (commit-sequence items 2 & 4) landed 2026-06-30** and now backs the active
+Rust build path.
 
 # Phased Implementation Plan
 
@@ -742,9 +742,9 @@ pub struct NdtScanMatcherRs {
 
 ### Acceptance Criteria
 
-* ✅ Rust owns the scan matcher’s node state — both pose buffers, activation, latest-EKF (the
-  C++ members are now `#ifndef NDT_USE_RUST`). *(`skipping_publish_num` is a function-`static` in the
-  C++ sensor callback, not a member; it migrates with the sensor callback in Phase 5.)*
+* ✅ Rust owns the scan matcher’s node state — both pose buffers, activation, latest-EKF. The C++
+  core keeps uniform wrapper members for layout/build simplicity; Rust-selected translation units
+  use the state on `rs_`.
 * ✅ C++ no longer mutates activation or the pose buffers (it reads them via transitional FFIs:
   `..._is_activated` / `..._latest_ekf_position` / `..._initial_pose_interpolate`, removed in Phase 5).
 * ✅ Behavior preserved — differential tests `test_initial_pose_buffer` + `test_regularization_buffer`.
@@ -847,8 +847,8 @@ diagnostic content generation
 ### Acceptance Criteria
 
 * ✅ C++ callback only forwards to Rust (`on_regularization_pose(handle, diag, view)`).
-* ✅ Rust owns the regularization pose buffer (`Mutex<PoseBuffer>` on the handle; the C++
-  `regularization_pose_buffer_` is now `#ifndef NDT_USE_RUST` only).
+* ✅ Rust owns the regularization pose buffer (`Mutex<PoseBuffer>` on the handle; the C++ buffer is
+  legacy-path state and is unused by Rust-selected translation units).
 * ✅ Regularization behavior matches the existing C++ implementation (differential test
   `test_regularization_buffer`, 50 random sequences). **Landed 2026-06-30 (Phase 1 slice A).**
 
@@ -1060,8 +1060,8 @@ return status to Rust
 
 ### Acceptance Criteria
 
-* ✅ Rust owns `MapUpdateState` (`last_update_position` + `need_rebuild` on the handle; the C++
-  `last_update_position_` / `BuilderState::need_rebuild` are `#ifndef NDT_USE_RUST`).
+* ✅ Rust owns `MapUpdateState` (`last_update_position` + `need_rebuild` on the handle; the legacy
+  module keeps its own build-selected storage for the OFF path).
 * ✅ Rust decides when map updates are required (`..._map_update_evaluate` — first-update + keep-up
   policy; `..._map_update_out_of_range`).
 * ✅ C++ `MapUpdateModule` reduced to ROS service I/O + tile apply + debug-map publish (the
@@ -1330,7 +1330,8 @@ Do not keep conditional compilation inside large callback bodies.
 > now has an unconditional legacy-state member, while only the internal wrapper carries the
 > build-selected storage for `ndt_ptr_` and `sensor_points_in_baselink_frame_`. Remaining Phase 8
 > cleanup is now limited to comments and target-level legacy algorithm isolation while preserving the
-> `NDT_USE_RUST=OFF` build.
+> `NDT_USE_RUST=OFF` build. Phase 8Z refreshes stale comments and roadmap entries after that
+> isolation: no behavior, lock scope, ABI, or target-selection changes are intended.
 
 ---
 
