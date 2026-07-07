@@ -1331,7 +1331,10 @@ Do not keep conditional compilation inside large callback bodies.
 > build-selected storage for `ndt_ptr_` and `sensor_points_in_baselink_frame_`. Remaining Phase 8
 > cleanup is now limited to comments and target-level legacy algorithm isolation while preserving the
 > `NDT_USE_RUST=OFF` build. Phase 8Z refreshes stale comments and roadmap entries after that
-> isolation: no behavior, lock scope, ABI, or target-selection changes are intended.
+> isolation: no behavior, lock scope, ABI, or target-selection changes are intended. Phase 8AA
+> removes the shared runtime-helper `legacy_ndt_ref` surface for `visualize_point_score` and
+> `add_regularization_pose`: legacy builds now call source-private helpers with an explicit locked
+> `NdtBackend &`, while Rust builds drop the unused runtime-helper translation unit.
 
 ---
 
