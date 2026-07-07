@@ -1334,7 +1334,10 @@ Do not keep conditional compilation inside large callback bodies.
 > isolation: no behavior, lock scope, ABI, or target-selection changes are intended. Phase 8AA
 > removes the shared runtime-helper `legacy_ndt_ref` surface for `visualize_point_score` and
 > `add_regularization_pose`: legacy builds now call source-private helpers with an explicit locked
-> `NdtBackend &`, while Rust builds drop the unused runtime-helper translation unit.
+> `NdtBackend &`, while Rust builds drop the unused runtime-helper translation unit. Phase 8AB
+> removes the final shared `legacy_ndt_ref` surface from `align_pose`: the Rust helper keeps the
+> clean traced signature, and the legacy service calls a dedicated helper with the already-locked
+> `NdtBackend &`.
 
 ---
 
