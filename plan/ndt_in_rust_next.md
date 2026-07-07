@@ -675,9 +675,11 @@ AwMapDeltaBuilder
 * ✅ `AwNdtParams` crosses as a C-ABI-safe struct (scalars + `(ptr, len)` offset models, copied
   Rust-side).
 * ✅ Rust panics cannot unwind into C++ (`ffi.rs` `catch_unwind` → `AwStatus::Panic`/null).
-* ◻ Remaining: the full view-type set (`AwPose`/`AwPointCloud2View`/…) + the consolidated `AwHost`
-  land with the callbacks that need them (Phases 2–7); the ~50 existing function-level FFIs adopt
-  the `ffi_boundary` helper as they fold into `on_*` forwarders.
+* ✅ The callback view/host set needed by the migrated paths is in place (`AwPose`,
+  `AwPointCloud2View`, `AwPoint3fSlice`, and the consolidated `AwHost`). Historical
+  function-level FFIs remain only where tests or direct engine/kernel surfaces still need them;
+  the production callback path has folded into the `on_*` forwarders instead of requiring a bulk
+  `ffi_boundary` retrofit.
 
 ---
 
@@ -994,16 +996,16 @@ After behavior is stable, optimize:
 > `points_aligned`, computes per-point nearest-voxel scores for `voxel_score_points`, filters and
 > publishes `points_aligned_no_ground`, and publishes the no-ground TP/NVTL scalars through `AwHost`.
 > The Rust-enabled C++ callback now calls one `on_sensor_points` entry and only adds C++-measured
-> `execution_time` plus the outer `skipping_publish_num` diagnostic. A temporary
-> `store_sensor_points_base_link` host callback keeps the deferred C++ `service_ndt_align` path working
-> until Phase 7 removes its dependency on `sensor_points_in_baselink_frame_`. Pinned by the expanded
-> `test_sensor_points_match` recording mock host + the existing integration tests.
+> `execution_time` plus the outer `skipping_publish_num` diagnostic. Later cleanup moved the
+> align-service source-cloud snapshot into the Rust node handle, so the old temporary C++ cache
+> dependency is gone. Pinned by the expanded `test_sensor_points_match` recording mock host + the
+> existing integration tests.
 
 * ✅ Under `NDT_USE_RUST`, C++ no longer contains the algorithmic body of
   `callback_sensor_points_main`; it builds views/host params, calls one Rust `on_sensor_points`,
   records `execution_time`, and returns the Rust convergence result.
-* ✅ The remaining sensor-callback `NDT_USE_RUST` branch is a top-level transition between the Rust
-  one-call path and the legacy C++ baseline, not interleaved algorithmic logic.
+* ✅ The sensor callback implementation is build-selected between the Rust one-call path and the
+  legacy C++ baseline; no interleaved algorithmic `NDT_USE_RUST` branch remains in the callback body.
 * Rust produces the same output poses, diagnostics, and status decisions as the previous
   implementation, verified against the **C++ engine differential-test oracle** (the
   `trace-state-machine-port-verification` workflow; findings logged in
@@ -1337,7 +1339,10 @@ Do not keep conditional compilation inside large callback bodies.
 > `NdtBackend &`, while Rust builds drop the unused runtime-helper translation unit. Phase 8AB
 > removes the final shared `legacy_ndt_ref` surface from `align_pose`: the Rust helper keeps the
 > clean traced signature, and the legacy service calls a dedicated helper with the already-locked
-> `NdtBackend &`.
+> `NdtBackend &`. Phase 8AC audits the roadmap against the current implementation: the remaining
+> `NDT_USE_RUST` sites are build-selection/wrapper gates, `NdtRustAdapter` and `legacy_ndt_ref` are
+> gone from production code, and the legacy C++ algorithm remains only as the build-selected
+> `NDT_USE_RUST=OFF` baseline.
 
 ---
 
@@ -1574,6 +1579,10 @@ Use small, reviewable commits.
 17. Add final regression tests and documentation.
 ```
 
+Status after Phase 8AC: items 14-16 are complete for the Rust-enabled production path. The legacy
+C++ implementation remains intentionally as the build-selected `NDT_USE_RUST=OFF` baseline, not as
+a migration-only adapter in the Rust path.
+
 ---
 
 # Definition of Done
@@ -1590,6 +1599,7 @@ No ROS 2 C++ types cross into Rust.
 No Rust-owned types cross directly into C++ except opaque handles.
 No Rust panic can unwind into C++.
 Scattered #ifdef NDT_USE_RUST branches are removed from algorithmic code.
+Remaining `NDT_USE_RUST` sites are limited to build selection, wrapper layout, and the intentional legacy OFF baseline.
 Behavior matches the previous C++ implementation within accepted tolerances.
 Existing Autoware tests pass.
 New Rust, FFI, and integration regression tests are added.
