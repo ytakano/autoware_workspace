@@ -1315,8 +1315,11 @@ Do not keep conditional compilation inside large callback bodies.
 > helper while retaining the C++ pclomp reference path. Phase 8T removes the final dedicated
 > `NdtRustAdapter` compatibility shim: the adapter header, its standalone gtest, and its CMake test
 > registration are gone, with stale comments retargeted to the Rust-owned engine/node-handle APIs.
-> Remaining Phase 8 debt is now limited to final legacy/header conditional cleanup while preserving
-> the `NDT_USE_RUST=OFF` build.
+> Phase 8U hides the map-update legacy engine state behind a build-selected `LegacyState` pimpl:
+> `MapUpdateModule` now has an unconditional constructor/member layout, while the OFF-only
+> `EngineHolder` reference and secondary engine live only in the legacy translation unit. Remaining
+> Phase 8 debt is now limited to final core-header conditional cleanup while preserving the
+> `NDT_USE_RUST=OFF` build.
 
 ---
 
