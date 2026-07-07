@@ -1289,9 +1289,14 @@ Do not keep conditional compilation inside large callback bodies.
 > align service starts using Rust-generated candidates. Phase 7L wires those Rust TPE candidates into
 > the Rust-enabled production align-service loop with a fixed per-request Rust seed while keeping C++
 > responsible for NDT execution, particle selection, ROS debug publishing, diagnostics, and response
-> assembly. Remaining Phase 8 header debt is the `rs_` member plus the final align-service Rust
-> algorithm migration, which still keeps `NdtRustAdapter`, `NdtBackend`, and the temporary
-> `sensor_points_in_baselink_frame_` store alive.
+> assembly. Phase 7M moves the Rust-enabled align-service search loop itself into Rust: Rust now owns
+> the TPE sampling, per-particle NDT execution through the Rust engine, particle result collection,
+> best-particle selection, and semantic search counts, while C++ preserves the service shell,
+> TF/map/sensor gates, existing debug marker and aligned-cloud publication, diagnostics writes, and
+> response assembly. Remaining Phase 8 debt is now narrower: the `rs_` member, `NdtRustAdapter` /
+> `NdtBackend` transitional backend shape, and the temporary `sensor_points_in_baselink_frame_` store
+> remain only because the Rust-enabled shell still needs C++ ROS publication helpers during the final
+> callback/header consolidation.
 
 ---
 
