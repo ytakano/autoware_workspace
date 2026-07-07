@@ -1300,9 +1300,12 @@ Do not keep conditional compilation inside large callback bodies.
 > Rust-enabled production engine ownership into `NdtScanMatcherRs`: the Rust handle now constructs and
 > owns the live `NdtEngine` from `AwNdtParams`, C++ borrows that engine through the node handle for
 > existing engine FFIs, and Rust-mode sensor, align-service, and map-update paths no longer route their
-> production engine access through `NdtRustAdapter` / `ndt_ptr_`. Remaining Phase 8 debt is now narrower:
-> `NdtRustAdapter` / `NdtBackend` remain as test/compatibility scaffolding until final cleanup, and
-> `sensor_points_in_baselink_frame_` is legacy-only state kept for `NDT_USE_RUST=OFF`.
+> production engine access through `NdtRustAdapter` / `ndt_ptr_`. Phase 8P removes the Rust-enabled
+> node's compiled dependency on the legacy persistent C++ engine holder and sensor cache: `ndt_ptr_`,
+> `sensor_points_in_baselink_frame_`, and the `NormalDistributionsTransform` helper alias are now
+> legacy-only members/declarations, and Rust-mode runtime helper signatures no longer accept a dummy
+> C++ engine reference. Remaining Phase 8 debt is now narrower: `NdtRustAdapter` / `NdtBackend` remain
+> as test/compatibility scaffolding until final cleanup.
 
 ---
 
