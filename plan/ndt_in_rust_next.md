@@ -1309,9 +1309,11 @@ Do not keep conditional compilation inside large callback bodies.
 > for direct differential tests and later compatibility cleanup. Phase 8R removes adapter usage from
 > node/orchestrator tests: `test_node_run_align` now drives a raw `AwNdtEngine` RAII helper, and
 > `test_sensor_points_match` loads map tiles into the `NdtScanMatcherRs`-owned engine borrowed from
-> the node handle. Remaining Phase 8 debt is now narrower: remove or rewrite the dedicated adapter and
-> covariance compatibility tests/shims once their coverage has moved to the node-handle or engine-FFI
-> surfaces.
+> the node handle. Phase 8S removes adapter usage from the covariance orchestrator test too:
+> `test_estimate_pose_covariance` now drives
+> `autoware_ndt_scan_matcher_rs_node_estimate_pose_covariance` through a direct `AwNdtEngine` RAII
+> helper while retaining the C++ pclomp reference path. Remaining Phase 8 debt is now limited to the
+> dedicated adapter test/header/CMake entry and final header/ifdef cleanup.
 
 ---
 
