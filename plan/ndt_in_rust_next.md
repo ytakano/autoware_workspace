@@ -1293,10 +1293,12 @@ Do not keep conditional compilation inside large callback bodies.
 > the TPE sampling, per-particle NDT execution through the Rust engine, particle result collection,
 > best-particle selection, and semantic search counts, while C++ preserves the service shell,
 > TF/map/sensor gates, existing debug marker and aligned-cloud publication, diagnostics writes, and
-> response assembly. Remaining Phase 8 debt is now narrower: the `rs_` member, `NdtRustAdapter` /
-> `NdtBackend` transitional backend shape, and the temporary `sensor_points_in_baselink_frame_` store
-> remain only because the Rust-enabled shell still needs C++ ROS publication helpers during the final
-> callback/header consolidation.
+> response assembly. Phase 8N removes the Rust-enabled align-service dependency on the C++
+> `sensor_points_in_baselink_frame_` cache: the Rust node handle now owns the latest validated
+> `base_link` sensor cloud, the Rust align-service search snapshots that cloud directly, and C++ only
+> receives a caller-owned source snapshot for existing debug cloud publication. Remaining Phase 8 debt
+> is now narrower: the `rs_` member and `NdtRustAdapter` / `NdtBackend` transitional backend shape
+> remain, while `sensor_points_in_baselink_frame_` is legacy-only state kept for `NDT_USE_RUST=OFF`.
 
 ---
 
