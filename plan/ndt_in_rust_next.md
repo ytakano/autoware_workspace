@@ -1317,9 +1317,11 @@ Do not keep conditional compilation inside large callback bodies.
 > registration are gone, with stale comments retargeted to the Rust-owned engine/node-handle APIs.
 > Phase 8U hides the map-update legacy engine state behind a build-selected `LegacyState` pimpl:
 > `MapUpdateModule` now has an unconditional constructor/member layout, while the OFF-only
-> `EngineHolder` reference and secondary engine live only in the legacy translation unit. Remaining
-> Phase 8 debt is now limited to final core-header conditional cleanup while preserving the
-> `NDT_USE_RUST=OFF` build.
+> `EngineHolder` reference and secondary engine live only in the legacy translation unit. Phase 8V
+> moves the node constructor's mode-specific setup into build-selected helpers: Rust handle
+> initialization now runs through `initialize_mode_specific_state`, and the legacy engine param setup
+> moved to the legacy shell. Remaining Phase 8 debt is now limited to final core-header conditional
+> cleanup while preserving the `NDT_USE_RUST=OFF` build.
 
 ---
 
