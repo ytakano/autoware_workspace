@@ -1312,8 +1312,11 @@ Do not keep conditional compilation inside large callback bodies.
 > the node handle. Phase 8S removes adapter usage from the covariance orchestrator test too:
 > `test_estimate_pose_covariance` now drives
 > `autoware_ndt_scan_matcher_rs_node_estimate_pose_covariance` through a direct `AwNdtEngine` RAII
-> helper while retaining the C++ pclomp reference path. Remaining Phase 8 debt is now limited to the
-> dedicated adapter test/header/CMake entry and final header/ifdef cleanup.
+> helper while retaining the C++ pclomp reference path. Phase 8T removes the final dedicated
+> `NdtRustAdapter` compatibility shim: the adapter header, its standalone gtest, and its CMake test
+> registration are gone, with stale comments retargeted to the Rust-owned engine/node-handle APIs.
+> Remaining Phase 8 debt is now limited to final legacy/header conditional cleanup while preserving
+> the `NDT_USE_RUST=OFF` build.
 
 ---
 
