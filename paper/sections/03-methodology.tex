@@ -1,0 +1,69 @@
+\section{Methodology}
+\label{sec:methodology}
+
+\subsection{Layer 1: structural bound, machine-checked}
+% Each term of eq. (1) is enforced by construction in the Rust engine and *checked* by
+% property-based tests over random inputs (proptest): passes <= iter+1,
+% points == passes * P, neighbors <= points * K_max, kd_nodes <= points * leaves.
+Every term of \eqref{eq:decomp} is enforced by construction in the Rust engine (static loop
+guards, a hard \maxnn{} search cap, pre-reserved buffers) and \emph{machine-checked} by
+property-based tests over randomized maps, clouds, and parameters: for every sampled input,
+$\mathrm{passes} \le N_{\mathrm{iter}}{+}1$, $\mathrm{points} = \mathrm{passes} \cdot P$,
+$\sumnbr \le \mathrm{points} \cdot \maxnn$, and $\kdnodes \le \mathrm{points} \cdot
+N_{\mathrm{leaves}}$. The RT path is additionally allocation-free from the first frame
+(counting-allocator test), recursion-free (fixed-depth explicit stack), and panic-free
+(lint-enforced).
+
+\subsection{Layer 2: counter-guided worst-input search}
+\label{sec:meth-search}
+% Deterministic counters as fitness. Zero-cost when disabled (cfg'd increments).
+% Lexicographic fitness (iter, sum_neighbors, kd_nodes). Hill-climb over generator params.
+% Determinism => reproducible; platform-independence => the worst input is a property of the
+% algorithm, not the machine.
+We instrument the engine with four \emph{deterministic algorithmic cost counters} ---
+derivative passes, points processed, \sumnbr{} (kernel evaluations), \kdnodes{} (kd nodes
+visited) --- behind a compile-time feature whose disabled form compiles to nothing. A seeded
+hill-climb mutates a parameterized input generator (map tile overlap, block extent, centroid
+crowding vs.\ surface roughness, source composition, initial-guess offset, convergence
+threshold) and maximizes the lexicographic counter vector $(N_{\mathrm{iter}}, \sumnbr,
+\kdnodes)$. Because the fitness is a pure function of the input, the search is reproducible and
+its result is a property of the \emph{algorithm}, not of the measurement machine. $P$ is
+deliberately \emph{not} a search freedom (it is a caller-side cap; searching it would saturate
+trivially and mask the interesting terms).
+
+\subsection{Cross-language transfer via bit-exactness}
+\label{sec:meth-transfer}
+% The key trick. Port is bit-exact (differential test suite). Same input => same FP operand
+% stream => same iterations/neighbor sets => same *work*. So worst inputs found on Rust
+% transfer to C++ without instrumenting C++ (which must stay byte-identical). Certified at
+% runtime by the iteration_num equality assert per fixture.
+The C++ sources must remain byte-identical (upstream constraint), so they cannot be
+instrumented. Instead we rely on bit-exactness: the port reproduces the C++ floating-point
+operand stream exactly (validated by a differential test suite), hence identical iteration
+counts, neighbor sets, and work on any input. A worst input discovered on the instrumented Rust
+engine is therefore a worst input for the C++ engine \emph{by construction}. The replay harness
+re-certifies this per fixture at measurement time by asserting equal \texttt{iteration\_num}
+across engines; a mismatch voids the comparison for that fixture.
+
+\subsection{Layer 3: measurement and \pwcet{}}
+% Frozen fixtures (binary format, tile-aware) -> one replay binary drives both engines on
+% identical buffers; alloc counting via LD_PRELOAD interposer (dlsym'd hooks, no upstream
+% edits); unit-cost regression T ~ a*nbr + b*kd + c; Gumbel block-maxima moment fit.
+Worst inputs are frozen in a self-contained binary format (map stored as overlapping
+\emph{tiles} --- one voxel grid each, mirroring production dynamic map loading; tile overlap is
+the only way to drive $K$ to \maxnn). A single replay binary drives both engines on identical
+buffers. Heap allocations are counted by an \texttt{LD\_PRELOAD} interposer whose hooks the
+replay discovers via \texttt{dlsym}, requiring no upstream edits. We then (i) regress median
+latency against the counters, $T \approx a\cdot\sumnbr + b\cdot\kdnodes + c$, giving directly
+comparable per-operation costs for the two implementations, and (ii) fit a Gumbel distribution
+to per-fixture block maxima (moment estimator) for comparative \pwcet{} exceedance estimates.
+We use the fit for \emph{comparison}, not certification (Sec.~\ref{sec:threats}).
+
+\subsection{Cross-ISA transfer to the deployment target}
+% libm-crate everywhere in the hot path => ISA-independent FP stream => counters verify
+% equal work on AArch64. Protocol: run fixtures with wcet-count on target, compare counters.
+The Rust engine routes every transcendental through a pure-Rust \texttt{libm} implementation
+(including inside the linear-algebra library), making its floating-point results
+ISA-independent; the frozen fixtures and their counter values therefore transfer to the
+AArch64 bare-metal deployment target, where equal work is re-verified by comparing counters.
+\todo{Report the counter-equality check and target measurements (M5).}

@@ -1,0 +1,43 @@
+\section{Problem: WCET of an Iterative Scan Matcher}
+\label{sec:problem}
+
+\subsection{The NDT align kernel}
+% Brief NDT recap (Magnusson). Map = voxel grid of Gaussians (multi-tile: one grid per
+% dynamically loaded map tile, kd-tree over all leaf centroids). Per align: Newton iterations;
+% per iteration: transform P source points, radius-search neighbors, evaluate the
+% score/gradient/Hessian kernel per (point, leaf) pair, solve a 6x6 system.
+\todo{One-paragraph NDT recap with the multi-tile voxel map (dynamic map loading) and the
+More--Thuente line search; cite Magnusson and the Autoware multigrid implementation.}
+
+\subsection{Execution-time decomposition}
+For one align call:
+\begin{equation}
+  T \;\le\; N_{\mathrm{iter}} \cdot \Bigl[\; \sum_{p=1}^{P} \bigl( T_{\mathrm{search}}(p) +
+      K(p)\, T_{\mathrm{kernel}} \bigr) + T_{\mathrm{solve}} \Bigr],
+  \label{eq:decomp}
+\end{equation}
+with exactly four data-dependent freedoms:
+\begin{itemize}
+  \item $N_{\mathrm{iter}} \le$ \texttt{max\_iterations} (static loop guard; default 30);
+  \item $P$: source-cloud size --- a \emph{caller-side} bound (the node voxel-downsamples the
+        scan); we fix $P = 2000$ throughout;
+  \item $K(p) \le \maxnn = 64$: neighbor leaves per point (enforced search cap);
+  \item kd-tree traversal length per query (worst case $O(N_{\mathrm{leaves}})$, geometry-dependent).
+\end{itemize}
+$T_{\mathrm{solve}}$ (fixed-size $6{\times}6$ SVD) and the per-point transform are
+input-independent. Equation~\eqref{eq:decomp} is a \emph{work} bound; converting work to time is
+platform-specific and is where measurement enters (Sec.~\ref{sec:methodology}).
+
+\subsection{Why the bound is not enough}
+% (a) the product P*K*iter is astronomically pessimistic if treated as independent maxima
+% unless an input actually achieves it simultaneously -> need witness inputs;
+% (b) constant factors (cache, allocator, subnormals) are not in the work model;
+% (c) the C++ engine's per-point heap allocations put the allocator--an unbounded-latency
+% component--inside the inner loop.
+Three gaps separate \eqref{eq:decomp} from a usable bound. First, the individual maxima may not
+be simultaneously achievable; a defensible bound needs \emph{witness inputs} that realize the
+product. Second, constant factors are timing hazards invisible to the work model: cache
+behavior, allocator latency, and floating-point assists on subnormal operands. Third, the
+production C++ engine calls the heap allocator ${\approx}11$ times per point per derivative
+pass (Sec.~\ref{sec:eval-alloc}), placing an unbounded-latency component inside the innermost
+loop.

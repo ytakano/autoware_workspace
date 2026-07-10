@@ -1,0 +1,27 @@
+\section{Threats to Validity}
+\label{sec:threats}
+
+% Be brutally honest here; it is what makes the rest credible.
+\begin{itemize}
+  \item \textbf{Measurement environment.} Current host numbers come from a development
+    container with the \texttt{powersave} CPU governor and warm caches; they support
+    \emph{relative} (cross-engine, same-machine) claims only. \todo{replace with
+    performance-governor / isolated-core / cold-cache / co-runner data.}
+  \item \textbf{EVT rigor.} 100 samples per fixture, block maxima of 10, moment-fit Gumbel:
+    adequate for comparison, not certification. No exponentiality test, no confidence
+    intervals, single machine. \todo{1000+ samples, PoT/MLE fit, CIs, repeated runs.}
+  \item \textbf{Search completeness.} The hill-climb explores a parameterized generator, not
+    the full input space; the saturation argument covers the kernel-evaluation term exactly,
+    but the kd-traversal term has no matching analytic maximum, so a worse traversal geometry
+    may exist. The structural $O(N_{\mathrm{leaves}})$ bound still caps it.
+  \item \textbf{Caller-side assumptions.} $P$ (downsampled scan size) is a node-level cap,
+    assumed, not enforced by the engine; \maxnn{} truncation deviates from C++'s unbounded
+    neighbor set if a map ever exceeds 64 neighbors in radius (treated as misconfiguration).
+  \item \textbf{Cross-ISA transfer.} ISA-independence of the Rust floating-point stream is by
+    construction (pure-software \texttt{libm}) and verified via counter equality, but the C++
+    comparison itself is inherently x86/Linux-bound (pcl/ROS dependency).
+  \item \textbf{Absolute WCET.} Nothing here is a certified hard bound: measurement-based
+    results bound observed behavior, and the Gumbel extrapolation inherits MBPTA's usual
+    representativity caveats. The deliverable is ``the port does not regress WCET on any
+    adversarial fixture, and removes structural hazards'' --- not a proven absolute bound.
+\end{itemize}

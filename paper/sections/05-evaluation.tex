@@ -1,0 +1,78 @@
+\section{Evaluation}
+\label{sec:evaluation}
+
+\subsection{Setup}
+% x86 Linux host (dev container). Governor caveat -> to be redone with performance governor.
+Host: AMD Ryzen 9 5900HX, Linux 6.8, GCC 11.4 (C++, \texttt{-O2}), rustc 1.96 (release),
+serial engines, pinned core (\texttt{taskset}), 100 aligns per fixture per engine after 10
+warmups, \texttt{steady\_clock}, align loop only (map and kd-tree built once per engine per
+fixture). \todo{re-run with performance governor + isolated core + cold-cache series +
+interference co-runner; current data: container, powersave governor.}
+\todo{AArch64 bare-metal setup (fixed clock, CNTVCT/PMU timing, FPCR FZ=0, cache config).}
+
+\subsection{Search effectiveness}
+\label{sec:eval-search}
+% Saturation of the analytic bound + 35% kd growth. Table: counters per fixture.
+The hill-climb saturates the analytic kernel-evaluation maximum exactly:
+$\sumnbr = P \cdot \maxnn \cdot (N_{\mathrm{iter}}{+}1) = 2000 \cdot 64 \cdot 31 =
+\num{3968000}$ --- certifying that the hand-built dense-neighbors construction is
+kernel-count-optimal --- and then grows the remaining free term \kdnodes{} by a further 35\%
+(8.88\,M $\rightarrow$ 12.01\,M, map extent 6 $\rightarrow$ 9 blocks). The frozen union-worst
+fixture (\texttt{search\_00}) dominates every measured engine on every percentile.
+
+\input{tables/counters}
+
+\subsection{Frame-time tails: C++ vs Rust}
+\label{sec:eval-tails}
+% The headline table. Equal-work check passed 6/6.
+The equal-work assertion holds on all six fixtures (identical \texttt{iteration\_num} per
+engine pair), so the comparison is algorithm-fair. The Rust port's observed maximum is at or
+below the C++ engine's on every fixture (ratios 0.13--0.85; union worst: \SI{876}{ms}
+$\rightarrow$ \SI{608}{ms}).
+
+\input{tables/tails}
+
+% Note the subnormal outlier: 7.9x. x86 FP-assist hazard hits C++ harder; expect this to be
+% platform-specific (AArch64 handles subnormals in HW).
+The \emph{subnormal} fixture is the outlier ($7.9\times$): floating-point assists on subnormal
+operands penalize the C++ engine far more than the Rust one on this microarchitecture.
+\todo{contrast with AArch64, where subnormals are largely handled in hardware.}
+
+\subsection{Heap allocations per align}
+\label{sec:eval-alloc}
+% 11 mallocs/point/pass decomposition + the three layers. Rust proven 0.
+The interposer counts decompose as ${\approx}11$ allocations per point per derivative pass on
+every fixture (e.g.\ $\num{682248} / (31 \cdot 2000) = 11.0$), locating the source in the
+per-point inner loop: a fresh neighbor vector constructed inside the parallel loop body, two
+fresh index/distance vectors per radius-search call, and per-query result containers inside
+pcl/FLANN (${\approx}8$/point). These ride the allocator's thread-cache fast path --- invisible
+on average, but each is a potential lock, page fault, or fragmentation stall inside the
+innermost loop. The Rust engine hoists all three layers into a pre-reserved workspace and
+measures zero in the same harness, consistent with its allocation-freedom proof.
+
+\input{tables/alloc}
+
+\subsection{Unit-cost regression}
+\label{sec:eval-regression}
+% T ~ a*nbr + b*kd + c per engine; R^2 >= 0.997. a: 133 vs 47 ns. Interpretation + caveat on
+% the negative intercept (n=6 extrapolation artifact).
+Regressing median latency on the (shared) counters yields $R^2 \ge 0.997$ for both engines:
+the two-term work model explains the timing. The per-kernel-evaluation cost is
+\SI{133}{ns} (C++) vs.\ \SI{47}{ns} (Rust) --- $2.8\times$ --- while C++'s per-kd-node cost is
+lower (\SI{26}{ns} vs.\ \SI{38}{ns}); the kd term is second-order on the worst set. (The small
+negative Rust intercept is an extrapolation artifact of the $n=6$ fit.)
+
+\input{tables/regression}
+
+\subsection{Gumbel tail fit (\pwcet)}
+\label{sec:eval-gumbel}
+% Comparative pWCET. beta small everywhere => tight warm-cache tails.
+\input{tables/gumbel}
+
+Fitted scale parameters are small everywhere ($\beta \le \SI{1.3}{ms}$): warm-cache tails are
+tight, and the residual spread is interference, not algorithmic variance. On the union worst
+fixture the $10^{-9}$ per-block exceedance quantile extrapolates to \SI{900}{ms} (C++) vs.\
+\SI{629}{ms} (Rust). These are \emph{comparative} estimates (Sec.~\ref{sec:threats}).
+
+\todo{AArch64 bare-metal: counter-equality verification table + target tail table + whether the
+\SI{100}{ms} @ 10\,Hz budget holds on the target for the union worst fixture.}

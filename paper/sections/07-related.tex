@@ -1,0 +1,35 @@
+\section{Related Work}
+\label{sec:related}
+
+% Position against: (a) static WCET (aiT, Wilhelm survey) -- needs loop bounds we don't have
+% statically; (b) MBPTA/EVT (Cucu-Grosjean, Cazorla survey, Edgar&Burns) -- we adopt the EVT
+% tail but replace random input sampling with counter-guided deterministic search;
+% (c) worst-case input search / WCET fuzzing (evolutionary WCET search, e.g. Wegener et al.)
+% -- prior work uses wall-time fitness; our fitness is deterministic algorithmic counters,
+% making the search reproducible and platform-independent; (d) Rust for RT systems;
+% (e) NDT itself (Biber&Strasser, Magnusson) and Autoware localization.
+
+\paragraph{Static WCET analysis}
+\todo{aiT / Wilhelm et al.\ survey~\cite{wilhelm2008wcet}: precise for control-dominated code
+with annotatable loop bounds; our dominant bounds are input properties, so static analysis
+alone yields only the astronomically pessimistic product bound.}
+
+\paragraph{Measurement-based probabilistic timing analysis}
+\todo{MBPTA and EVT-based \pwcet~\cite{cucu2012mbpta,cazorla2019mbpta,edgar2001gumbel}: we
+adopt the Gumbel tail machinery but replace random/representative input sampling with a
+deterministic counter-guided search for adversarial inputs, and add a cross-language equal-work
+certificate.}
+
+\paragraph{Evolutionary worst-case input search}
+\todo{Search-based WCET estimation with wall-time fitness (Wegener et
+al.~\cite{wegener1997testing}); our fitness is a deterministic algorithmic counter vector ---
+reproducible, machine-independent, and checkable against an analytic bound (saturation
+certificate).}
+
+\paragraph{Rust in real-time systems}
+\todo{Rust RT surveys / case studies; panic-freedom and allocation-freedom as verifiable
+properties; contrast with our lint- and test-enforced RT path.}
+
+\paragraph{NDT and localization}
+\todo{Biber \& Strasser~\cite{biber2003ndt}, Magnusson~\cite{magnusson2009thesis}, Autoware
+localization / multigrid ndt\_omp~\cite{autoware}.}
