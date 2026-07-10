@@ -189,6 +189,9 @@ be flaky, slow, and blocked by CI egress). This mirrors the L3 precedent (`NDT_B
 
 ## L2 — kernel micro-benchmark (locate where time goes)
 
+> WCET analysis (worst-case tail, adversarial fixtures, C++-vs-Rust unit-cost comparison) now has
+> its own roadmap: `plan/ndt_wcet.md`. The L2 fixtures/harness below are shared with it.
+
 Rust side: add `autoware_ndt_scan_matcher_rs/benches/` with **`criterion`** (dev-dependency; the crate has
 **no `benches/` yet**). Bench targets:
 - `ndt::align` (`src/ndt.rs:610`) — the optimization loop, the dominant cost.
