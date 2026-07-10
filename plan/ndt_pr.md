@@ -126,6 +126,94 @@ differential tests. The engine-level differential gtests (link `multigrid_ndt_om
 node) therefore run from P1 on. Only the final node-migration PRs flip ON to compile the `rust/` node;
 the end state equals Stage 0.
 
+**Rule 3 — Rust is safer than C++ at degenerate inputs.** Equivalence is scoped to the **valid input
+domain**; on the **degenerate domain** C++ leaves undefined (division by zero, singular matrices,
+empty clouds, NaN/Inf), Rust returns a safe result as a **documented divergence**. This does not
+weaken Rule 1: a guard of the form `if denom.abs() < EPS { fallback } else { numer / denom }` only
+changes behavior where C++ was already broken, so the differential tests (run on valid fixtures) stay
+green. Keep degenerate inputs **out** of the differential fixtures — they go to Rust-only tests.
+Constraints: guards are branch-only (no panic, no alloc, deterministic — RT-safe); `Result`/`Option`
+at API boundaries, sentinel/skip on the hot path; a published pose is gated on `is_finite()` →
+non-converged; surface degeneracy via `diagnostics` counters where meaningful (**do not silently mask
+real bugs**).
+
+**Over/underflow** splits by type: **integer** over/underflow is already enforced workspace-wide
+(`overflow-checks = true` + clippy `arithmetic_side_effects = "deny"`, with the allowlist permitting
+unchecked arithmetic for **floats only**) — every integer op must be explicit `checked_*` /
+`saturating_*` / `wrapping_*`, so there is no silent wrap *and* no overflow panic; this is a baseline
+gate, not per-PR work. *(Audited 2026-07-10 on the two-crate workspace: the profile + `[workspace.lints]`
+live in the workspace-root/node manifest and cover both members for every in-tree build — colcon/
+Corrosion maps Release→cargo `release`, and a `cd engine` build resolves the parent workspace. The
+float-only rule now holds everywhere: the `voxel_grid` i64 span math and the node FFI marshaling
+strides were converted to `checked_*`/`saturating_*`/chunked slices (`src/ffi_matrix.rs`) and their
+suppressions narrowed. One structural caveat — cargo profiles/lints do **not** travel with a
+dependency, so an external consumer of `engine/` (the no_std kernel) must re-declare
+`overflow-checks = true` in its own final-binary profile; documented in `engine/Cargo.toml` and
+`doc/book/src/rt/panic-free.md`.)* **Float** over/underflow is IEEE-identical to C++ (±Inf / subnormal), so it is
+**not** guarded per-op (that would break equivalence and hurt WCET); it is caught where it matters — at
+the `is_finite()` result/published-pose gate above *(implemented 2026-07-10 in the engine verdict:
+`run_align_with` forces `is_converged = false` on a non-finite result pose, so every consumer's
+publish gate inherits it)*. The port already mirrors PCL's *existing* guards (eigenvalue clamping in `voxel_grid`,
+`try_inverse` in `covariance`/`voxel_grid`, `.solve(_, 1e-9)` in `ndt`); new guards target only the
+sites C++ leaves **unguarded**.
+
+**Per-PR definition of done** (feature PRs P2–P12): (a) module ported bit-exact + its differential
+test; (b) crate cargo tests; (c) a **hazard scan** of the module (raw `/`, `inverse`/`eigen`/`solve`,
+`v/‖v‖`, `sqrt`/`ln` domain, `Σ/N`, quaternion↔euler at singular poses, NaN/Inf into the pose, lossy
+int casts, integer over/underflow → `checked_*`/`saturating_*`, float overflow → Inf reaching a result,
+NaN-aware `min`/`max`/`argmax`/`sort` — `f64` is not `Ord`, so `partial_cmp` must not `unwrap`-panic or
+mis-select on NaN, e.g. in TPE best-particle / kd-tree nearest / score selection); (d) **behavior-preserving guards** for any unguarded hazard; (e) **Rust-only degenerate
+tests** (assert the safe result *and* that valid inputs are unchanged); (f) **divergence entries** in
+`doc/book/src/port/divergences.md` + a one-line code comment at each guard. The sliced PRs may thus
+exceed the `ndt_in_rust_3_clean` baseline — that tree is the equivalence baseline, not a hard cap.
+Exempt from the numeric-hazard rule: **P1** (scaffold — verified no numeric hazard: `init_thread_pool`
+already guards `num_threads == 0`; `ros_msgs` is bindgen; `nalgebra` is a re-export), **P13** (node
+swap), and **P14–P16** (mt / bench / docs).
+
+> **Hazard-scan status (2026-07-10): a full-tree scan ran on `ndt_in_rust_3_clean` and every
+> finding is fixed**, so each feature PR's DoD item (c) is a *re-verification* of its sliced module,
+> not a first-time scan. Findings → fixes (all pinned by Rust-only degenerate tests, recorded in
+> `divergences.md`): the step-length **`f64::clamp` panic** on the RT align path — actually a **port
+> parity bug**, since C++ `computeStepLengthMT` does non-panicking `std::min` **then** `std::max`
+> (min-then-max, yielding `step_min` when `trans_epsilon/2 > step_size`) — fixed to the exact C++
+> order in `engine/src/ndt.rs`; the **engine `is_finite` verdict gate** (non-finite pose ⇒
+> non-converged, `run_align_with`); the **`asin` domain clamp** in `matrix_to_euler`; the
+> **`gauss_constants` degenerate-config clamp**; the **softmax `temperature` guard** (uniform-weight
+> fallback, `calc_weight_vec`); the **zero-norm quaternion guard** (`pose_to_matrix4` →
+> `SM_INTERPOLATE_FAILED`); the **align-service `best_pose` finiteness gate**. Confirmed all-guarded
+> (no change needed): fallible `try_inverse`/`SVD.solve(_, 1e-9)`/eigen everywhere, NaN-safe
+> orderings (`total_cmp` sorts, `>`-selection with `NEG_INFINITY` seeds — no `partial_cmp` unwraps),
+> guarded `Σ/N` and `v/‖v‖` divisions, `pose_buffer` equal-stamp interpolation (integer-stamp
+> branch). Intentional non-divergence: gimbal-lock RPY stays C++/tf2-identical.
+
+**Rule 4 — guard valid-domain equivalence, too (numeric-parity hazards).** Separate from degenerate
+robustness (Rule 3), these can silently break bit-exactness *on valid inputs* or make a "bit-exact"
+test a false positive. Each feature PR's hazard scan must also check them, and match C++ (or record a
+tolerance):
+- **FP contraction / FMA**: C++ may fuse `a*b+c` into one rounding (`-ffp-contract`, SIMD/opt); Rust
+  never auto-fuses (`mul_add` is explicit). Confirm the C++ build does not contract (or mirror it).
+- **`-ffast-math`**: if the C++ build enables it (reassociation / no-NaN / FTZ), strict-IEEE Rust will
+  not match. (The NDT `-msse*` flags do not imply it — confirm.)
+- **Transcendental parity**: `sin/cos/exp/atan2` are not correctly-rounded and differ across glibc
+  (C++/Eigen) vs the `libm` crate (nalgebra is built `features=["libm"]`) and across host/no_std and
+  x86_64/aarch64. `sqrt` is IEEE-exact and matches. **Differential tests on transcendental-bearing
+  paths use a tolerance, not bit-exact equality**; bit-exact assertions are reserved for
+  add/sub/mul/div/sqrt-only paths.
+- **Summation order**: float `+` is non-associative — mirror C++'s serial loop order; the parallel
+  reduce stays order-preserving (== serial), per the engine design.
+- **Negative-coordinate rounding** for voxel indexing: `floor()` vs C-style truncation-toward-zero
+  differ for negatives — match C++'s exact rounding when binning points into voxels.
+- **Singularity threshold**: `try_inverse` / `.solve(_, eps)` epsilons must match the C++ branch
+  boundary, else borderline inputs diverge.
+- **Signed zero / FTZ-DAZ / subnormals**: only a concern if the C++ SIMD path sets MXCSR FTZ; note if
+  so.
+
+**Deliberately NOT hardened (equivalence wins).** Numerically *better* algorithms that would change the
+bits are **rejected** to preserve valid-domain equivalence: no Kahan/compensated summation, no
+two-pass/Welford covariance (C++ uses `E[x²]-E[x]²`, cancellation and all), no trust-region step cap.
+The naive C++ math is mirrored exactly; any resulting non-positive-definite covariance is absorbed by
+the existing eigenvalue clamp. Record these as intentional non-divergences in `divergences.md`.
+
 Bottom-up so each PR compiles and `cargo test` is green:
 
 | PR | Content (new files) | Original-C++ change | Equivalence test in this PR |
