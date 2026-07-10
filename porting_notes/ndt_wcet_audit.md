@@ -118,3 +118,36 @@ are low-rate, and it is still strictly better than the old giant lock (which blo
 entire rebuild). Mitigation if hard-RT reclamation matters later: hand the superseded `Arc` to a
 dedicated cleanup/map-update thread to drop (deferred reclamation), or an epoch/hazard scheme — keep
 the heavy free off the align thread. Not done now (soft ~10 Hz use; the giant-lock removal is the win).
+
+## M1 re-audit (2026-07-10, `ndt_wcet` branch — after the crate split, the hazard-scan fixes, and the `wcet-count` instrumentation)
+
+Re-ran the WCET audit over the current engine crate (`engine/src`, post two-crate split). The
+boundedness table above still holds, with these deltas:
+
+- **Panic audit correction.** The earlier "no panic in the RT path" claim was **wrong**: the
+  step-length port used `f64::clamp(step_min, step_size)`, which panics when a misconfigured
+  `trans_epsilon / 2 > step_size` makes `min > max` — a panic source inside the align loop that this
+  audit missed and the 2026-07-10 numeric-hazard scan caught. Fixed to the C++-parity
+  `min(step_size).max(step_min)` (never panics, identical on the valid domain; pinned by
+  `align_degenerate_step_bounds_do_not_panic`). Lesson recorded: lint gates do not flag `clamp`, so
+  the audit checklist now includes the panicking std float APIs (`clamp`, `div_euclid`, …).
+- **New O(1) guards on the align path** (from the hazard scan): the `asin` domain clamp in
+  `matrix_to_euler`, the degenerate-config clamps in `gauss_constants` (both once per align), and
+  the non-finite-pose verdict gate in `run_align_with` (16 × `is_finite` per align). All constant
+  cost; no effect on the bound structure.
+- **`wcet-count` instrumentation (M1, plan/ndt_wcet.md Layer 2).** Deterministic cost counters
+  (`derivative_passes`, `points_processed`, `sum_neighbors`, `kd_nodes_visited`) on
+  `AlignWorkspace`/`AlignResult`, populated via `PointContribution` and a visited counter threaded
+  through the kd-tree walk. **Compiled out when the feature is off** — the threaded `&mut u64` is
+  never written (verified: clippy `only_used_in_recursion` fires in the off build, suppressed with a
+  cfg-gated `expect`), so the shipping hot path is untouched. Counters are identical between the
+  serial and rayon backends (both fold the same per-point contributions;
+  `parallel_counters_match_serial`). The Layer-1 analytic bound is now a machine-checked property
+  (`tests/wcet_bounds.rs`, proptest, 64 cases): `passes ≤ iter+1`, `points = passes × P`,
+  `neighbors ≤ points × MAX_NEIGHBORS`, `kd_nodes ≤ points × leaves`.
+- **Residuals updated for M2** (unchanged in substance, now scheduled): (a) first-frame/growth
+  allocation — `AlignWorkspace::new()` starts empty, so the zero-alloc invariant is *after warmup*;
+  M2 adds worst-case pre-reserve and a first-frame zero-alloc test. (b) kd-tree recursion — depth
+  is O(log N) by the median build (stack usage bound), traversal worst-case O(N_leaves) accepted;
+  M2 converts the walk to an explicit fixed-size stack (order-preserving, oracle-tested) so the RT
+  path is recursion-free. (c) `MAX_NEIGHBORS` truncation and hardware validation — unchanged.
