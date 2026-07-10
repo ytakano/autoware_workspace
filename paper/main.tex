@@ -16,8 +16,10 @@
 \usepackage[hidelinks]{hyperref}
 \usepackage{cite}
 
-% Auto-generated prose numbers for the P-sweep (scripts/gen_tables.py).
+% Auto-generated prose numbers (scripts/gen_tables.py).
 \input{tables/psweep_macros}
+\input{tables/legal_macros}
+\input{tables/regression_macros}
 
 % --- editing aids (strip before submission) ---
 \newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
@@ -58,10 +60,13 @@ Rust engine transfers verbatim to the uninstrumented C++ engine, with equal work
 iteration-count assertion. On the frozen adversarial input set, the search provably saturates the
 analytic kernel-evaluation bound ($P \cdot \maxnn \cdot (N_{\mathrm{iter}}{+}1)$). Measurements
 show the Rust port meets or beats the C++ engine's observed maximum on every fixture
-(max-latency ratios 0.13--0.85), while the C++ engine performs $\approx$11 heap allocations per
+(max-latency ratios 0.14--0.86), while the C++ engine performs $\approx$11 heap allocations per
 point per derivative pass ($\num{682248}$ per align on the worst fixture) against a proven zero
-for Rust. A unit-cost regression ties median latency to the counters with $R^2 \ge 0.997$ on
-both engines, and a Gumbel tail fit provides comparative \pwcet{} estimates.
+for Rust. A unit-cost regression ties median latency to the counters with $R^2 \ge 0.99$ on
+both engines, a controlled sweep shows the bound is affine in the scan size, and a two-tier
+formulation separates the untrusted-input worst case from the
+preprocessing-reachable one ($5\times$ apart), quantifying the value of validating input
+contracts at the component boundary. A Gumbel tail fit provides comparative \pwcet{} estimates.
 \todo{AArch64 bare-metal target numbers (M5).}
 \end{abstract}
 

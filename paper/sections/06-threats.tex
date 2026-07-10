@@ -14,13 +14,20 @@
     the full input space; the saturation argument covers the kernel-evaluation term exactly,
     but the kd-traversal term has no matching analytic maximum, so a worse traversal geometry
     may exist. The structural $O(N_{\mathrm{leaves}})$ bound still caps it.
-  \item \textbf{Caller-side assumptions.} $P$ (downsampled scan size) is a node-level cap,
-    assumed, not enforced by the engine. The affine $\mathrm{WCET}(P)$ law is validated over
-    $P \in [\psweepPmin{}, \psweepPmax{}]$ on the host (Sec.~\ref{sec:eval-psweep}); beyond
-    that range, working sets exceeding the last-level cache could bend the slope upward, and
-    the engine's zero-allocation guarantee is tied to the pre-reserved capacity (exceeding it
-    costs a one-time buffer growth). \maxnn{} truncation deviates from C++'s unbounded
-    neighbor set if a map ever exceeds 64 neighbors in radius (treated as misconfiguration).
+  \item \textbf{Input realizability and caller-side assumptions.} The engine-level fixtures
+    are API-legal but not reachable through the production preprocessing pipeline (duplicate
+    source points, sub-downsample map clusters, overlapping tiles); the bound they support is
+    the \emph{untrusted-input} tier, deliberately conservative. The deployment tier is measured
+    separately (Sec.~\ref{sec:eval-twotier}), but its contracts --- tile disjointness and
+    alignment, map/scan downsampling, the $P \le 1500$ cap --- are properties of the map and
+    sensing pipelines that the engine does \emph{not} verify; a violated contract silently
+    moves the system back to the engine-level tier. The affine $\mathrm{WCET}(P)$ law is
+    validated over $P \in [\psweepPmin{}, \psweepPmax{}]$ on the host
+    (Sec.~\ref{sec:eval-psweep}); beyond that range, working sets exceeding the last-level
+    cache could bend the slope upward, and the engine's zero-allocation guarantee is tied to
+    the pre-reserved capacity (exceeding it costs a one-time buffer growth). \maxnn{}
+    truncation deviates from C++'s unbounded neighbor set if a map ever exceeds 64 neighbors
+    in radius (treated as misconfiguration).
   \item \textbf{Cross-ISA transfer.} ISA-independence of the Rust floating-point stream is by
     construction (pure-software \texttt{libm}) and verified via counter equality, but the C++
     comparison itself is inherently x86/Linux-bound (pcl/ROS dependency).

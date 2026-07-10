@@ -33,8 +33,25 @@ port commits at camera-ready.}
 Four hand-built generators target one hazard each: \emph{dense-neighbors} (8 overlapping map
 tiles whose voxel centroids crowd shared block corners, pinning $K = \maxnn = 64$ --- a single
 tile geometrically caps $K$ at the ${\le}8$ voxels sharing a corner when the search radius
-equals the leaf size, so tile overlap, i.e.\ production dynamic map loading, is essential);
+equals the leaf size, so tile overlap is essential);
 \emph{max-iterations} (rough random surface, $\epsilon = 10^{-10}$, never converges);
 \emph{cache-hostile} (wide map, shuffled source order); \emph{subnormal} (tight clusters with
 the source on a shell where the kernel's $\exp$ lands in the \texttt{f64} subnormal range).
 The search of Sec.~\ref{sec:meth-search} then composes and exceeds them.
+
+\subsection{The deployment tier: a preprocessing-legal worst case}
+\label{sec:impl-legal}
+% These fixtures are engine-API-legal but NOT reachable through the production preprocessing
+% pipeline. legal_worst is the hardest input that IS.
+The fixtures above are \emph{engine-API-legal} but not \emph{preprocessing-reachable}: the
+production pipeline voxel-downsamples the scan (leaf \SI{3.0}{m}; no duplicate points), caps it
+at $P = 1500$ points (random downsample), and crops it to $\pm\SI{60}{m}$ --- and the map
+pipeline emits disjoint, voxel-aligned tiles from a downsampled PCD, which limits leaf
+multiplicity to 1 and hence $K$ to the ${\le}8$ voxels sharing a corner (the values are
+Autoware's shipped localization defaults). We therefore add a fifth fixture,
+\emph{legal-worst}: the hardest input satisfying all of these contracts --- a single tile whose
+per-voxel points are spaced to survive map downsampling (centroids ${\approx}$ voxel centers,
+$\sqrt{3} < 2.0$ from each lattice corner), and $P = 1500$ duplicate-free source points on
+distinct lattice corners at \SI{4}{m} pitch inside the crop, each collecting exactly $K = 8$,
+with $\epsilon = 10^{-10}$ pinning the iteration cap. Its counters certify the deployment
+geometric ceiling: $\bar{K} = 8.0$ against the engine-level 64.

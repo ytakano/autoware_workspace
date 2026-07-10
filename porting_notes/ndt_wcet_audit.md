@@ -306,3 +306,39 @@ Linear fit on the **max** series, `WCET(P) = slope·P + const`:
 - Paper: §5 "Scaling with the input size P" + Table/Fig (auto-generated from
   paper/data/{wcet_psweep,psweep_rust}.json); §6 threat updated (validated range; beyond-range
   extrapolation + pre-reserve capacity caveats).
+
+## Two-tier bound (2026-07-10 follow-up): engine-level vs deployment-legal worst case
+
+Question raised: are the adversarial fixtures realizable AFTER the production preprocessing?
+Answer: no, in three ways — duplicate source points (vs voxel_grid_downsample leaf 3.0 m),
+3 cm map clusters (vs the ~0.2 m map downsample), overlapping tiles (vs disjoint voxel-aligned
+pcd_divider tiles ⇒ real leaf multiplicity 1 ⇒ K ≤ 8, not 64). The engine-level bound stays
+sound (over-approximation; the right contract for the no_std kernel target where inputs cross a
+trust boundary) — but the deployment tier deserved its own measured bound.
+
+Production contract (autoware_launch localization pointcloud_preprocessor params): crop ±60 m,
+voxel leaf 3.0 m (no duplicates), random_downsample sample_num = 1500 (the literal production
+P cap). New frozen fixture `legal_worst` (commit b23051cb): hardest input satisfying all
+contracts — single tile, per-voxel points ≥0.7 m apart (survive map downsample), P=1500 on
+distinct 4 m-pitch lattice corners, K̄ = 8.0 exactly, eps=1e-10 ⇒ iter=30.
+
+Measured (7-fixture re-run, equal-work 7/7):
+
+| tier | fixture | C++ max | Rust max |
+|---|---|---|---|
+| engine-API (untrusted) | search_00 | 933.5 ms | 610.1 ms |
+| deployment (contracts hold) | legal_worst | **169.2 ms** | **121.8 ms** |
+
+(Values from the n=7 re-run; per-run variation of the union worst is within ~1 %.)
+
+- **Ratio ≈ 5.0× (Rust) / 5.5× (C++)** — enforcing input contracts at the boundary tightens
+  the defensible bound ~5×, without touching the kernel.
+- **Bottleneck shift**: kernel evaluations drop 10.7× (Σnbr 3.97M → 372k) but time only ~5× —
+  kd-tree traversal (unaffected by the K ceiling; 96 nodes/pt over 11.5k leaves) becomes the
+  dominant term of the deployment tier. Confirms the unit-cost model's prediction.
+- Unit-cost regression re-fit with n=7: a = 145 ns (C++) / 62 ns (Rust) per kernel eval
+  (ratio 2.3×), b = 22 / 33 ns per kd node, R² ≥ 0.9927. (Prose in the paper now flows from
+  auto-generated macros — regression_macros.tex / legal_macros.tex — no hand-typed numbers.)
+- Remaining assumption, stated in the paper's threats: tile disjointness/alignment and the
+  downsample invariants are map/sensing-pipeline properties the ENGINE does not verify; a
+  violated contract silently moves the system back to the engine-level tier.

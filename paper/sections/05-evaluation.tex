@@ -56,13 +56,35 @@ measures zero in the same harness, consistent with its allocation-freedom proof.
 \label{sec:eval-regression}
 % T ~ a*nbr + b*kd + c per engine; R^2 >= 0.997. a: 133 vs 47 ns. Interpretation + caveat on
 % the negative intercept (n=6 extrapolation artifact).
-Regressing median latency on the (shared) counters yields $R^2 \ge 0.997$ for both engines:
-the two-term work model explains the timing. The per-kernel-evaluation cost is
-\SI{133}{ns} (C++) vs.\ \SI{47}{ns} (Rust) --- $2.8\times$ --- while C++'s per-kd-node cost is
-lower (\SI{26}{ns} vs.\ \SI{38}{ns}); the kd term is second-order on the worst set. (The small
-negative Rust intercept is an extrapolation artifact of the $n=6$ fit.)
+Regressing median latency on the (shared) counters yields $R^2 \ge \regRsqRust$ for both
+engines: the two-term work model explains the timing. The per-kernel-evaluation cost is
+\SI{\regKernelNsCpp}{ns} (C++) vs.\ \SI{\regKernelNsRust}{ns} (Rust) ---
+$\regKernelRatio\times$ --- while C++'s per-kd-node cost is lower (\SI{\regKdNsCpp}{ns} vs.\
+\SI{\regKdNsRust}{ns}); the kd term is second-order on the engine-level worst set, though it
+dominates the deployment tier (Sec.~\ref{sec:eval-twotier}). (The small negative Rust
+intercept is an extrapolation artifact of the small-$n$ fit.)
 
 \input{tables/regression}
+
+\subsection{Two-tier bound: engine level vs.\ deployment level}
+\label{sec:eval-twotier}
+% The realizability question, answered by measurement. legal_worst (Sec 4) vs search_00.
+The adversarial fixtures bound the engine at its API --- the right contract for the
+\texttt{no\_std} kernel deployment, where inputs cross a trust boundary unvalidated. When the
+production preprocessing contracts hold (Sec.~\ref{sec:impl-legal}), the reachable input space
+shrinks, and with it the bound: on \emph{legal-worst}, the hardest preprocessing-reachable
+input we can construct, the observed maximum drops to \SI{\legalWorstMaxRust}{ms} (Rust) /
+\SI{\legalWorstMaxCpp}{ms} (C++) --- a factor of \legalWorstRatioRust$\times$ /
+\legalWorstRatioCpp$\times$ below the engine-level union worst
+(Table~\ref{tab:tails}). The mechanism is the $K$ ceiling: disjoint voxel-aligned map tiles cap
+leaf multiplicity at 1, so $\bar{K} = \legalWorstKbar$ instead of 64, and the production
+random-downsample cap fixes $P \le 1500$. Note the shift in the cost structure: kernel
+evaluations drop $10.7\times$ ($\sumnbr$: $3.97\,\mathrm{M} \rightarrow 372\,\mathrm{k}$) but
+time drops less, because kd-tree traversal --- unaffected by the $K$ ceiling --- becomes the
+dominant term of the deployment tier. Read constructively, the pair quantifies what
+\emph{enforcing input contracts at the component boundary} buys: validating tile disjointness
+and scan-downsample invariants before the align tightens the defensible WCET bound by
+$\legalWorstRatioRust\times$ without touching the kernel itself.
 
 \subsection{Scaling with the input size $P$}
 \label{sec:eval-psweep}

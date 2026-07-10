@@ -55,9 +55,11 @@ Our contributions:
     kernel-evaluation maximum $P \cdot \maxnn \cdot (N_{\mathrm{iter}}{+}1)$ exactly, then
     grows the remaining free term (kd-tree traversal) by a further 35\%.
   \item An \textbf{industrial case study}: on every adversarial fixture the Rust port's observed
-    maximum is at or below C++'s (ratios 0.13--0.85); the C++ engine makes ${\approx}11$ heap
+    maximum is at or below C++'s (ratios 0.14--0.86); the C++ engine makes ${\approx}11$ heap
     allocations per point per derivative pass (up to \num{682248} per align), a structural
     unbounded-latency hazard the Rust port eliminates by construction (proven zero-allocation,
-    recursion-free, panic-free).
+    recursion-free, panic-free). A \textbf{two-tier bound} separates the untrusted-input
+    (engine-API) worst case from the preprocessing-reachable one, quantifying what enforcing
+    input contracts at the component boundary buys ($\legalWorstRatioRust\times$ here).
     \todo{+ AArch64 bare-metal bound, counter-verified cross-ISA transfer (M5).}
 \end{enumerate}

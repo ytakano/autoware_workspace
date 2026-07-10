@@ -35,9 +35,10 @@ For one align call:
 with exactly four data-dependent freedoms:
 \begin{itemize}
   \item $N_{\mathrm{iter}} \le$ \texttt{max\_iterations} (static loop guard; default 30);
-  \item $P$: source-cloud size --- a \emph{caller-side} bound (the node voxel-downsamples the
-        scan); we fix $P = 2000$ except in the scaling study of Sec.~\ref{sec:eval-psweep},
-        which validates that the bound is affine in $P$;
+  \item $P$: source-cloud size --- a \emph{caller-side} bound (Autoware's shipped pipeline
+        random-downsamples the scan to exactly $P \le 1500$); we use $P = 2000$ for the
+        engine-level fixtures (a margin above the production cap) except in the scaling study
+        of Sec.~\ref{sec:eval-psweep}, which validates that the bound is affine in $P$;
   \item $K(p) \le \maxnn = 64$: neighbor leaves per point (enforced search cap);
   \item kd-tree traversal length per query (worst case $O(N_{\mathrm{leaves}})$, geometry-dependent).
 \end{itemize}

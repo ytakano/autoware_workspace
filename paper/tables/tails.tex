@@ -8,12 +8,13 @@
 \toprule
 fixture & \multicolumn{2}{c}{C++ (p50 / max)} & \multicolumn{2}{c}{Rust (p50 / max)} & ratio \\
 \midrule
-\texttt{search\_00} (union worst) & 869.6 & 876.3 & 603.0 & 608.5 & \textbf{0.69} \\
-\texttt{search\_01} & 611.0 & 614.0 & 518.6 & 523.3 & \textbf{0.85} \\
-dense-neighbors & 593.7 & 597.0 & 397.3 & 399.4 & \textbf{0.67} \\
-max-iterations & 93.4 & 93.6 & 31.2 & 31.3 & \textbf{0.33} \\
-cache-hostile & 19.8 & 20.4 & 7.7 & 8.2 & \textbf{0.40} \\
-subnormal & 57.3 & 58.0 & 7.2 & 7.7 & \textbf{0.13} \\
+\texttt{search\_00} (union worst) & 876.3 & 933.5 & 602.5 & 610.1 & \textbf{0.65} \\
+\texttt{search\_01} & 603.3 & 606.7 & 516.8 & 519.4 & \textbf{0.86} \\
+dense-neighbors & 592.3 & 603.6 & 395.6 & 399.1 & \textbf{0.66} \\
+max-iterations & 89.1 & 97.9 & 31.2 & 31.3 & \textbf{0.32} \\
+cache-hostile & 19.5 & 19.7 & 7.6 & 7.7 & \textbf{0.39} \\
+subnormal & 55.8 & 56.3 & 7.2 & 7.7 & \textbf{0.14} \\
+legal-worst (deployment tier) & 163.8 & 169.2 & 120.6 & 121.8 & \textbf{0.72} \\
 \bottomrule
 \end{tabular}
 \par\smallskip\footnotesize ratio = Rust max / C++ max; $<1$ everywhere.
