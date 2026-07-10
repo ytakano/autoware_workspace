@@ -50,12 +50,12 @@ Our contributions:
     an MBPTA-style Gumbel tail fit on the frozen worst inputs.
   \item A \textbf{cross-language transfer argument}: instrumenting only the Rust port suffices,
     because bit-exactness carries the discovered worst inputs to the unmodified C++ engine;
-    equal work is certified per input by an iteration-count assertion (6/6 fixtures pass).
+    equal work is certified per input by an iteration-count assertion (8/8 fixtures pass).
   \item \textbf{Evidence that the search is effective}: it saturates the analytic
     kernel-evaluation maximum $P \cdot \maxnn \cdot (N_{\mathrm{iter}}{+}1)$ exactly, then
     grows the remaining free term (kd-tree traversal) by a further 35\%.
   \item An \textbf{industrial case study}: on every adversarial fixture the Rust port's observed
-    maximum is at or below C++'s (ratios 0.14--0.86); the C++ engine makes ${\approx}11$ heap
+    maximum is at or below C++'s (ratios 0.14--0.85); the C++ engine makes ${\approx}11$ heap
     allocations per point per derivative pass (up to \num{682248} per align), a structural
     unbounded-latency hazard the Rust port eliminates by construction (proven zero-allocation,
     recursion-free, panic-free). A \textbf{two-tier bound} separates the untrusted-input

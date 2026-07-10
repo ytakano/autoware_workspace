@@ -31,6 +31,7 @@ ORDER = [
     "cache_hostile",
     "subnormal",
     "legal_worst",
+    "legal_osc",
 ]
 LABEL = {
     "search_00": r"\texttt{search\_00} (union worst)",
@@ -40,6 +41,7 @@ LABEL = {
     "cache_hostile": r"cache-hostile",
     "subnormal": r"subnormal",
     "legal_worst": r"legal-worst (deployment tier)",
+    "legal_osc": r"legal-osc (deployment tier)",
 }
 
 
@@ -254,6 +256,14 @@ def legal_macros(timing, rust):
         rf"\newcommand{{\legalWorstRatioRust}}{{{max(un['rust']['samples_ms']) / lw_rust:.1f}}}",
         rf"\newcommand{{\legalWorstRatioCpp}}{{{max(un['cpp']['samples_ms']) / lw_cpp:.1f}}}",
     ]
+    if "legal_osc" in timing:
+        lo = timing["legal_osc"]
+        oc = rust["legal_osc"]["counters"]
+        macros += [
+            rf"\newcommand{{\legalOscMaxCpp}}{{{max(lo['cpp']['samples_ms']):.1f}}}",
+            rf"\newcommand{{\legalOscMaxRust}}{{{max(lo['rust']['samples_ms']):.1f}}}",
+            rf"\newcommand{{\legalOscKbar}}{{{oc['sum_neighbors'] / oc['points_processed']:.1f}}}",
+        ]
     (OUT / "legal_macros.tex").write_text("\n".join(macros) + "\n", encoding="utf-8")
     print("wrote tables/legal_macros.tex")
 

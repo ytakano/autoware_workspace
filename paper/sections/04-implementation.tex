@@ -75,10 +75,16 @@ geometric ceiling: $\bar{K} = 8.0$ against the engine-level 64.
 One axis of this fixture is deliberately \emph{not} production-parameterized: with the shipped
 $\epsilon = 0.01$, its smooth lattice geometry converges in 2 iterations, so the fixture pins
 the iteration cap through $\epsilon$ instead. Assuming the cap is nevertheless the right
-deployment-tier choice, on three grounds: (i) the iteration count is input-dependent and high
-counts are reachable with fully legal parameters --- our crude random-surface fixture already
-runs \textbf{22 of 30} iterations at $\epsilon = 0.01$; (ii) the production node ships an
-\emph{oscillation-count diagnostic} over the per-iteration pose array, machinery that exists
-precisely because non-convergence occurs in the field (feature-poor geometry, map mismatch,
-coarse initialization guesses); and (iii) a bound that assumed fewer iterations would be
-indefensible, since nothing structural prevents the cap from being reached.
+deployment-tier choice --- and the assumption is not hypothetical: re-running the
+counter-guided search with the \emph{parameters frozen to the shipped values} and every
+candidate checked against the preprocessing contract found a fully legal rough-surface
+geometry that oscillates to the full \textbf{30 of 30} iterations at $\epsilon = 0.01$
+(frozen as \emph{legal-osc}; a per-candidate legality verifier enforces the one-point-per-cell,
+crop, $P$, and map-spacing invariants independently of the generator). The production node
+also ships an \emph{oscillation-count diagnostic} over the per-iteration pose array ---
+machinery that exists precisely because non-convergence occurs in the field (feature-poor
+geometry, map mismatch, coarse initialization guesses). Within this search family the two
+worst axes resist combination: reaching $K = 8$ wants a smooth lattice (which converges
+quickly), oscillation wants roughness (which scatters centroids, $\bar{K} = \legalOscKbar$),
+so \emph{legal-worst} ($\epsilon$-pinned, higher total cost) remains the tier's time bound
+and \emph{legal-osc} is its iteration-axis witness.

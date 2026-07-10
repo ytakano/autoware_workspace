@@ -384,3 +384,28 @@ Conclusions:
   oscillation diagnostic's existence, (c) assuming fewer iterations would be indefensible.
   A future refinement: search for a preprocessing-legal geometry that oscillates to 30 at
   eps=0.01 (counter-guided, iteration count as fitness with params frozen to production).
+
+### Legal oscillator found: iter = 30 at production eps=0.01 (2026-07-10)
+
+The "future refinement" from the previous section is done. `wcet_search_legal.rs` (commit
+ca52f58d): counter-guided hill-climb with params FROZEN to production (eps 0.01, step 0.1,
+res 2.0, iter 30) and every candidate independently checked against the deployment contract
+(`verify_legal`: single tile; one source point per 3 m cell, P=1500, ±60 m crop; per-voxel map
+points on a 0.4 m sub-grid). The search reached the full 30-iteration cap — champion frozen as
+`bench/fixtures/legal_osc.ndtfix` (rough surface, half=31, amp=0.92, corner_frac=0.63, guess
+(−0.91, −0.65, yaw 0.035)).
+
+Canonical 8-fixture re-run (equal-work 8/8):
+
+| fixture | iter | K̄ | C++ max | Rust max |
+|---|---|---|---|---|
+| legal_worst (eps-pinned, K axis) | 30 | 8.0 | 169 ms | 122 ms |
+| legal_osc (production params, iter axis) | 30 | 3.0 | 146 ms | 65 ms |
+
+- **The deployment tier's iteration axis is now a measured fact, not an assumption**: a fully
+  preprocessing-legal geometry oscillates to the cap at shipped parameters.
+- **The two worst axes resist combination** in this search family: K=8 wants a smooth lattice
+  (converges in 2), oscillation wants roughness (scatters centroids, K̄=3.0). legal_worst
+  (higher total cost) remains the tier's time bound; legal_osc is the iteration witness. The
+  tier bound therefore combines the axes conservatively — stated in the paper (§4/§5/§6).
+- Regression re-fit at n=8: 143 (C++) vs 69 (Rust) ns/kernel eval, R² ≥ 0.9909.

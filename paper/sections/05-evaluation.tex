@@ -84,7 +84,11 @@ time drops less, because kd-tree traversal --- unaffected by the $K$ ceiling ---
 dominant term of the deployment tier. Read constructively, the pair quantifies what
 \emph{enforcing input contracts at the component boundary} buys: validating tile disjointness
 and scan-downsample invariants before the align tightens the defensible WCET bound by
-$\legalWorstRatioRust\times$ without touching the kernel itself.
+$\legalWorstRatioRust\times$ without touching the kernel itself. The iteration axis of the
+tier is not an artifact of the $\epsilon$ pin: the production-parameterized legal search
+(Sec.~\ref{sec:impl-legal}) reaches the full 30-iteration cap on \emph{legal-osc}
+(\SI{\legalOscMaxRust}{ms} Rust / \SI{\legalOscMaxCpp}{ms} C++, $\bar{K} = \legalOscKbar$) ---
+below \emph{legal-worst}, which therefore remains the tier's time bound.
 
 \subsection{Scaling with the input size $P$}
 \label{sec:eval-psweep}
