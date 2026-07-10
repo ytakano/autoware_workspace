@@ -227,10 +227,11 @@ buffers, 100 aligns + 10 warmup, serial, taskset -c 2) → LD_PRELOAD allocation
   The `subnormal` fixture is the outlier (7.9×): the subnormal-`exp` timing hazard hits the C++
   engine far harder than the Rust one on this hardware.
 - **Allocation:** C++ performs **88 k–682 k heap allocations per align** (search_00: 682,248/align;
-  measured by the interposer, plausibly the per-align `aligned` output cloud + per-iteration
-  temporaries); Rust measures **0** in the same harness — consistent with the zero_alloc.rs proof.
-  This is a first-order WCET risk on the C++ side (allocator latency is unbounded under
-  fragmentation/contention) that the Rust engine structurally does not have.
+  measured by the interposer); Rust measures **0** in the same harness — consistent with the
+  zero_alloc.rs proof. Root cause identified below (per-point inner-loop vectors, ≈ 11
+  mallocs/point/pass — NOT per-align temporaries). This is a first-order WCET risk on the C++
+  side (allocator latency is unbounded under fragmentation/contention) that the Rust engine
+  structurally does not have.
 - **Unit-cost regression** (`T_p50 ≈ a·Σneighbors + b·kd_nodes + c`, R² ≥ 0.997 both):
   kernel eval a = 133.2 ns (C++) vs **46.9 ns (Rust)** — 2.8× cheaper per derivative kernel;
   kd node b = 25.6 ns (C++) vs 37.7 ns (Rust) — C++'s per-node traversal is cheaper, but the term
@@ -242,3 +243,39 @@ buffers, 100 aligns + 10 warmup, serial, taskset -c 2) → LD_PRELOAD allocation
   spread is interference, not algorithm. **Not a certified pWCET** (one container, warm cache,
   moment fit); the hardware half of M5 (bare-metal AArch64/x86_64 + interference co-runner)
   remains pending.
+
+### C++ allocation root cause (2026-07-10 follow-up): ≈ 11 mallocs per point per derivative pass
+
+The interposer counts decompose exactly as **allocations ≈ 11 × P × derivative_passes** on every
+fixture — so the source is the per-point inner loop, not per-align temporaries:
+
+| fixture | allocs/align | ÷ (passes × P) |
+|---|---|---|
+| search_00 | 682,248 | 682248 / (31×2000) = **11.0** |
+| dense_neighbors | 511,748 | / (31×1500) = **11.0** |
+| max_iterations | 409,403 | / (31×1200) = **11.0** |
+| cache_hostile | 88,032 | / (4×2000) = **11.0** |
+| subnormal | 292,038 | / (31×1000) = 9.4 (points with zero neighbors take the early-return path) |
+
+Three stacked layers, all verified in this repo's sources (upstream, byte-identical — report only,
+do not fix):
+
+1. **Derivative loop body** — `src/ndt_omp/multigrid_ndt_omp_impl.hpp:427`: the OpenMP
+   parallel-for constructs `std::vector<TargetGridLeafConstPtr> neighborhood;` **inside the loop
+   body** (the simplest thread-safe pattern); `radiusSearch`'s `k_leaves.reserve(k)` then heap-
+   allocates it for every point that has neighbors → ~1 malloc/point.
+2. **radiusSearch wrapper** — `src/ndt_omp/multi_voxel_grid_covariance_omp_impl.hpp:263-264`:
+   fresh local `std::vector<float> k_sqr_distances; std::vector<int> k_indices;` per call, resized
+   by the kd query → ~2 mallocs/point.
+3. **pcl::KdTreeFLANN::radiusSearch internals** — pcl/FLANN allocate nested per-query result
+   containers (`vector<vector<int>>`-style wrappers + FLANN's internal result set) → the
+   remaining ~8 mallocs/point.
+
+Why it looks "free" in C++: the mallocs ride glibc's thread-cache fast path, so the *average*
+cost is nearly invisible — but each one is a potential lock/page-fault/fragmentation stall, i.e.
+exactly the unbounded-latency tail the WCET analysis exists to exclude. The Rust port removed all
+three layers structurally: the neighbor buffer is hoisted into `AlignWorkspace.neighbor_idx`
+(pre-reserved to `MAX_NEIGHBORS`, `clear()` keeps capacity), the kd search writes into the
+caller-provided buffer, and `with_capacity` makes even the first frame allocation-free. A C++-side
+fix would be hoisting `neighborhood`/`k_indices`/`k_sqr_distances` to thread-locals, but the
+upstream files must stay byte-identical, so this is recorded as a finding only.
