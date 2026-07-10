@@ -151,3 +151,94 @@ boundedness table above still holds, with these deltas:
   is O(log N) by the median build (stack usage bound), traversal worst-case O(N_leaves) accepted;
   M2 converts the walk to an explicit fixed-size stack (order-preserving, oracle-tested) so the RT
   path is recursion-free. (c) `MAX_NEIGHBORS` truncation and hardware validation — unchanged.
+
+## M2 (2026-07-10, `ndt_wcet` branch — Layer-1 prerequisites + adversarial fixtures + harness)
+
+Closes the two M1 residuals scheduled above and adds the frozen-fixture plumbing
+(plan/ndt_wcet.md M2).
+
+- **First-frame zero-alloc (WCET "hard zero").** `AlignWorkspace::with_capacity(max_points)`
+  (neighbor_idx → `MAX_NEIGHBORS`, trans_cloud → `max_points`, contribs → `max_points`) and
+  `MatchScratch::with_capacity(max_points, max_iterations)` (also pre-reserves the 3 per-iteration
+  `AlignResult` Vecs to `max_iterations + 1`). `tests/zero_alloc.rs` now asserts **zero
+  allocations including the first frame** for both the free `align` and the
+  `NdtEngine::align_with` path (a growth event is a WCET spike, so amortized warmup was not a
+  bound).
+- **Recursion-free RT path.** `KdTree::radius_search` now runs an iterative walk with a fixed
+  `[usize; 64]` stack (`MAX_STACK = 64` ≥ ⌈log₂N⌉+1 by the median build — overflow unreachable;
+  guarded without panic). **Exact visit order preserved** (near subtree first, far deferred LIFO):
+  neighbor order feeds float summation order = bit-exactness. The recursive walk is kept under
+  `#[cfg(test)]` as an oracle; `iterative_matches_recursive_oracle_exact_order` checks exact-order
+  equality on random trees (n ∈ {0,1,2,3,7,64,257,800} × 24 queries × max_nn ∈ {0,1,3,64}).
+  Same-day A/B on the synthetic fixture (taskset, 8k frames): recursive mean ≈ 531 µs → iterative
+  ≈ 466 µs (~12 % faster; the tree-node hot loop no longer pays call overhead).
+- **Frozen fixture format** (`engine/src/fixture.rs`, std-gated): magic `NDTFIX01`, little-endian;
+  map stored as **tiles** (one `add_target`/id each) because the multi-grid map keeps one voxel
+  grid per tile — overlapping tiles are the only way to drive per-point `K` to `MAX_NEIGHBORS`
+  (a single tile geometrically caps `K` at the ≤ 8 voxels sharing a corner when radius = leaf
+  size). C++-readable with a few `fread`s (M4). Sanity caps: ≤ 4096 tiles, ≤ 50 M points.
+- **Adversarial fixtures** (`engine/examples/wcet_fixtures.rs` → `bench/fixtures/*.ndtfix`):
+
+  | fixture | construction | map/src pts | iter | K̄ | kd nodes/pt |
+  |---|---|---|---|---|---|
+  | `dense_neighbors` | 8 overlapping tiles, centroids hugging shared 2×2×2-block corners, ε-guess + tiny ε_trans | 18432/1500 | **30** | **64.0** (= cap) | 142.9 |
+  | `max_iterations` | rough random surface, trans_epsilon 1e-10 | 3200/1200 | **30** | 2.7 | 35.5 |
+  | `cache_hostile` | 60×60-voxel map, source shuffled across 120 m | 28800/2000 | 3 | 3.0 | 67.5 |
+  | `subnormal` | σ≈0.05 clusters (icov≈360), source on 1.99 m shell → `exp` → f64 subnormals | 1200/1000 | **30** | 0.7 | 15.9 |
+
+- **Harness** (`wcet_frame.rs` fixture mode, `WCET_FRAMES` env): first HWM numbers (this container,
+  taskset -c 2, 300 frames, serial, feature off):
+
+  | fixture | p50 | p99 | max |
+  |---|---|---|---|
+  | `dense_neighbors` | 397.6 ms | 424.6 ms | 425.5 ms |
+  | `max_iterations` | 31.3 ms | 33.9 ms | 42.8 ms |
+  | `cache_hostile` | 7.7 ms | 11.7 ms | 12.1 ms |
+  | `subnormal` | 7.9 ms | 8.4 ms | 9.0 ms |
+
+  `dense_neighbors` (K = 64 × 30 iterations, the compound Layer-1 worst case) is ~50× the
+  iteration-only fixture — confirming `N_iter × P × K` as the dominant WCET product term. These are
+  container numbers (relative shape, not a hardware bound); with-counters runs match within noise.
+- **Deferred (unchanged):** direct ≤ 27-voxel probe (changes neighbor sets → breaks bit-exactness);
+  hardware measurement (M5 second half).
+
+## M4 (2026-07-10, `ndt_wcet` branch — C++ comparison on the frozen worst set)
+
+Pipeline: `bench/run_wcet.sh` = colcon build (Release, NDT_USE_RUST=ON, NDT_BUILD_BENCH=ON) →
+Rust counters (`wcet_frame`, WCET_JSON) → `ndt_bench_replay --fixture` (both engines, identical
+buffers, 100 aligns + 10 warmup, serial, taskset -c 2) → LD_PRELOAD allocation pass
+(`bench/alloc_count.c`) → `bench/wcet_report.py`. Container: Ryzen 9 5900HX, GCC 11.4, rustc 1.96.
+
+- **Equal-work gate: 6/6 fixtures pass** — `iteration_num` identical C++ vs Rust on every frozen
+  fixture (incl. both search outputs), so the timing comparison is algorithm-fair and the
+  counter-derived worst inputs transfer to C++ as designed (bit-exactness).
+- **Headline: Rust ≤ C++ on the max of every fixture** (max ratio Rust/C++):
+
+  | fixture | C++ max (ms) | Rust max (ms) | ratio |
+  |---|---|---|---|
+  | search_00 (union worst) | 876.3 | 608.5 | **0.69** |
+  | search_01 | 614.0 | 523.3 | 0.85 |
+  | dense_neighbors | 597.0 | 399.4 | 0.67 |
+  | max_iterations | 93.6 | 31.3 | 0.33 |
+  | subnormal | 58.0 | 7.7 | **0.13** |
+  | cache_hostile | 20.5 | 8.2 | 0.40 |
+
+  The plan's deliverable — "the port did not regress WCET on any fixture" — holds with margin.
+  The `subnormal` fixture is the outlier (7.9×): the subnormal-`exp` timing hazard hits the C++
+  engine far harder than the Rust one on this hardware.
+- **Allocation:** C++ performs **88 k–682 k heap allocations per align** (search_00: 682,248/align;
+  measured by the interposer, plausibly the per-align `aligned` output cloud + per-iteration
+  temporaries); Rust measures **0** in the same harness — consistent with the zero_alloc.rs proof.
+  This is a first-order WCET risk on the C++ side (allocator latency is unbounded under
+  fragmentation/contention) that the Rust engine structurally does not have.
+- **Unit-cost regression** (`T_p50 ≈ a·Σneighbors + b·kd_nodes + c`, R² ≥ 0.997 both):
+  kernel eval a = 133.2 ns (C++) vs **46.9 ns (Rust)** — 2.8× cheaper per derivative kernel;
+  kd node b = 25.6 ns (C++) vs 37.7 ns (Rust) — C++'s per-node traversal is cheaper, but the term
+  is second-order on the worst set. (Rust's negative intercept c = −12.6 ms is an extrapolation
+  artifact of the small n=6 fit, not a physical cost.)
+- **Gumbel pWCET (M5 EVT half, documented approximation):** block-maxima (n=10) moment fit per
+  fixture/engine; on the union worst `search_00`, p=1e-9 extrapolates to 899.7 ms (C++) vs
+  629.2 ms (Rust); β is small everywhere (≤ 1.3 ms) — warm-cache tails are tight, the residual
+  spread is interference, not algorithm. **Not a certified pWCET** (one container, warm cache,
+  moment fit); the hardware half of M5 (bare-metal AArch64/x86_64 + interference co-runner)
+  remains pending.

@@ -167,17 +167,28 @@ kernel target only Rust runs; the C++ comparison is evidence, not a shipping req
 
 ## Phasing / milestones (each independently useful)
 
-- **M1 — `wcet-count` instrumentation + property checks**: the counter feature, the analytic-bound
-  proptest, and the Layer-1 WCET audit. *(Depends on nothing; enables everything.)*
-- **M2 — adversarial fixtures + harness**: hand-built near-worst fixtures, `wcet_frame.rs`
-  fixture-load mode, first HWM numbers into `porting_notes/ndt_wcet_audit.md`. *(For shipping-true
-  numbers, land the Layer-1 prerequisites — pre-reserve + bounded/iterative neighbor search —
-  before or alongside.)*
-- **M3 — search**: GA/fuzz over the generators maximizing counters; freeze the top-k fixtures.
-- **M4 — C++ comparison**: `ndt_bench_replay` fixture mode + LD_PRELOAD alloc counting + unit-cost
-  regression on the union worst set.
-- **M5 — pWCET + target hardware**: EVT fitting and report generation; repeat the measurement
-  protocol on the kernel target (AArch64/x86_64) and with the interference co-runner on the host.
+Implementation branch: `ndt_wcet` in autoware_core (from `ndt_in_rust_3_clean`), one commit per
+milestone. Running record: `porting_notes/ndt_wcet_audit.md`.
+
+- **M1 — `wcet-count` instrumentation + property checks** — **DONE** (commit 2418aff3): the
+  counter feature, the analytic-bound proptest (`engine/tests/wcet_bounds.rs`), serial==parallel
+  counter equality, and the Layer-1 WCET re-audit.
+- **M2 — Layer-1 prerequisites + adversarial fixtures + harness** — **DONE** (commit 605228a1):
+  `with_capacity` pre-reserve + first-frame zero-alloc proof; recursion-free iterative kd-tree
+  (exact visit order, oracle-tested, ~12 % faster); frozen tile-aware fixture format
+  (`engine/src/fixture.rs`, `NDTFIX01`); 4 hand-built fixtures (`dense_neighbors` pins K = 64 AND
+  iter = 30) + `wcet_frame` fixture-replay mode; first HWM numbers recorded.
+- **M3 — search** — **DONE** (commit c13f9bb8): counter-guided hill-climb
+  (`engine/examples/wcet_search.rs`); confirmed the hand fixture saturates the analytic
+  (iter, Σneighbors) maximum exactly (2000×64×31), then grew the free kd term +35 %; top-2 frozen.
+- **M4 — C++ comparison** — **DONE** (see audit notes for numbers): `ndt_bench_replay --fixture`
+  mode (equal-work `iteration_num` assert per fixture), `bench/alloc_count.c` LD_PRELOAD
+  interposer (C++ allocs/align without touching upstream), `bench/run_wcet.sh` pipeline,
+  `bench/wcet_report.py` (tail table + unit-cost regression + Gumbel pWCET).
+- **M5 — pWCET + target hardware** — **HALF DONE**: EVT fitting + report generation live in
+  `wcet_report.py` (moment-based Gumbel on block maxima, documented approximation). **Pending**:
+  repeating the measurement protocol on the kernel target (AArch64/x86_64 bare metal) and with an
+  interference co-runner on the host — requires target hardware, out of scope for this container.
 
 ## Cross-references
 
