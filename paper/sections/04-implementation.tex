@@ -71,3 +71,14 @@ $\sqrt{3} < 2.0$ from each lattice corner), and $P = 1500$ duplicate-free source
 distinct lattice corners at \SI{4}{m} pitch inside the crop, each collecting exactly $K = 8$,
 with $\epsilon = 10^{-10}$ pinning the iteration cap. Its counters certify the deployment
 geometric ceiling: $\bar{K} = 8.0$ against the engine-level 64.
+
+One axis of this fixture is deliberately \emph{not} production-parameterized: with the shipped
+$\epsilon = 0.01$, its smooth lattice geometry converges in 2 iterations, so the fixture pins
+the iteration cap through $\epsilon$ instead. Assuming the cap is nevertheless the right
+deployment-tier choice, on three grounds: (i) the iteration count is input-dependent and high
+counts are reachable with fully legal parameters --- our crude random-surface fixture already
+runs \textbf{22 of 30} iterations at $\epsilon = 0.01$; (ii) the production node ships an
+\emph{oscillation-count diagnostic} over the per-iteration pose array, machinery that exists
+precisely because non-convergence occurs in the field (feature-poor geometry, map mismatch,
+coarse initialization guesses); and (iii) a bound that assumed fewer iterations would be
+indefensible, since nothing structural prevents the cap from being reached.

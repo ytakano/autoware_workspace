@@ -356,3 +356,31 @@ multiplicity — the cap is what makes the P·K·iter decomposition exist; (4) t
 assert doubles as the truncation detector (dense_neighbors sits exactly at 64 and passes).
 Preconditions: radius==leaf coupling (structural today; re-derive the cap if ever decoupled)
 and tile disjointness (pipeline contract, engine does not verify).
+
+### Is iter = max_iterations (30) realistic at production parameters? (2026-07-10)
+
+Question: the WCET fixtures pin iter=30 via eps=1e-10; does the cap get reached at the shipped
+trans_epsilon = 0.01? Measured by byte-patching the frozen fixtures' trans_epsilon to 0.01
+(offset 88 in NDTFIX01) and replaying:
+
+| geometry | iter @ eps=1e-10 | iter @ eps=0.01 (production) |
+|---|---|---|
+| max_iterations (rough random surface) | 30 | **22** |
+| search_01 (rough blend) | 30 | 14 |
+| search_00 | 30 | 5 |
+| dense_neighbors / legal_worst (smooth lattice) | 30 | 2 |
+
+Conclusions:
+- **iter=30 is realistically reachable in deployment**: a crude random surface already runs
+  22/30 with fully legal parameters (Newton steps stay ≥ 1 cm for 22 iterations); the
+  production node ships `count_oscillation` (ndt_scan_matcher_helper.cpp) — field evidence
+  that non-convergence/oscillation occurs (feature-poor geometry, map mismatch, coarse
+  initialization guesses; the align-service/TPE path issues many aligns with coarse guesses by
+  design). Unlike MAX_NEIGHBORS > 64 (needs a contract violation), the iteration cap is
+  reachable within contracts — keeping iter=30 in the deployment tier is correct.
+- **Honest weakness, now stated in the paper (§4 + §6)**: legal_worst's smooth geometry
+  converges in 2 at eps=0.01, so the deployment fixture over-approximates on the iteration
+  axis via the epsilon pin. Justified by: (a) 22/30 measured with legal params, (b) the
+  oscillation diagnostic's existence, (c) assuming fewer iterations would be indefensible.
+  A future refinement: search for a preprocessing-legal geometry that oscillates to 30 at
+  eps=0.01 (counter-guided, iteration count as fitness with params frozen to production).
