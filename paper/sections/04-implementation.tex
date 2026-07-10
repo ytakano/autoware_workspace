@@ -27,6 +27,22 @@ port commits at camera-ready.}
     feature is disabled; the disabled build's synthetic frame-time baseline is unchanged.
 \end{itemize}
 
+\paragraph{Sufficiency of the neighbor cap}
+The port caps the radius search at $\maxnn = 64$ where the C++ engine collects an unbounded
+neighbor set --- the cap is what makes the $P \cdot \maxnn \cdot N_{\mathrm{iter}}$
+decomposition exist at all. Its value is justified geometrically. A leaf's centroid lies inside
+its own voxel, and with the search radius equal to the voxel size (a coupling both engines'
+APIs enforce), the search ball has diameter two voxels and thus intersects at most three cells
+per axis: \emph{at most $3^3 = 27$ leaves per tile can ever be in range, regardless of map
+content}. Under the disjoint-tile contract, leaf multiplicity is 1, so 27 bounds the global
+count and $\maxnn = 64$ carries a $2.4\times$ margin --- truncation is unreachable and
+bit-exactness with the uncapped C++ engine is unconditional. Exceeding 64 requires at least
+three adversarially crowded \emph{overlapping} tiles; there the Rust engine truncates (its cost
+stays bounded) while the C++ engine's cost grows without bound with tile multiplicity. The
+equal-work assertion doubles as the truncation detector: \emph{dense-neighbors} sits exactly at
+the cap ($8 \times 8 = 64$ in-range leaves) and passes, certifying the two engines still saw
+identical neighbor sets.
+
 \subsection{Adversarial fixture construction}
 % The four hand-built generators + why multi-tile is needed for K=64 (single tile caps K at
 % the <=8 voxels sharing a corner when radius == leaf size).

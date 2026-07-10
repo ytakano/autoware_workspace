@@ -342,3 +342,17 @@ Measured (7-fixture re-run, equal-work 7/7):
 - Remaining assumption, stated in the paper's threats: tile disjointness/alignment and the
   downsample invariants are map/sensing-pipeline properties the ENGINE does not verify; a
   violated contract silently moves the system back to the engine-level tier.
+
+### MAX_NEIGHBORS = 64 sufficiency (2026-07-10, recorded rationale)
+
+Layered argument (now also in the paper, §4 "Sufficiency of the neighbor cap"): (1) a leaf
+centroid lies inside its own voxel and the search ball (radius = leaf size, coupled by both
+engines' APIs) has diameter 2 voxels ⇒ ≤ 3 cells/axis ⇒ **≤ 27 leaves per tile in range,
+regardless of map content**; (2) disjoint production tiles ⇒ multiplicity 1 ⇒ global ≤ 27 ⇒
+64 = 2.4× margin, truncation unreachable, bit-exactness with the uncapped C++ unconditional;
+(3) exceeding 64 needs ≥ 3 adversarially crowded OVERLAPPING tiles — engine-API freedom only;
+there Rust truncates (cost stays bounded) while C++'s cost grows without bound with tile
+multiplicity — the cap is what makes the P·K·iter decomposition exist; (4) the equal-work
+assert doubles as the truncation detector (dense_neighbors sits exactly at 64 and passes).
+Preconditions: radius==leaf coupling (structural today; re-derive the cap if ever decoupled)
+and tile disjointness (pipeline contract, engine does not verify).

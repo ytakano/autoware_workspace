@@ -26,8 +26,10 @@
     (Sec.~\ref{sec:eval-psweep}); beyond that range, working sets exceeding the last-level
     cache could bend the slope upward, and the engine's zero-allocation guarantee is tied to
     the pre-reserved capacity (exceeding it costs a one-time buffer growth). \maxnn{}
-    truncation deviates from C++'s unbounded neighbor set if a map ever exceeds 64 neighbors
-    in radius (treated as misconfiguration).
+    truncation deviates from C++'s unbounded neighbor set only beyond ${\ge}3$ adversarially
+    crowded overlapping tiles (Sec.~\ref{sec:implementation}: the per-tile geometric cap is
+    27); the derivation additionally assumes the search radius stays coupled to the voxel size
+    --- decoupling them would require re-deriving the cap.
   \item \textbf{Cross-ISA transfer.} ISA-independence of the Rust floating-point stream is by
     construction (pure-software \texttt{libm}) and verified via counter equality, but the C++
     comparison itself is inherently x86/Linux-bound (pcl/ROS dependency).
