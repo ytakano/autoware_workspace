@@ -3,8 +3,24 @@
 
 % Para 1: the deadline problem. LiDAR localization at 10 Hz; NDT align on the critical path;
 % a missed/late pose estimate degrades downstream planning and control.
-\todo{Motivating paragraph: Autoware localization pipeline, 10\,Hz (\SI{100}{ms}) budget,
-NDT scan matching as the dominant term.}
+An autonomous vehicle localizes by registering each incoming LiDAR scan against a pre-built
+point-cloud map; in Autoware~\cite{autoware}, an open-source production driving stack, the
+primary matcher is the Normal Distributions Transform (\ndt)~\cite{biber2003ndt}: a
+Newton-optimized alignment of the downsampled scan against a voxelized Gaussian map, executed
+once per scan at the sensor rate --- typically 10\,Hz, i.e.\ a \SI{100}{ms} period. The
+resulting pose feeds the EKF, planner, and controller on the critical path, and a \emph{late}
+pose is operationally as bad as a wrong one: consumers fall back to dead-reckoning
+extrapolation whose error grows with vehicle speed, and sustained overruns trigger degraded
+operation or a minimum-risk maneuver. The engineering question is therefore not the average
+align time but its worst case: does one \ndt{} align \emph{always} fit the period?
+
+% Para 1b: the spread we actually observe motivates the question empirically.
+The question has teeth because the align time is violently input-dependent. On the engines
+studied here, adversarially constructed --- yet parameter-legal --- map/scan geometries stretch
+one serial align from under \SI{10}{ms} to over \SI{600}{ms} on the same desktop-class core
+(Sec.~\ref{sec:evaluation}): two orders of magnitude, and well past a 10\,Hz budget. Whether
+production configurations can approach such inputs, and with what margin, cannot be answered by
+observing nominal traffic; it requires a worst-case analysis.
 
 % Para 2: why WCET is hard here. Data-dependent iterative optimization: Newton iterations
 % (bounded but input-dependent), per-point neighbor counts, kd-tree traversal shape all depend
