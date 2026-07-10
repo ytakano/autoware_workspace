@@ -91,7 +91,33 @@ deterministic** → the OFF-vs-ON regression baseline. Its synthetic 3-plane geo
 so it is **not** the headline number. (Smoke result on the dev container: both engines converge in 10
 iterations; node-level p50 ≈ 34 ms C++ vs ≈ 13 ms Rust — indicative only, regenerate locally.)
 
-### L1b — real data (headline; opt-in) — SCAFFOLD
+### L1b — real data (headline; opt-in) — FULL PIPELINE BUILT; converged run environment-blocked here
+
+**Status (2026-07-10).** The full sensing stack needed to replay the `sample-rosbag` was built and the
+localization graph was validated end-to-end short of a converged headline. The bag is **raw sensor
+data** (LiDAR = `velodyne_msgs/VelodyneScan` packets ×3, raw ublox GNSS, **no `/tf`, no PointCloud2**),
+so NDT input requires the Autoware sensing pipeline. What was installed/built in this `src/core`-only
+workspace: `ros-humble-rosbag2*` + `ros2cli`/`ros2launch` (the image lacked `ros2 bag`/`ros2 launch`),
+then Nebula, `autoware_pointcloud_preprocessor`, `sample_sensor_kit_launch` (+ `common_sensor_launch`,
+descriptions), `sample_vehicle_launch`/`sample_vehicle_description`, `tier4_vehicle_launch`
+(robot_state_publisher TF), and `autoware_global_parameter_loader` — ~108 packages via
+`--packages-up-to`. `launch/ndt_l1b_bench.launch.xml` composes vehicle TF + `sensing.launch.xml`
+(`launch_driver:=false` → Nebula decodes the bag packets) pushed under the `sensing` namespace + the
+core map + `autoware_core_localization` (voxel→NDT→EKF→pose_initializer), `use_sim_time:=true`.
+
+**Verified live:** the 50-node graph comes up, Nebula decodes the 2021 velodyne packets into clouds,
+the top-LiDAR cloud → voxel downsample feeds NDT's `points_raw` at ~**28 Hz**, and the map service,
+GNSS map-frame pose, and robot_state_publisher TF are all present. **Not obtained:** a converged
+OFF-vs-ON `exe_time_ms` headline — the localization init/activation handshake (pose_initializer →
+`ndt_align_srv` → trigger) did not complete in this container, compounded by FastDDS shared-memory
+transport instability (`open_and_lock_file failed`, `rcl context invalid` on CLI service calls) after
+the repeated build/launch/kill churn, and the 30 s bag window. This is an **environment** limitation
+(a build-focused container with a churned DDS state), not a defect in the launch or the NDT node.
+`bench/run_l1b.sh` encodes the whole pipeline (UDP-only DDS + `/dev/shm` hygiene + single-pass
+`--clock` + GNSS-derived `initial_pose` + record) and is expected to reproduce the headline on a
+**fresh full-Autoware container**; the L1a number remains the working, in-repo OFF-vs-ON headline.
+
+Original scaffold notes:
 
 Launch the node and `ros2 bag play` the Autoware `sample-rosbag` against `sample-map-rosbag`, logging
 `exe_time_ms` + `iteration_num`. Real point counts / scene geometry give the realistic convergence +
