@@ -6,8 +6,24 @@
 % dynamically loaded map tile, kd-tree over all leaf centroids). Per align: Newton iterations;
 % per iteration: transform P source points, radius-search neighbors, evaluate the
 % score/gradient/Hessian kernel per (point, leaf) pair, solve a 6x6 system.
-\todo{One-paragraph NDT recap with the multi-tile voxel map (dynamic map loading) and the
-More--Thuente line search; cite Magnusson and the Autoware multigrid implementation.}
+\ndt{} registration~\cite{biber2003ndt,magnusson2009thesis} compresses the reference map into a
+voxel grid of Gaussians: each voxel with sufficiently many points stores the mean and
+(eigenvalue-regularized) covariance of the points inside it. Aligning a scan then maximizes a
+smooth likelihood --- each transformed source point scores against the Gaussian--uniform
+mixture of its nearby voxels --- over the 6-DoF pose (translation plus Euler angles) by
+Newton's method. One align call runs up to \texttt{max\_iterations} Newton steps; each step
+transforms all $P$ source points, radius-searches the voxel-centroid kd-tree for each point's
+neighbor leaves (radius equal to the voxel size), accumulates the score, gradient, and
+$6{\times}6$ Hessian over every (point, leaf) pair, solves the Newton system, and selects a
+step length by a More--Thuente-style procedure bounded by a configured maximum step. Iteration
+stops when the pose update drops below a threshold $\epsilon$ or the iteration cap is hit. The
+engine studied here is Autoware's production \emph{multigrid} variant of the multi-threaded
+\texttt{ndt\_omp} implementation~\cite{autoware,ndtomp}: the map is loaded dynamically as
+\emph{tiles} around the vehicle, each tile keeps its own voxel grid, and the kd-tree spans the
+leaf centroids of all loaded tiles --- so overlapping tiles multiply the leaves a radius search
+can return, a fact that matters for the worst case (Sec.~\ref{sec:implementation}). We analyze
+the serial configuration (\texttt{num\_threads}=1), the deterministic baseline that a
+worst-case bound must cover.
 
 \subsection{Execution-time decomposition}
 For one align call:

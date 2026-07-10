@@ -3,11 +3,12 @@
 
 % Keep this section tight: only what a reader needs to trust the numbers.
 \subsection{The engines}
-The C++ engine is Autoware's multigrid \ndt{} (pcl-based, OpenMP; measured serial,
-\texttt{num\_threads}=1). The Rust engine is a \texttt{no\_std}-capable port exposing the same
-semantics; the differential test suite (voxel grid, align, engine, end-to-end node paths)
-passes bit-exactly with the Rust engine substituted behind the C ABI.
-\todo{cite Autoware / ndt\_omp; give versions/commits.}
+The C++ engine is Autoware's multigrid \ndt{}~\cite{autoware,ndtomp} (pcl-based, OpenMP;
+measured serial, \texttt{num\_threads}=1). The Rust engine is a \texttt{no\_std}-capable port
+exposing the same semantics; the differential test suite (voxel grid, align, engine,
+end-to-end node paths) passes bit-exactly with the Rust engine substituted behind the C ABI.
+Compiler versions appear in Sec.~\ref{sec:evaluation}. \todo{pin the exact autoware\_core /
+port commits at camera-ready.}
 
 \subsection{WCET-relevant hardening of the Rust RT path}
 \begin{itemize}
