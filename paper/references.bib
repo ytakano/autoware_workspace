@@ -1,5 +1,96 @@
-% Core citations for the WCET/NDT paper. TODO entries need verification against the actual
-% publications before submission — do not trust page numbers / venues blindly.
+% Core citations for the WCET/NDT paper.
+% Verified 2026-07-10 against publisher/index pages (venue, authors, year); page numbers for
+% wilhelm2008wcet/cazorla2019mbpta/edgar2001gumbel are from the original drafts — re-check at
+% camera-ready.
+
+@inproceedings{ferdinand2001ait,
+  author    = {Ferdinand, Christian and Heckmann, Reinhold and Langenbach, Marc and Martin,
+               Florian and Schmidt, Michael and Theiling, Henrik and Thesing, Stephan and
+               Wilhelm, Reinhard},
+  title     = {Reliable and Precise {WCET} Determination for a Real-Life Processor},
+  booktitle = {Proc.\ 1st International Workshop on Embedded Software (EMSOFT)},
+  series    = {LNCS},
+  volume    = {2211},
+  year      = {2001},
+  pages     = {469--485}
+}
+
+@article{wegener2001comparison,
+  author  = {Wegener, Joachim and Mueller, Frank},
+  title   = {A Comparison of Static Analysis and Evolutionary Testing for the Verification of
+             Timing Constraints},
+  journal = {Real-Time Systems},
+  volume  = {21},
+  number  = {3},
+  year    = {2001},
+  pages   = {241--268}
+}
+
+@inproceedings{lima2017evt,
+  author    = {Lima, George and Bate, Iain},
+  title     = {Valid Application of {EVT} in Timing Analysis by Randomising Execution Time
+               Measurements},
+  booktitle = {Proc.\ 23rd IEEE Real-Time and Embedded Technology and Applications Symposium
+               (RTAS)},
+  year      = {2017},
+  pages     = {187--198}
+}
+
+@inproceedings{hansen2009statistical,
+  author    = {Hansen, Jeffery and Hissam, Scott and Moreno, Gabriel A.},
+  title     = {Statistical-Based {WCET} Estimation and Validation},
+  booktitle = {Proc.\ 9th International Workshop on Worst-Case Execution Time Analysis (WCET)},
+  year      = {2009}
+}
+
+@article{reghenzani2018chronovise,
+  author  = {Reghenzani, Federico and Massari, Giuseppe and Fornaciari, William},
+  title   = {chronovise: Measurement-Based Probabilistic Timing Analysis Framework},
+  journal = {Journal of Open Source Software},
+  volume  = {3},
+  number  = {28},
+  year    = {2018},
+  pages   = {711}
+}
+
+@inproceedings{casini2019ros2,
+  author    = {Casini, Daniel and Bla{\ss}, Tobias and L{\"u}tkebohle, Ingo and Brandenburg,
+               Bj{\"o}rn B.},
+  title     = {Response-Time Analysis of {ROS}~2 Processing Chains Under Reservation-Based
+               Scheduling},
+  booktitle = {Proc.\ 31st Euromicro Conference on Real-Time Systems (ECRTS)},
+  series    = {LIPIcs},
+  volume    = {133},
+  year      = {2019},
+  pages     = {6:1--6:23}
+}
+
+@inproceedings{levy2017tock,
+  author    = {Levy, Amit and Campbell, Bradford and Ghena, Branden and Giffin, Daniel B. and
+               Pannuto, Pat and Dutta, Prabal and Levis, Philip},
+  title     = {Multiprogramming a 64k{B} Computer Safely and Efficiently},
+  booktitle = {Proc.\ 26th Symposium on Operating Systems Principles (SOSP)},
+  year      = {2017},
+  pages     = {234--251}
+}
+
+@article{jung2018rustbelt,
+  author  = {Jung, Ralf and Jourdan, Jacques-Henri and Krebbers, Robbert and Dreyer, Derek},
+  title   = {{RustBelt}: Securing the Foundations of the {Rust} Programming Language},
+  journal = {Proceedings of the ACM on Programming Languages},
+  volume  = {2},
+  number  = {POPL},
+  year    = {2018},
+  pages   = {66:1--66:34}
+}
+
+@misc{ndtomp,
+  author       = {Koide, Kenji},
+  title        = {ndt\_omp: Multi-threaded and {SSE}-friendly {NDT} algorithm},
+  howpublished = {\url{https://github.com/koide3/ndt_omp}},
+  note         = {Autoware's multigrid variant: \url{https://github.com/autowarefoundation/autoware_core}},
+  year         = {2017}
+}
 
 @article{wilhelm2008wcet,
   author  = {Wilhelm, Reinhard and Engblom, Jakob and Ermedahl, Andreas and Holsti, Niklas and
@@ -79,5 +170,4 @@
   pages     = {287--296}
 }
 
-% TODO: add — ndt_omp / multigrid NDT implementation reference (Koide et al.?), a Rust
-% real-time / safety-critical systems reference, and the no_std kernel target reference.
+% TODO: add the no_std kernel target reference once public.

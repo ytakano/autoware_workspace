@@ -1,35 +1,62 @@
 \section{Related Work}
 \label{sec:related}
 
-% Position against: (a) static WCET (aiT, Wilhelm survey) -- needs loop bounds we don't have
-% statically; (b) MBPTA/EVT (Cucu-Grosjean, Cazorla survey, Edgar&Burns) -- we adopt the EVT
-% tail but replace random input sampling with counter-guided deterministic search;
-% (c) worst-case input search / WCET fuzzing (evolutionary WCET search, e.g. Wegener et al.)
-% -- prior work uses wall-time fitness; our fitness is deterministic algorithmic counters,
-% making the search reproducible and platform-independent; (d) Rust for RT systems;
-% (e) NDT itself (Biber&Strasser, Magnusson) and Autoware localization.
-
 \paragraph{Static WCET analysis}
-\todo{aiT / Wilhelm et al.\ survey~\cite{wilhelm2008wcet}: precise for control-dominated code
-with annotatable loop bounds; our dominant bounds are input properties, so static analysis
-alone yields only the astronomically pessimistic product bound.}
+Static analyzers in the aiT tradition compute certified bounds from abstract cache and pipeline
+models~\cite{ferdinand2001ait}; Wilhelm et al.~\cite{wilhelm2008wcet} survey the field. These
+methods excel on control-dominated code whose loop bounds are program constants or annotatable
+invariants. In our kernel the dominant bounds --- Newton iteration count, per-point neighbor
+multiplicity, kd-tree traversal length --- are properties of the \emph{input geometry}: static
+analysis alone can only return the product of the individual maxima
+(Eq.~\eqref{eq:decomp}), with no evidence that any input realizes it. Our Layer~1 keeps the
+spirit of the static bound but enforces each term by construction and discharges it by
+property-based testing, while Layers~2--3 supply witness inputs and platform timing.
 
-\paragraph{Measurement-based probabilistic timing analysis}
-\todo{MBPTA and EVT-based \pwcet~\cite{cucu2012mbpta,cazorla2019mbpta,edgar2001gumbel}: we
-adopt the Gumbel tail machinery but replace random/representative input sampling with a
-deterministic counter-guided search for adversarial inputs, and add a cross-language equal-work
-certificate.}
+\paragraph{Measurement-based and probabilistic timing analysis}
+MBPTA applies extreme value theory to measured execution times to extrapolate
+\pwcet{}~\cite{edgar2001gumbel,cucu2012mbpta}; Cazorla et al.~\cite{cazorla2019mbpta} give a
+comprehensive survey. The Achilles heel is \emph{representativity}: EVT bounds only the
+behaviors the measurement protocol exercised, which has driven work on randomized platforms and
+measurement protocols~\cite{lima2017evt}, statistical estimation and validation
+procedures~\cite{hansen2009statistical}, and reusable tooling~\cite{reghenzani2018chronovise}.
+We attack representativity from the input side: instead of sampling ``representative'' inputs,
+we \emph{search} for adversarial ones with a deterministic, platform-independent fitness, and
+certify for the dominant term that the search reached the analytic maximum. Our Gumbel fit then
+serves as a comparative tail summary on those frozen worst inputs, not as a certified bound.
 
-\paragraph{Evolutionary worst-case input search}
-\todo{Search-based WCET estimation with wall-time fitness (Wegener et
-al.~\cite{wegener1997testing}); our fitness is a deterministic algorithmic counter vector ---
-reproducible, machine-independent, and checkable against an analytic bound (saturation
-certificate).}
+\paragraph{Search-based worst-case input generation}
+Evolutionary testing of timing constraints dates to Wegener et
+al.~\cite{wegener1997testing,wegener2001comparison}, who evolve test data with \emph{measured
+execution time} as fitness and note the complementarity with static analysis. Wall-clock
+fitness is noisy, machine-specific, and unreproducible across platforms. Our fitness is a
+vector of deterministic algorithmic cost counters: the search result is a property of the
+algorithm rather than of the measurement machine, runs are exactly reproducible from a seed,
+and the outcome can be checked against the analytic bound --- the saturation certificate of
+Sec.~\ref{sec:eval-search} has no analogue under time-based fitness. The counters also enable
+the cross-language transfer: a worst input found on the instrumented port provably stresses the
+uninstrumented production engine equally.
 
-\paragraph{Rust in real-time systems}
-\todo{Rust RT surveys / case studies; panic-freedom and allocation-freedom as verifiable
-properties; contrast with our lint- and test-enforced RT path.}
+\paragraph{Timing analysis of ROS-based systems}
+Casini et al.~\cite{casini2019ros2} bound end-to-end response times of ROS~2 processing chains
+under reservation-based scheduling, treating per-callback WCETs as given inputs. Such analyses
+are complementary to ours: we bound the dominant callback kernel (the \ndt{} align) that those
+chain analyses consume, and we additionally remove structural hazards (per-point heap
+allocation) that would otherwise make the per-callback WCET assumption fragile.
 
-\paragraph{NDT and localization}
-\todo{Biber \& Strasser~\cite{biber2003ndt}, Magnusson~\cite{magnusson2009thesis}, Autoware
-localization / multigrid ndt\_omp~\cite{autoware}.}
+\paragraph{Rust in real-time and safety-critical systems}
+Rust's ownership model underpins systems such as the Tock embedded
+OS~\cite{levy2017tock}, and RustBelt~\cite{jung2018rustbelt} gives machine-checked foundations
+for its safety claims. That line of work targets \emph{memory} safety; WCET requires more:
+panic-freedom, allocation-freedom, recursion-freedom, and bounded loops on the hot path. We
+show these can be made lint- and test-enforced properties of a production kernel, and --- the
+step we believe is new --- that a \emph{bit-exact} port is not just a migration artifact but an
+analysis instrument: it lets the memory-safe implementation carry the instrumentation burden
+for both languages.
+
+\paragraph{NDT scan matching}
+\ndt{} registration originates with Biber and Stra{\ss}er~\cite{biber2003ndt} and was extended
+to 3D by Magnusson~\cite{magnusson2009thesis}. The engine studied here is Autoware's
+production localization matcher~\cite{autoware}, a multigrid variant of the multi-threaded
+\texttt{ndt\_omp} implementation~\cite{ndtomp}. Prior work on these implementations reports
+average-case throughput; to our knowledge no WCET-oriented analysis of an \ndt{} engine has
+been published.

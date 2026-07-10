@@ -37,6 +37,7 @@ before submission).
 - Re-measure host with performance governor / isolated core / cold-cache / co-runner.
 - EVT strengthening: 1000+ samples, PoT/MLE, confidence intervals, repeated runs.
 - AArch64 bare-metal target: counter-equality verification + target tail table (M5 hardware half).
-- Related-work verification (bib entries are drafts — check venues/pages) + missing citations
-  (ndt_omp, Rust-RT, kernel target).
+- Related work: written and cited (17 entries, venues verified 2026-07-10); re-check page
+  numbers for wilhelm2008wcet / cazorla2019mbpta / edgar2001gumbel at camera-ready; add the
+  no_std kernel target citation once public.
 - Author list / affiliations / acknowledgments.
