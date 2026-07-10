@@ -11,8 +11,13 @@
 \usepackage{siunitx}
 \usepackage{xcolor}
 \usepackage{listings}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
 \usepackage[hidelinks]{hyperref}
 \usepackage{cite}
+
+% Auto-generated prose numbers for the P-sweep (scripts/gen_tables.py).
+\input{tables/psweep_macros}
 
 % --- editing aids (strip before submission) ---
 \newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}

@@ -279,3 +279,30 @@ three layers structurally: the neighbor buffer is hoisted into `AlignWorkspace.n
 caller-provided buffer, and `with_capacity` makes even the first frame allocation-free. A C++-side
 fix would be hoisting `neighborhood`/`k_indices`/`k_sqr_distances` to thread-locals, but the
 upstream files must stay byte-identical, so this is recorded as a finding only.
+
+## P-sweep (2026-07-10 follow-up): WCET is affine in the source point count
+
+Controlled sweep on the union-worst geometry (search_00 genome: 8 tiles, blocks=9, eps=1e-10)
+regenerated at P ∈ {250, 500, 1000, 2000, 4000, 8000} — `wcet_fixtures --psweep`, counters
+certify per-point work invariance at every P (iter = 30, Σnbr = P·64·31 exactly, kd/pt ≈ 193).
+Replay: 50 aligns + 5 warmup per fixture per engine, taskset -c 2; equal-work 6/6.
+
+Linear fit on the **max** series, `WCET(P) = slope·P + const`:
+
+| engine | slope (µs/point) | intercept (ms) | R² | worst residual |
+|---|---|---|---|---|
+| C++ | 436 | 10.6 | **1.0000** | +14.2 ms at P=4000 (0.8 %) |
+| Rust | 301 | 3.5 | **1.0000** | +3.5 ms at P=2000 (0.6 %) |
+
+- **No cache knee over [250, 8000]** — the affine work model holds to <1 % residual; the
+  Layer-1 prediction (P is the only multiplicative freedom; N_iter/K/T_solve unaffected) is
+  confirmed empirically.
+- **Parametric bound / budget inversion**: under the union-worst geometry on this host, a
+  100 ms (10 Hz) budget admits P ≈ **320** points (Rust) / **205** (C++). Production maps do
+  not reach K=64 × 30 iterations, so this is the adversarial floor, not a typical-case cap —
+  but it is the number a voxel-filter configuration can be audited against.
+- Slopes are consistent with the unit-cost regression: ~64 kernel evals × 31 passes/point ×
+  (133 ns C++ / 47 ns Rust) ≈ 264 / 93 µs kernel-only, plus kd-search (~193 nodes/pt/pass).
+- Paper: §5 "Scaling with the input size P" + Table/Fig (auto-generated from
+  paper/data/{wcet_psweep,psweep_rust}.json); §6 threat updated (validated range; beyond-range
+  extrapolation + pre-reserve capacity caveats).

@@ -15,7 +15,11 @@
     but the kd-traversal term has no matching analytic maximum, so a worse traversal geometry
     may exist. The structural $O(N_{\mathrm{leaves}})$ bound still caps it.
   \item \textbf{Caller-side assumptions.} $P$ (downsampled scan size) is a node-level cap,
-    assumed, not enforced by the engine; \maxnn{} truncation deviates from C++'s unbounded
+    assumed, not enforced by the engine. The affine $\mathrm{WCET}(P)$ law is validated over
+    $P \in [\psweepPmin{}, \psweepPmax{}]$ on the host (Sec.~\ref{sec:eval-psweep}); beyond
+    that range, working sets exceeding the last-level cache could bend the slope upward, and
+    the engine's zero-allocation guarantee is tied to the pre-reserved capacity (exceeding it
+    costs a one-time buffer growth). \maxnn{} truncation deviates from C++'s unbounded
     neighbor set if a map ever exceeds 64 neighbors in radius (treated as misconfiguration).
   \item \textbf{Cross-ISA transfer.} ISA-independence of the Rust floating-point stream is by
     construction (pure-software \texttt{libm}) and verified via counter equality, but the C++

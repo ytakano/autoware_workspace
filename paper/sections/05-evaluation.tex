@@ -64,6 +64,34 @@ negative Rust intercept is an extrapolation artifact of the $n=6$ fit.)
 
 \input{tables/regression}
 
+\subsection{Scaling with the input size $P$}
+\label{sec:eval-psweep}
+% Controlled experiment: P is the only variable (counters verify invariant per-point work).
+% Affine model -> parametric bound -> budget inversion.
+In the decomposition~\eqref{eq:decomp}, $P$ is the only multiplicative freedom: it scales the
+per-iteration sum while leaving $N_{\mathrm{iter}}$, $K$, and $T_{\mathrm{solve}}$ untouched,
+predicting an \emph{affine} law $\mathrm{WCET}(P) = \mathrm{slope}\cdot P + \mathrm{const}$. We
+validate this with a controlled sweep: the union-worst geometry regenerated at $P \in
+[\psweepPmin{}, \psweepPmax{}]$ (six points, $\times 2$ steps), where the counters certify that
+per-point work is exactly invariant --- $N_{\mathrm{iter}} = 30$ and $\sumnbr = P \cdot 64
+\cdot 31$ at every $P$ --- so time may vary only through $P$ itself.
+Table~\ref{tab:psweep} and Fig.~\ref{fig:psweep} show the result: both engines are affine in
+$P$ with $R^2 = \psweepRsqCpp{}$ (C++) and $\psweepRsqRust{}$ (Rust) on the \emph{max} series;
+no cache knee is visible over the tested range. The fitted worst-case cost is
+\SI{\psweepSlopeCpp}{\micro\second} (C++) vs.\ \SI{\psweepSlopeRust}{\micro\second} (Rust) per
+source point, consistent with the per-kernel-evaluation costs of
+Sec.~\ref{sec:eval-regression} (${\approx}64$ kernel evaluations $\times$ 31 passes per point).
+
+The affine law makes the bound \emph{parametric in the caller's contract}: inverting it against
+the \SI{100}{ms} (10\,Hz) budget gives a maximum admissible downsampled-scan size of
+$P \approx \psweepPmaxRust{}$ points for the Rust engine (\psweepPmaxCpp{} for C++) \emph{under
+the union-worst geometry on this host} --- a number the localization node's voxel-filter
+configuration can be audited against directly. (Host-relative; the target-hardware slope is the
+number that matters for deployment. \todo{AArch64 slope, M5.})
+
+\input{tables/psweep}
+\input{figures/psweep}
+
 \subsection{Gumbel tail fit (\pwcet)}
 \label{sec:eval-gumbel}
 % Comparative pWCET. beta small everywhere => tight warm-cache tails.
