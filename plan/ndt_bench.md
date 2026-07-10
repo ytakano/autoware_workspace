@@ -91,7 +91,37 @@ deterministic** → the OFF-vs-ON regression baseline. Its synthetic 3-plane geo
 so it is **not** the headline number. (Smoke result on the dev container: both engines converge in 10
 iterations; node-level p50 ≈ 34 ms C++ vs ≈ 13 ms Rust — indicative only, regenerate locally.)
 
-### L1b — real data (headline; opt-in) — FULL PIPELINE BUILT; converged run environment-blocked here
+### L1b — real data (headline; opt-in) — ✅ CONVERGED (2026-07-10, urban dataset)
+
+**Headline (İstanbul urban localization dataset, loc-only bag; both engines `iteration_num = 3`,
+120 s each @ 10 Hz, `num_threads = 1`, CycloneDDS):** node `exe_time_ms` — C++ p50 4.20 / p95 6.45 /
+max 11.97 ms vs **Rust p50 3.61 / p95 5.68 / max 7.70 ms → ≈1.16× at p50, ≈1.56× at max**. Real urban
+frames converge in 3 iterations, so the align kernel is a smaller share of the frame than in L1a/L3
+(hence the smaller ratio); the tail improves the most. Results in `bench/l1b.json` + `l1b_report.html`.
+
+**Dataset switch:** the original 2021 `sample-rosbag` is raw sensor data (Velodyne packets, no
+PointCloud2/TF) needing the full sensing stack; the Autoware **urban-environment localization
+evaluation** dataset's *localization-only* bag instead contains the preprocessed
+`/localization/util/downsample/pointcloud` (PointCloud2) + `/localization/twist_estimator/...`
+(twist) + GNSS map pose + `/tf_static` directly — so the graph collapses to map loader + NDT/EKF loop
+(`launch/ndt_l1b_loc.launch.xml`). Data via gdown (see the eval docs page).
+
+**Replay shims required (all scripted in `bench/`):**
+- `l1b_restamp_relay.py` — the bag's cloud/twist **header stamps lag its `/clock` by ~27 days**;
+  without re-stamping, NDT's pose interpolation fails and the EKF rejects the twist (freezing at the
+  init pose). The relay rewrites `header.stamp := sim-now` for both.
+- Replay with `--topics ...` (exclude the recorded `/clock`) so the player's `--clock` is the **single
+  time base** (two clock publishers otherwise flip-flop sim time and thrash the TF buffer).
+- **Map crop ±3.5 km** (`pointcloud_map_crop35.pcd`): the single-file 15 km PCD at 2 m resolution
+  overflows `MultiVoxelGridCovariance`'s **int32 voxel index** (`Leaf size is too small ... Integer
+  indices would overflow`) → the engine target stays **empty** and every score is 0 (±5 km = 2.148e9
+  voxels still overflows by 0.05%!). The production tile pipeline avoids this by construction.
+- Init (`l1b_ndt_align_init.py`): fresh GNSS seed → **pause the bag** (else the multi-second TPE
+  leaves the pose ~50 m stale at 13 m/s) → `ndt_align_srv` → publish refined pose on `/initialpose3d`
+  → SetBool triggers → resume. The `pose_initializer` itself never becomes ready on this replay, and
+  the `ros2 service call` CLI is broken in this image — both bypassed via rclpy.
+
+Original status notes (2026-07-10, before the dataset switch):
 
 **Status (2026-07-10).** The full sensing stack needed to replay the `sample-rosbag` was built and the
 localization graph was validated end-to-end short of a converged headline. The bag is **raw sensor
