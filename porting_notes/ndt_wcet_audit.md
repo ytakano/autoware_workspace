@@ -517,7 +517,7 @@ not match glibc sinf either — glibc sinf is its own polynomial). Switching the
 platform trig under `std` bought exactly **1 frame** (30 → 29 of 22,416) and broke std/no_std
 build equivalence — reverted; `libm` kept for build/ISA determinism.
 
-**Residual (irreducible without heroics): 30/22,416 = 0.13 %** ±1-iteration flips. Mechanism:
+**Residual (irreducible without heroics): 28/22,416 = 0.12 % (final build)** ±1-iteration flips. Mechanism:
 the f64-internal trajectory (gradients/Hessians) carries unavoidable ULP-level differences from
 (a) nalgebra `symmetric_eigen` vs Eigen `SelfAdjointEigenSolver` (icov ≤ 1.9e-15 relative) and
 (b) musl-libm vs glibc f64 `exp`; these stay invisible at f32 observation granularity until a
