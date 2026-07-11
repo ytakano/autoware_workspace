@@ -7,7 +7,6 @@ serial engines, pinned core (\texttt{taskset}), 100 aligns per fixture per engin
 warmups, \texttt{steady\_clock}, align loop only (map and kd-tree built once per engine per
 fixture). \todo{re-run with performance governor + isolated core + cold-cache series +
 interference co-runner; current data: container, powersave governor.}
-\todo{AArch64 bare-metal setup (fixed clock, CNTVCT/PMU timing, FPCR FZ=0, cache config).}
 
 \subsection{Search effectiveness}
 \label{sec:eval-search}
@@ -105,8 +104,8 @@ The affine law makes the bound \emph{parametric in the caller's contract}: inver
 against the \SI{100}{ms} (10\,Hz) budget gives a maximum admissible downsampled-scan size of
 $P \approx \psweepPmaxRust{}$ points for the Rust engine (\psweepPmaxCpp{} for C++)
 \emph{under the union-worst geometry on this host} --- a number the localization node's
-voxel-filter configuration can be audited against directly. (Host-relative; the
-target-hardware slope is the number that matters for deployment. \todo{AArch64 slope, M5.})
+voxel-filter configuration can be audited against directly. (Host-relative; on deployment hardware the same protocol
+yields the slope that matters there.)
 
 \input{tables/psweep}
 \input{figures/psweep}
@@ -177,6 +176,3 @@ tight, and the residual spread is interference, not algorithmic variance. On the
 fixture the $10^{-9}$ per-block exceedance quantile extrapolates a few percent above the
 measured maximum for both engines (Table~\ref{tab:gumbel}). These are \emph{comparative}
 estimates (Sec.~\ref{sec:threats}).
-
-\todo{AArch64 bare-metal: counter-equality verification table + target tail table + whether
-the \SI{100}{ms} @ 10\,Hz budget holds on the target for the union-worst fixture.}

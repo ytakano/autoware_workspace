@@ -63,8 +63,9 @@ comparative probabilistic-WCET (\pwcet) exceedance estimates. We use the fit for
 \subsection{Cross-ISA transfer to the deployment target}
 The Rust engine routes every transcendental through a pure-Rust \texttt{libm} implementation
 (including inside its linear-algebra library), making its floating-point results independent
-of the instruction-set architecture and of the platform's C library; the frozen fixtures and
-their counter values therefore transfer to the AArch64 bare-metal deployment target, where
-equal work is re-verified by comparing counters. (The same choice costs a bounded, measured
-sliver of host C++ parity; Sec.~\ref{sec:threats}.)
-\todo{Report the counter-equality check and target measurements (M5).}
+of the instruction-set architecture and of the platform's C library. The frozen fixtures and
+their counter values therefore carry over to the bare-metal deployment target unchanged, and
+the transfer is \emph{checkable} there by re-running the counters and asserting equality ---
+the same per-input certification as the cross-language comparison. Executing this protocol on
+target hardware is future work (Sec.~\ref{sec:conclusion}); the choice also costs a bounded,
+measured sliver of host C++ parity (Sec.~\ref{sec:threats}).
