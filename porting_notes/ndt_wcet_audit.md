@@ -464,3 +464,35 @@ unset VAR yields an EMPTY '' argument in this bash (ros2 launch dies: "malformed
 argument ''"), and l1b_ndt_align_init.py left the bag PAUSED on failure paths. Also: never
 invoke run_l1b.sh with "ndt_scan_matcher" in the command line (cleanup_graph's pkill pattern
 kills the invoking shell), and a stale run_l1b process's cleanup can kill a concurrent graph.
+
+### Divergence root cause (2026-07-11): TWO layers, one fixed, one open
+
+Systematic elimination on the frame-86 repro (all via new WCET_DUMP diagnostics in
+ndt_bench_replay --capture): leaf MEANS bit-exact (109k leaves checked); leaf ICOV differs only
+at ≤1.9e-15 relative (nalgebra symmetric_eigen vs Eigen SelfAdjointEigenSolver ULP noise — no
+eigenvalue-clamp flips); NEIGHBOR SETS identical on all 692 points; FMA ruled out (baseline
+x86-64, no vfmadd in the binary); FP-association effects bounded ~1e-10 ≪ the observed 4e-5
+absolute score gap ⇒ the summed TERM VALUES differ ⇒ the transformed clouds differ.
+
+**Layer 1 (FIXED, C++ parity)**: C++ transforms the INITIAL derivative pass by the guess
+MATRIX (`pcl::transformPointCloud(output, output, guess)`, multigrid_ndt_omp_impl:266) and
+records the guess matrix itself in transformation_array[0]; only subsequent passes rebuild the
+transform from the Euler 6-vector. The port rebuilt from euler(guess) for EVERY pass —
+`R_rebuilt(euler(R)) != R` in f32 for rotated guesses, displacing points by ~ULP(coordinate)
+(3.9 mm at the İstanbul 63 km coordinates). Fixed in ndt.rs (initial pass now matrix-transforms
+via transform_cloud_by_matrix + records `*guess`); frame-86 iteration counts now MATCH (7==7);
+all 93 engine tests + colcon differential suite 21/21 still green (synthetic fixtures use
+translation-only/identity guesses, where both paths coincide exactly — which is why the suites
+never caught this).
+
+**Layer 2 (OPEN)**: residual initial-pass score gap (~1.7e-5 relative at 63 km coords) with
+identical maps/neighbor sets ⇒ the per-point f32 TRANSFORM KERNEL itself differs for ROTATED
+poses: pcl/Eigen's application (association/vectorization order of `R·v + t`) vs nalgebra's
+`r * v + t`. Translation-only poses are exact in any order (products with 0/1), so all synthetic
+suites pass. Next step: disassemble/inspect `pcl::transformPointCloud`'s actual f32 operation
+order (Eigen Transform Affine × Vector3f on this toolchain) and mirror it exactly in
+`transform_cloud_by_matrix` / `se3` path; re-verify frame-86 arrays bit-equal, then the 22k
+open-loop replay (expect ~100% equal-work).
+
+Diagnostics kept: WCET_DUMP in ndt_bench_replay --capture (per-iteration score/pose arrays,
+leaf mean/icov comparison, neighbor-set comparison, first-step pose fork).
