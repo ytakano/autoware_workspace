@@ -528,3 +528,29 @@ out of scope; the per-frame equal-work certification handles the residual.
 
 Verification: engine tests 93/93 (both builds), colcon differential suite 21/21, no_std intact;
 synthetic fixtures byte-unchanged (translation-only guesses are fixed-point of all three fixes).
+
+## Why-is-C++-slow attribution (2026-07-11): the "subnormal outlier" was a misattribution
+
+Three experiments close the open explanation gaps in the paper:
+
+1. **Subnormal A/B**: regenerated the `subnormal` fixture with the source shell pulled
+   1.99 → 1.69 m (every kernel exp result leaves the subnormal band, all else equal).
+   C++ p50 unchanged: 57.6 (subnormal) vs 58.6 ms (normalized); Rust 8.0 vs 8.9.
+   **Subnormal operands are NOT the mechanism** on this Zen 3 host — the earlier
+   "FP-assist hazard" line (M4 notes, old §5.3) was wrong. Corrected in the paper.
+2. **exp microbench** (glibc vs libm crate, 100k args × 200 reps, pinned): normal args
+   6.9/9.3 ns per call; subnormal-RESULT args 19.9/47.7 ns (2.9×/5.1× — and libm is the
+   SLOWER one there, killing the "glibc slow path" hypothesis too). At K̄=0.7 the total exp
+   delta is sub-ms — negligible.
+3. **Per-point overhead decomposition**: C++ spends a ~1.6 µs/point/pass CONSTANT that Rust
+   does not (subnormal-shaped fixture: 1.86 vs 0.26 µs; cache_hostile: same constant).
+   Measured malloc/free pair = 11.3 ns (3-alloc churn microbench, -fno-builtin) × ~10 pairs
+   ≈ 0.11 µs ≈ **8% of the gap** — allocations are cheap ON AVERAGE (their significance is the
+   unbounded tail, as §5.4 argues); the dominant share is the per-query pcl/FLANN search
+   machinery (call indirection + result-container handling) that the Rust direct kd query
+   doesn't pay. The 2.1× per-kernel-eval regression coefficient is consistent with
+   LeafConstPtr indirection vs flat leaf storage (stated as arithmetic-plausible in the paper —
+   no perf counters available in this container: perf absent, perf_event_paranoid=4).
+
+Paper: §5.3 rewritten around the A/B evidence (the fixture keeps its name; the interpretation
+is corrected), §5.5 gains the attribution sentence with the honesty qualifier.

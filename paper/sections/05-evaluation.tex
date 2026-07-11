@@ -32,11 +32,27 @@ $\rightarrow$ \SI{608}{ms}).
 
 \input{tables/tails}
 
-% Note the subnormal outlier: 7.9x. x86 FP-assist hazard hits C++ harder; expect this to be
-% platform-specific (AArch64 handles subnormals in HW).
-The \emph{subnormal} fixture is the outlier ($7.9\times$): floating-point assists on subnormal
-operands penalize the C++ engine far more than the Rust one on this microarchitecture.
-\todo{contrast with AArch64, where subnormals are largely handled in hardware.}
+% Subnormal outlier: A/B-tested — NOT subnormals; per-point overhead on neighbor-sparse shape.
+The \emph{subnormal} fixture's outlier ratio ($7.3\times$ at p50) demanded a controlled
+check: re-generating the same fixture with the source shell pulled from \SI{1.99}{m} to
+\SI{1.69}{m} --- moving every kernel $\exp$ result out of the subnormal band, all else equal
+--- leaves the C++ time \emph{unchanged} (\SI{57.6}{ms} vs.\ \SI{58.6}{ms} p50; Rust 8.0
+vs.\ 8.9). Subnormal operands are \emph{not} the mechanism on this microarchitecture (a
+microbenchmark confirms subnormal-result \texttt{exp} costs only $2.9\times$/$5.1\times$ per
+call for glibc/\texttt{libm}, negligible at this fixture's $\bar{K}=0.7$). The real driver is
+the \emph{per-point constant overhead} exposed by a neighbor-sparse shape: with almost no
+kernel work, C++ spends ${\approx}1.9$\,\si{\micro\second} per point per pass against
+Rust's $0.26$ --- an ${\approx}1.6$\,\si{\micro\second} gap that reappears as the same
+constant on \emph{cache-hostile} ($\bar{K}=3.0$). Decomposing it: the measured
+allocator fast path (\SI{11.3}{ns} per malloc/free pair $\times$ ${\approx}10$ pairs) accounts
+for only ${\sim}8\%$; the remainder is the per-query search machinery around
+pcl/FLANN (call indirection and result-container handling) that the Rust engine's direct,
+allocation-free kd query does not pay. This sharpens the allocation story of
+Sec.~\ref{sec:eval-alloc}: heap churn is cheap \emph{on average} --- its significance is the
+unbounded latency tail --- while the mean-cost gap on sparse inputs is search-machinery
+overhead. (No hardware performance counters are available in the measurement container, so the
+final split is arithmetic over microbenchmarks rather than counter-attributed;
+Sec.~\ref{sec:threats}.)
 
 \subsection{Heap allocations per align}
 \label{sec:eval-alloc}
@@ -62,7 +78,11 @@ engines: the two-term work model explains the timing. The per-kernel-evaluation 
 $\regKernelRatio\times$ --- while C++'s per-kd-node cost is lower (\SI{\regKdNsCpp}{ns} vs.\
 \SI{\regKdNsRust}{ns}); the kd term is second-order on the engine-level worst set, though it
 dominates the deployment tier (Sec.~\ref{sec:eval-twotier}). (The small negative Rust
-intercept is an extrapolation artifact of the small-$n$ fit.)
+intercept is an extrapolation artifact of the small-$n$ fit.) The per-kernel-evaluation gap is
+consistent with the same overhead structure as above --- each C++ evaluation reaches its leaf
+through a \texttt{LeafConstPtr} indirection with the per-query machinery amortized over few
+neighbors, where the Rust engine reads a flat leaf array --- though without hardware counters
+we present this attribution as arithmetic-plausible rather than counter-proven.
 
 \input{tables/regression}
 
