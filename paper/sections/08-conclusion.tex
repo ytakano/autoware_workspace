@@ -2,17 +2,19 @@
 \label{sec:conclusion}
 
 We showed that a bit-exact port turns WCET analysis of a data-dependent industrial kernel into
-a tractable, largely automated pipeline: structural bounds enforced and machine-checked in the
-port, worst inputs found by a deterministic counter-guided search (with an exact saturation
-certificate for the dominant term), and cross-language equal-work measurement requiring no
-instrumentation of the production C++ sources. On every adversarial fixture the Rust port meets
-or beats the C++ engine's observed maximum while eliminating its per-point heap-allocation
-hazard.
+a tractable, largely automated pipeline: a structural work bound enforced and machine-checked
+in the port, worst inputs found by a deterministic counter-guided search (with an exact
+saturation certificate for the dominant term), and cross-language equal-work measurement
+requiring no instrumentation of the production C++ sources. The resulting bound is
+\emph{layered}: proven on the work axis, parametric in the caller's contract ($P$-affine,
+two tiers), and empirical only in the time-per-operation factor. On every adversarial fixture
+the Rust port meets or beats the C++ engine's observed maximum while eliminating its per-point
+heap-allocation hazard --- and the per-input equal-work certification proved sharp enough to
+find, and fix, port-fidelity gaps that conventional differential testing missed.
 \todo{Close with the AArch64 target bound and the 10\,Hz budget statement once M5 lands.}
 
-% Future work: hardware half of M5 (bare-metal AArch64 + interference co-runner), stronger EVT
-% (PoT/MLE, CIs), extending the counter-transfer methodology to other Autoware kernels.
 \paragraph{Future work}
-Bare-metal AArch64 measurement with an interference co-runner; statistically stronger EVT
-(peaks-over-threshold, MLE, confidence intervals); applying the counter-guided transfer
-methodology to other data-dependent Autoware kernels.
+Bare-metal AArch64 measurement with an interference co-runner (which would also promote the
+work bound toward an analytical WCET; Sec.~\ref{sec:threats}); statistically stronger EVT
+(peaks-over-threshold, maximum-likelihood fits, confidence intervals); applying the
+counter-guided transfer methodology to other data-dependent Autoware kernels.

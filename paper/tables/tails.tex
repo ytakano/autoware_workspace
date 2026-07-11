@@ -8,14 +8,14 @@
 \toprule
 fixture & \multicolumn{2}{c}{C++ (p50 / max)} & \multicolumn{2}{c}{Rust (p50 / max)} & ratio \\
 \midrule
-\texttt{search\_00} (union worst) & 869.3 & 937.4 & 605.6 & 656.0 & \textbf{0.70} \\
-\texttt{search\_01} & 608.5 & 627.9 & 520.7 & 524.6 & \textbf{0.84} \\
-dense-neighbors & 595.7 & 625.1 & 401.6 & 460.5 & \textbf{0.74} \\
-max-iterations & 88.9 & 100.3 & 31.4 & 31.7 & \textbf{0.32} \\
-cache-hostile & 19.5 & 19.6 & 7.7 & 7.9 & \textbf{0.40} \\
-subnormal & 54.9 & 55.4 & 7.4 & 7.6 & \textbf{0.14} \\
-legal-worst (deployment tier) & 163.1 & 167.9 & 120.9 & 142.7 & \textbf{0.85} \\
-legal-osc (deployment tier) & 118.3 & 146.2 & 64.6 & 65.0 & \textbf{0.44} \\
+\emph{search-00} (union worst) & 869.3 & 937.4 & 605.6 & 656.0 & \textbf{0.70} \\
+\emph{search-01} & 608.5 & 627.9 & 520.7 & 524.6 & \textbf{0.84} \\
+\emph{dense-neighbors} & 595.7 & 625.1 & 401.6 & 460.5 & \textbf{0.74} \\
+\emph{max-iterations} & 88.9 & 100.3 & 31.4 & 31.7 & \textbf{0.32} \\
+\emph{cache-hostile} & 19.5 & 19.6 & 7.7 & 7.9 & \textbf{0.40} \\
+\emph{subnormal} & 54.9 & 55.4 & 7.4 & 7.6 & \textbf{0.14} \\
+\emph{legal-worst} (deployment tier) & 163.1 & 167.9 & 120.9 & 142.7 & \textbf{0.85} \\
+\emph{legal-osc} (deployment tier) & 118.3 & 146.2 & 64.6 & 65.0 & \textbf{0.44} \\
 \bottomrule
 \end{tabular}
 \par\smallskip\footnotesize ratio = Rust max / C++ max; $<1$ everywhere.

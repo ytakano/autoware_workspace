@@ -2,7 +2,6 @@
 \label{sec:evaluation}
 
 \subsection{Setup}
-% x86 Linux host (dev container). Governor caveat -> to be redone with performance governor.
 Host: AMD Ryzen 9 5900HX, Linux 6.8, GCC 11.4 (C++, \texttt{-O2}), rustc 1.96 (release),
 serial engines, pinned core (\texttt{taskset}), 100 aligns per fixture per engine after 10
 warmups, \texttt{steady\_clock}, align loop only (map and kd-tree built once per engine per
@@ -12,172 +11,172 @@ interference co-runner; current data: container, powersave governor.}
 
 \subsection{Search effectiveness}
 \label{sec:eval-search}
-% Saturation of the analytic bound + 35% kd growth. Table: counters per fixture.
 The hill-climb saturates the analytic kernel-evaluation maximum exactly:
 $\sumnbr = P \cdot \maxnn \cdot (N_{\mathrm{iter}}{+}1) = 2000 \cdot 64 \cdot 31 =
-\num{3968000}$ --- certifying that the hand-built dense-neighbors construction is
+\num{3968000}$ --- certifying that the hand-built \emph{dense-neighbors} construction is
 kernel-count-optimal --- and then grows the remaining free term \kdnodes{} by a further 35\%
-(8.88\,M $\rightarrow$ 12.01\,M, map extent 6 $\rightarrow$ 9 blocks). The frozen union-worst
-fixture (\texttt{search\_00}) dominates every measured engine on every percentile.
+(8.88\,M $\rightarrow$ 12.01\,M, map extent 6 $\rightarrow$ 9 blocks).
+% DATA-CHECKED(2026-07-11): saturation identity is exact by construction; kd growth from the
+% recorded search log (gen 0 8.88M -> gen 23 12.01M).
+The frozen union-worst fixture (\emph{search-00}) dominates every measured engine on every
+percentile. Table~\ref{tab:counters} lists the frozen set.
 
 \input{tables/counters}
 
-\subsection{Frame-time tails: C++ vs Rust}
+\subsection{Engine-tier frame times: C++ vs.\ Rust}
 \label{sec:eval-tails}
-% The headline table. Equal-work check passed 6/6.
-The equal-work assertion holds on all six fixtures (identical \texttt{iteration\_num} per
-engine pair), so the comparison is algorithm-fair. The Rust port's observed maximum is at or
-below the C++ engine's on every fixture (ratios 0.13--0.85; union worst: \SI{876}{ms}
-$\rightarrow$ \SI{608}{ms}).
+The equal-work assertion holds on every fixture (identical \texttt{iteration\_num} per engine
+pair), so the comparison is algorithm-fair. The Rust port's observed maximum is at or below
+the C++ engine's on every fixture (Table~\ref{tab:tails}; ratios 0.14--0.85; union worst:
+\SI{876}{ms} $\rightarrow$ \SI{608}{ms}).
+% DATA-CHECKED(2026-07-11): ratio range and search-00 values match tables/tails.tex.
 
 \input{tables/tails}
 
 % Subnormal outlier: A/B-tested — NOT subnormals; per-point overhead on neighbor-sparse shape.
-The \emph{subnormal} fixture's outlier ratio ($7.3\times$ at p50) demanded a controlled
-check: re-generating the same fixture with the source shell pulled from \SI{1.99}{m} to
-\SI{1.69}{m} --- moving every kernel $\exp$ result out of the subnormal band, all else equal
---- leaves the C++ time \emph{unchanged} (\SI{57.6}{ms} vs.\ \SI{58.6}{ms} p50; Rust 8.0
-vs.\ 8.9). Subnormal operands are \emph{not} the mechanism on this microarchitecture (a
-microbenchmark confirms subnormal-result \texttt{exp} costs only $2.9\times$/$5.1\times$ per
-call for glibc/\texttt{libm}, negligible at this fixture's $\bar{K}=0.7$). The real driver is
-the \emph{per-point constant overhead} exposed by a neighbor-sparse shape: with almost no
-kernel work, C++ spends ${\approx}1.9$\,\si{\micro\second} per point per pass against
-Rust's $0.26$ --- an ${\approx}1.6$\,\si{\micro\second} gap that reappears as the same
-constant on \emph{cache-hostile} ($\bar{K}=3.0$). Decomposing it: the measured
-allocator fast path (\SI{11.3}{ns} per malloc/free pair $\times$ ${\approx}10$ pairs) accounts
-for only ${\sim}8\%$; the remainder is the per-query search machinery around
-pcl/FLANN (call indirection and result-container handling) that the Rust engine's direct,
-allocation-free kd query does not pay. This sharpens the allocation story of
-Sec.~\ref{sec:eval-alloc}: heap churn is cheap \emph{on average} --- its significance is the
-unbounded latency tail --- while the mean-cost gap on sparse inputs is search-machinery
-overhead. (No hardware performance counters are available in the measurement container, so the
-final split is arithmetic over microbenchmarks rather than counter-attributed;
-Sec.~\ref{sec:threats}.)
+The \emph{subnormal} fixture's outlier ratio ($7.3\times$ at p50) demanded a controlled check:
+re-generating the same fixture with the source shell pulled from \SI{1.99}{m} to \SI{1.69}{m}
+--- moving every kernel $\exp$ result out of the subnormal band, all else equal --- leaves the
+C++ time \emph{unchanged} (\SI{57.6}{ms} vs.\ \SI{58.6}{ms} p50; Rust 8.0 vs.\ 8.9).
+Subnormal operands are \emph{not} the mechanism on this microarchitecture (a microbenchmark
+confirms subnormal-result \texttt{exp} costs only $2.9\times$/$5.1\times$ per call for
+glibc/\texttt{libm}, negligible at this fixture's $\bar{K}=0.7$). The real driver is the
+\emph{per-point constant overhead} exposed by a neighbor-sparse shape: with almost no kernel
+work, C++ spends ${\approx}1.9$\,\si{\micro\second} per point per pass against Rust's $0.26$
+--- an ${\approx}1.6$\,\si{\micro\second} gap that reappears as the same constant on
+\emph{cache-hostile} ($\bar{K}=3.0$). Decomposing it: the measured allocator fast path
+(\SI{11.3}{ns} per malloc/free pair $\times$ ${\approx}10$ pairs) accounts for only
+${\sim}8\%$; the remainder is the per-query search machinery around pcl/FLANN (call
+indirection and result-container handling) that the Rust engine's direct, allocation-free
+kd query does not pay. This sharpens the allocation story of Sec.~\ref{sec:eval-alloc}: heap
+churn is cheap \emph{on average} --- its significance is the unbounded latency tail --- while
+the mean-cost gap on sparse inputs is search-machinery overhead. (No hardware performance
+counters are available in the measurement container, so the final split is arithmetic over
+microbenchmarks rather than counter-attributed; Sec.~\ref{sec:threats}.)
 
 \subsection{Heap allocations per align}
 \label{sec:eval-alloc}
-% 11 mallocs/point/pass decomposition + the three layers. Rust proven 0.
 The interposer counts decompose as ${\approx}11$ allocations per point per derivative pass on
 every fixture (e.g.\ $\num{682248} / (31 \cdot 2000) = 11.0$), locating the source in the
 per-point inner loop: a fresh neighbor vector constructed inside the parallel loop body, two
 fresh index/distance vectors per radius-search call, and per-query result containers inside
-pcl/FLANN (${\approx}8$/point). These ride the allocator's thread-cache fast path --- invisible
-on average, but each is a potential lock, page fault, or fragmentation stall inside the
-innermost loop. The Rust engine hoists all three layers into a pre-reserved workspace and
-measures zero in the same harness, consistent with its allocation-freedom proof.
+pcl/FLANN (${\approx}8$/point). These ride the allocator's thread-cache fast path ---
+invisible on average, but each is a potential lock, page fault, or fragmentation stall inside
+the innermost loop. The Rust engine hoists all three allocation sites into a pre-reserved
+workspace and measures zero in the same harness, consistent with its allocation-freedom proof
+(Table~\ref{tab:alloc}).
 
 \input{tables/alloc}
 
 \subsection{Unit-cost regression}
 \label{sec:eval-regression}
-% T ~ a*nbr + b*kd + c per engine; R^2 >= 0.997. a: 133 vs 47 ns. Interpretation + caveat on
-% the negative intercept (n=6 extrapolation artifact).
 Regressing median latency on the (shared) counters yields $R^2 \ge \regRsqRust$ for both
 engines: the two-term work model explains the timing. The per-kernel-evaluation cost is
 \SI{\regKernelNsCpp}{ns} (C++) vs.\ \SI{\regKernelNsRust}{ns} (Rust) ---
 $\regKernelRatio\times$ --- while C++'s per-kd-node cost is lower (\SI{\regKdNsCpp}{ns} vs.\
-\SI{\regKdNsRust}{ns}); the kd term is second-order on the engine-level worst set, though it
+\SI{\regKdNsRust}{ns}); the kd term is second-order on the engine-tier worst set, though it
 dominates the deployment tier (Sec.~\ref{sec:eval-twotier}). (The small negative Rust
 intercept is an extrapolation artifact of the small-$n$ fit.) The per-kernel-evaluation gap is
 consistent with the same overhead structure as above --- each C++ evaluation reaches its leaf
-through a \texttt{LeafConstPtr} indirection with the per-query machinery amortized over few
-neighbors, where the Rust engine reads a flat leaf array --- though without hardware counters
-we present this attribution as arithmetic-plausible rather than counter-proven.
+through a pointer indirection with the per-query machinery amortized over few neighbors,
+where the Rust engine reads a flat leaf array --- though without hardware counters we present
+this attribution as arithmetic-plausible rather than counter-proven.
 
 \input{tables/regression}
 
-\subsection{Two-tier bound: engine level vs.\ deployment level}
+\subsection{Scaling with the input size $P$}
+\label{sec:eval-psweep}
+In the decomposition~\eqref{eq:decomp}, $P$ is the only multiplicative freedom: it scales the
+per-iteration sum while leaving $N_{\mathrm{iter}}$, $K$, and $T_{\mathrm{solve}}$ untouched,
+predicting an \emph{affine} law $\mathrm{WCET}(P) = \mathrm{slope}\cdot P + \mathrm{const}$.
+We validate this with a controlled sweep: the union-worst geometry regenerated at $P \in
+[\psweepPmin{}, \psweepPmax{}]$ (six points, $\times 2$ steps), where the counters certify
+that per-point work is exactly invariant --- $N_{\mathrm{iter}} = 30$ and $\sumnbr = P \cdot
+64 \cdot 31$ at every $P$ --- so time may vary only through $P$ itself.
+Table~\ref{tab:psweep} and Fig.~\ref{fig:psweep} show the result: both engines are affine in
+$P$ with $R^2 = \psweepRsqCpp{}$ (C++) and $\psweepRsqRust{}$ (Rust) on the \emph{max} series;
+no cache knee is visible over the tested range. The fitted worst-case cost is
+\SI{\psweepSlopeCpp}{\micro\second} (C++) vs.\ \SI{\psweepSlopeRust}{\micro\second} (Rust)
+per source point, consistent with the per-kernel-evaluation costs of
+Sec.~\ref{sec:eval-regression} (${\approx}64$ kernel evaluations $\times$ 31 passes per
+point).
+
+The affine law makes the bound \emph{parametric in the caller's contract}: inverting it
+against the \SI{100}{ms} (10\,Hz) budget gives a maximum admissible downsampled-scan size of
+$P \approx \psweepPmaxRust{}$ points for the Rust engine (\psweepPmaxCpp{} for C++)
+\emph{under the union-worst geometry on this host} --- a number the localization node's
+voxel-filter configuration can be audited against directly. (Host-relative; the
+target-hardware slope is the number that matters for deployment. \todo{AArch64 slope, M5.})
+
+\input{tables/psweep}
+\input{figures/psweep}
+
+\subsection{Two-tier bound: engine tier vs.\ deployment tier}
 \label{sec:eval-twotier}
-% The realizability question, answered by measurement. legal_worst (Sec 4) vs search_00.
 The adversarial fixtures bound the engine at its API --- the right contract for the
 \texttt{no\_std} kernel deployment, where inputs cross a trust boundary unvalidated. When the
-production preprocessing contracts hold (Sec.~\ref{sec:impl-legal}), the reachable input space
-shrinks, and with it the bound: on \emph{legal-worst}, the hardest preprocessing-reachable
-input we can construct, the observed maximum drops to \SI{\legalWorstMaxRust}{ms} (Rust) /
-\SI{\legalWorstMaxCpp}{ms} (C++) --- a factor of \legalWorstRatioRust$\times$ /
-\legalWorstRatioCpp$\times$ below the engine-level union worst
-(Table~\ref{tab:tails}). The mechanism is the $K$ ceiling: disjoint voxel-aligned map tiles cap
-leaf multiplicity at 1, so $\bar{K} = \legalWorstKbar$ instead of 64, and the production
+production preprocessing contracts hold (Sec.~\ref{sec:impl-legal}), the reachable input
+space shrinks, and with it the bound: on \emph{legal-worst}, the hardest
+preprocessing-reachable input we can construct, the observed maximum drops to
+\SI{\legalWorstMaxRust}{ms} (Rust) / \SI{\legalWorstMaxCpp}{ms} (C++) --- a factor of
+\legalWorstRatioRust$\times$ / \legalWorstRatioCpp$\times$ below the engine-tier union worst
+(Table~\ref{tab:tails}). The mechanism is the $K$ ceiling: disjoint voxel-aligned map tiles
+cap leaf multiplicity at 1, so $\bar{K} = \legalWorstKbar$ instead of 64, and the production
 random-downsample cap fixes $P \le 1500$. Note the shift in the cost structure: kernel
-evaluations drop $10.7\times$ ($\sumnbr$: $3.97\,\mathrm{M} \rightarrow 372\,\mathrm{k}$) but
-time drops less, because kd-tree traversal --- unaffected by the $K$ ceiling --- becomes the
-dominant term of the deployment tier. Read constructively, the pair quantifies what
+evaluations drop $10.7\times$ ($\sumnbr$: $3.97\,\mathrm{M} \rightarrow 372\,\mathrm{k}$)
+% DATA-CHECKED(2026-07-11): 3968000/372000 = 10.67 from data/wcet_rust.json.
+but time drops less, because kd-tree traversal --- unaffected by the $K$ ceiling --- becomes
+the dominant term of the deployment tier. Read constructively, the pair quantifies what
 \emph{enforcing input contracts at the component boundary} buys: validating tile disjointness
 and scan-downsample invariants before the align tightens the defensible WCET bound by
 $\legalWorstRatioRust\times$ without touching the kernel itself. The iteration axis of the
 tier is not an artifact of the $\epsilon$ pin: the production-parameterized legal search
 (Sec.~\ref{sec:impl-legal}) reaches the full 30-iteration cap on \emph{legal-osc}
-(\SI{\legalOscMaxRust}{ms} Rust / \SI{\legalOscMaxCpp}{ms} C++, $\bar{K} = \legalOscKbar$) ---
-below \emph{legal-worst}, which therefore remains the tier's time bound.
+(\SI{\legalOscMaxRust}{ms} Rust / \SI{\legalOscMaxCpp}{ms} C++, $\bar{K} = \legalOscKbar$)
+--- below \emph{legal-worst}, which therefore remains the tier's time bound.
 
 \subsection{Real-data replay: contract validation and degraded-prior behavior}
 \label{sec:eval-realdata}
-% Captured via the env-gated engine hook during an L1b run, replayed offline with counters.
-To place the tiers against real inputs, we captured every NDT input (map tile, per-align guess
-and source cloud) during a replay of a real urban drive (İstanbul; \realFrames{} aligns over
-57 minutes through the production preprocessing) via an environment-gated hook at the engine's
-entry points, then replayed the captured frames offline through both engines on identical
-buffers with the cost counters enabled. Because the benchmark harness could not reproduce the
-production EKF's prior quality offline, the guess track is a frozen NDT-odometry
-reconstruction (constant-velocity extrapolation from a GNSS seed) --- \emph{representative of
-degraded-prior operation} (initialization, EKF dropouts), not of nominal cruising, which the
-converged node-level baseline shows at 3 iterations/frame.
+To place the tiers against real inputs, we captured every NDT input (map tile, per-align
+guess and source cloud) during a replay of a real urban drive (İstanbul; \realFrames{} aligns
+over 57 minutes through the production preprocessing) via an environment-gated hook at the
+engine's entry points, then replayed the captured frames offline through both engines on
+identical buffers with the cost counters enabled. Because the benchmark harness could not
+reproduce the production localization filter's prior quality offline, the guess track is a
+frozen NDT-odometry reconstruction (constant-velocity extrapolation from a global-navigation-satellite-system (GNSS) seed) ---
+\emph{representative of degraded-prior operation} (initialization, filter dropouts), not of
+nominal cruising, which the converged node-level baseline shows at 3 iterations per frame.
+
 Table~\ref{tab:realdata} shows the distributions; four observations. First, the preprocessing
 contracts hold empirically: $P \le \realPMax = 1500$ on all \realFrames{} frames. Second, the
 per-point neighbor count reaches at most $\realKmaxMax$: within the per-tile geometric bound
 of 27, but \emph{one above} the voxel-center heuristic of 8 --- real centroids deviate from
 voxel centers, pulling a ninth leaf into range; the load-bearing bound is the 27, not the 8.
 Third, under degraded priors the iteration cap is \emph{routinely} reached on real geometry
-(72\% of on-map frames), corroborating the deployment tier's iteration axis with real data;
-the real worst frame costs \SI{\realCppMax}{ms} (C++) --- grazing the \SI{100}{ms} budget ---
-vs.\ \SI{\realRustMax}{ms} (Rust), which sits $\realMarginDeploy\times$ below the
-deployment-tier bound and ${\sim}\realMarginEngine\times$ below the engine tier. Fourth, equal
-work holds on \realMatchPct\% of frames (\realMatch{} of \realFrames) --- and the initial
-${\sim}2\%$ of exceptions became a product of the method itself: real rotated poses exposed
-two port-fidelity gaps that every translation-only synthetic fixture is structurally blind to
-(the C++ engine's initial-pass guess-matrix transform, and pcl's right-associated SSE transform
-kernel). Fixing both reduced the divergence to the $0.12\%$ residual characterized in
-Sec.~\ref{sec:threats}.
+(73\% of on-map frames),
+% DATA-CHECKED(2026-07-11): 366/501 = 73% from data/realdata.json on-map prefix window.
+corroborating the deployment tier's iteration axis with real data; the real worst frame costs
+\SI{\realCppMax}{ms} (C++) --- grazing the \SI{100}{ms} budget --- vs.\
+\SI{\realRustMax}{ms} (Rust), which sits $\realMarginDeploy\times$ below the deployment-tier
+bound and ${\sim}\realMarginEngine\times$ below the engine tier. Fourth, equal work holds on
+\realMatchPct\% of frames (\realMatch{} of \realFrames) --- and the initial ${\sim}2\%$ of
+exceptions became a product of the method itself: real rotated poses exposed two
+port-fidelity gaps that every translation-only synthetic fixture is structurally blind to
+(the C++ engine's initial-pass guess-matrix transform, and pcl's right-associated SSE
+transform kernel). Fixing both reduced the divergence to the $0.12\%$ residual characterized
+in Sec.~\ref{sec:threats}.
 
 \input{tables/realdata}
 
-\subsection{Scaling with the input size $P$}
-\label{sec:eval-psweep}
-% Controlled experiment: P is the only variable (counters verify invariant per-point work).
-% Affine model -> parametric bound -> budget inversion.
-In the decomposition~\eqref{eq:decomp}, $P$ is the only multiplicative freedom: it scales the
-per-iteration sum while leaving $N_{\mathrm{iter}}$, $K$, and $T_{\mathrm{solve}}$ untouched,
-predicting an \emph{affine} law $\mathrm{WCET}(P) = \mathrm{slope}\cdot P + \mathrm{const}$. We
-validate this with a controlled sweep: the union-worst geometry regenerated at $P \in
-[\psweepPmin{}, \psweepPmax{}]$ (six points, $\times 2$ steps), where the counters certify that
-per-point work is exactly invariant --- $N_{\mathrm{iter}} = 30$ and $\sumnbr = P \cdot 64
-\cdot 31$ at every $P$ --- so time may vary only through $P$ itself.
-Table~\ref{tab:psweep} and Fig.~\ref{fig:psweep} show the result: both engines are affine in
-$P$ with $R^2 = \psweepRsqCpp{}$ (C++) and $\psweepRsqRust{}$ (Rust) on the \emph{max} series;
-no cache knee is visible over the tested range. The fitted worst-case cost is
-\SI{\psweepSlopeCpp}{\micro\second} (C++) vs.\ \SI{\psweepSlopeRust}{\micro\second} (Rust) per
-source point, consistent with the per-kernel-evaluation costs of
-Sec.~\ref{sec:eval-regression} (${\approx}64$ kernel evaluations $\times$ 31 passes per point).
-
-The affine law makes the bound \emph{parametric in the caller's contract}: inverting it against
-the \SI{100}{ms} (10\,Hz) budget gives a maximum admissible downsampled-scan size of
-$P \approx \psweepPmaxRust{}$ points for the Rust engine (\psweepPmaxCpp{} for C++) \emph{under
-the union-worst geometry on this host} --- a number the localization node's voxel-filter
-configuration can be audited against directly. (Host-relative; the target-hardware slope is the
-number that matters for deployment. \todo{AArch64 slope, M5.})
-
-\input{tables/psweep}
-\input{figures/psweep}
-
 \subsection{Gumbel tail fit (\pwcet)}
 \label{sec:eval-gumbel}
-% Comparative pWCET. beta small everywhere => tight warm-cache tails.
 \input{tables/gumbel}
 
 Fitted scale parameters are small everywhere ($\beta \le \SI{1.3}{ms}$): warm-cache tails are
-tight, and the residual spread is interference, not algorithmic variance. On the union worst
-fixture the $10^{-9}$ per-block exceedance quantile extrapolates to \SI{900}{ms} (C++) vs.\
-\SI{629}{ms} (Rust). These are \emph{comparative} estimates (Sec.~\ref{sec:threats}).
+tight, and the residual spread is interference, not algorithmic variance. On the union-worst
+fixture the $10^{-9}$ per-block exceedance quantile extrapolates a few percent above the
+measured maximum for both engines (Table~\ref{tab:gumbel}). These are \emph{comparative}
+estimates (Sec.~\ref{sec:threats}).
 
-\todo{AArch64 bare-metal: counter-equality verification table + target tail table + whether the
-\SI{100}{ms} @ 10\,Hz budget holds on the target for the union worst fixture.}
+\todo{AArch64 bare-metal: counter-equality verification table + target tail table + whether
+the \SI{100}{ms} @ 10\,Hz budget holds on the target for the union-worst fixture.}

@@ -34,14 +34,14 @@ ORDER = [
     "legal_osc",
 ]
 LABEL = {
-    "search_00": r"\texttt{search\_00} (union worst)",
-    "search_01": r"\texttt{search\_01}",
-    "dense_neighbors": r"dense-neighbors",
-    "max_iterations": r"max-iterations",
-    "cache_hostile": r"cache-hostile",
-    "subnormal": r"subnormal",
-    "legal_worst": r"legal-worst (deployment tier)",
-    "legal_osc": r"legal-osc (deployment tier)",
+    "search_00": r"\emph{search-00} (union worst)",
+    "search_01": r"\emph{search-01}",
+    "dense_neighbors": r"\emph{dense-neighbors}",
+    "max_iterations": r"\emph{max-iterations}",
+    "cache_hostile": r"\emph{cache-hostile}",
+    "subnormal": r"\emph{subnormal}",
+    "legal_worst": r"\emph{legal-worst} (deployment tier)",
+    "legal_osc": r"\emph{legal-osc} (deployment tier)",
 }
 
 
@@ -99,7 +99,7 @@ def main():
         r"fixture & $N_{\mathrm{iter}}$ & \sumnbr{} & \kdnodes{} & map pts & tiles",
         rows,
         note=r"$\sumnbr = \num{3968000} = 2000 \cdot 64 \cdot 31$ on "
-        r"\texttt{search\_00}: the analytic kernel-evaluation maximum, reached exactly.",
+        r"\emph{search-00}: the analytic kernel-evaluation maximum, reached exactly.",
     )
 
     # ---- tails.tex ----

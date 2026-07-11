@@ -8,11 +8,12 @@ point-cloud map; in Autoware~\cite{autoware}, an open-source production driving 
 primary matcher is the Normal Distributions Transform (\ndt)~\cite{biber2003ndt}: a
 Newton-optimized alignment of the downsampled scan against a voxelized Gaussian map, executed
 once per scan at the sensor rate --- typically 10\,Hz, i.e.\ a \SI{100}{ms} period. The
-resulting pose feeds the EKF, planner, and controller on the critical path, and a \emph{late}
-pose is operationally as bad as a wrong one: consumers fall back to dead-reckoning
-extrapolation whose error grows with vehicle speed, and sustained overruns trigger degraded
-operation or a minimum-risk maneuver. The engineering question is therefore not the average
-align time but its worst case: does one \ndt{} align \emph{always} fit the period?
+resulting pose feeds the extended Kalman filter (EKF), planner, and controller on the critical
+path, and a \emph{late} pose is operationally as bad as a wrong one: consumers fall back to
+dead-reckoning extrapolation whose error grows with vehicle speed, and sustained overruns
+trigger degraded operation or a minimum-risk maneuver. The engineering question is therefore
+not the average align time but its worst case: does one \ndt{} align \emph{always} fit the
+period?
 
 % Para 1b: the spread we actually observe motivates the question empirically.
 The question has teeth because the align time is violently input-dependent. On the engines
@@ -25,41 +26,48 @@ observing nominal traffic; it requires a worst-case analysis.
 % Para 2: why WCET is hard here. Data-dependent iterative optimization: Newton iterations
 % (bounded but input-dependent), per-point neighbor counts, kd-tree traversal shape all depend
 % on the map/scan geometry. Static WCET tools need loop bounds that are input properties.
-Data-dependent, iterative optimization kernels resist classical static WCET analysis: the
-dominant loop bounds --- Newton iteration count, per-point neighbor multiplicity, kd-tree
-traversal length --- are properties of the input geometry, not of the program text.
-Exhaustive input enumeration is hopeless; naive fuzzing with wall-clock fitness is noisy,
-machine-specific, and unreproducible.
+Data-dependent, iterative optimization kernels resist classical static worst-case
+execution-time (WCET) analysis: the dominant loop bounds --- Newton iteration count, per-point
+neighbor multiplicity, kd-tree traversal length --- are properties of the input geometry, not
+of the program text. Exhaustive input enumeration is hopeless; naive fuzzing with wall-clock
+fitness is noisy, machine-specific, and unreproducible.
 
 % Para 3: the opportunity. A bit-exact Rust port of the C++ engine exists (motivated by a
 % no_std kernel deployment). Bit-exactness = identical FP operand streams = identical
 % iteration counts and neighbor sets for the same input.
 This work exploits an unusual asset: a \emph{bit-exact} Rust port of the production C++ engine,
-originally motivated by deployment on a \texttt{no\_std} real-time kernel. Bit-exactness means
-both implementations perform the \emph{same algorithmic work} on any input --- same iteration
-count, same neighbor sets, same floating-point operand streams --- so any statement about one
-engine's work transfers to the other.
+originally motivated by deployment on a bare-metal real-time kernel (a \texttt{no\_std}
+environment, i.e.\ Rust without its standard library). Bit-exactness means both implementations
+perform the \emph{same algorithmic work} on any input --- same iteration count, same neighbor
+sets, same floating-point operand streams --- so any statement about one engine's work
+transfers to the other.
 
 % Para 4: contributions.
 Our contributions:
 \begin{enumerate}
-  \item A \textbf{three-layer hybrid WCET methodology} for data-dependent kernels: (i) a
+  \item A \textbf{three-layer hybrid WCET methodology} for data-dependent kernels: (i)~a
     structural work bound whose terms are enforced by construction and machine-checked by
-    property-based tests; (ii) a worst-input search guided by \emph{deterministic algorithmic
-    cost counters} (platform-independent, zero-overhead when disabled); (iii) measurement with
-    an MBPTA-style Gumbel tail fit on the frozen worst inputs.
+    property-based tests; (ii)~a worst-input search guided by \emph{deterministic algorithmic
+    cost counters} (platform-independent, zero-overhead when disabled); (iii)~measurement with a Gumbel tail fit in the style of measurement-based
+    probabilistic timing analysis (MBPTA) on the frozen worst inputs.
   \item A \textbf{cross-language transfer argument}: instrumenting only the Rust port suffices,
     because bit-exactness carries the discovered worst inputs to the unmodified C++ engine;
-    equal work is certified per input by an iteration-count assertion (8/8 fixtures pass).
+    equal work is certified \emph{per input} by an iteration-count assertion. The
+    certification earns its keep: on real map data it exposed --- and led us to fix --- two
+    port-fidelity gaps that translation-only synthetic fixtures are structurally blind to,
+    leaving a characterized $0.12\%$ residual (Sec.~\ref{sec:threats}).
   \item \textbf{Evidence that the search is effective}: it saturates the analytic
     kernel-evaluation maximum $P \cdot \maxnn \cdot (N_{\mathrm{iter}}{+}1)$ exactly, then
     grows the remaining free term (kd-tree traversal) by a further 35\%.
-  \item An \textbf{industrial case study}: on every adversarial fixture the Rust port's observed
-    maximum is at or below C++'s (ratios 0.14--0.85); the C++ engine makes ${\approx}11$ heap
-    allocations per point per derivative pass (up to \num{682248} per align), a structural
-    unbounded-latency hazard the Rust port eliminates by construction (proven zero-allocation,
-    recursion-free, panic-free). A \textbf{two-tier bound} separates the untrusted-input
-    (engine-API) worst case from the preprocessing-reachable one, quantifying what enforcing
-    input contracts at the component boundary buys ($\legalWorstRatioRust\times$ here).
+  \item An \textbf{industrial case study}: on every adversarial fixture the Rust port's
+    observed maximum is at or below C++'s (ratios 0.14--0.85); the C++ engine makes
+    ${\approx}11$ heap allocations per point per derivative pass (up to \num{682248} per
+    align), a structural unbounded-latency hazard the Rust port eliminates by construction
+    (proven zero-allocation, recursion-free, panic-free). A \textbf{two-tier bound} separates
+    the untrusted-input (engine-API) worst case from the preprocessing-reachable one ---
+    each axis of the deployment tier backed by a legal witness input --- quantifying what
+    enforcing input contracts at the component boundary buys
+    ($\legalWorstRatioRust\times$ here). A 57-minute real drive validates the contracts and
+    the margins.
     \todo{+ AArch64 bare-metal bound, counter-verified cross-ISA transfer (M5).}
 \end{enumerate}

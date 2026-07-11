@@ -14,49 +14,48 @@
     the full input space; the saturation argument covers the kernel-evaluation term exactly,
     but the kd-traversal term has no matching analytic maximum, so a worse traversal geometry
     may exist. The structural $O(N_{\mathrm{leaves}})$ bound still caps it.
-  \item \textbf{Real-data representativity and the divergence finding.} The real-data
-    reference (Sec.~\ref{sec:eval-realdata}) is one route, one vehicle, and a
-    \emph{degraded-prior} guess track (offline NDT-odometry, not the production EKF); its
-    iteration statistics over-represent nominal cruising and its margins are specific to that
-    drive. It also surfaced a finding the synthetic suites never did: iteration
-    counts diverged by ${\pm}1$ on ${\sim}2\%$ of real frames. Root-causing identified and
-    fixed two port-fidelity gaps invisible to translation-only fixtures --- the C++ engine
-    transforms its \emph{initial} pass by the guess matrix (not the Euler rebuild), and pcl's
-    SSE transform kernel is right-associated with the translation innermost --- reducing the
-    divergence to $28$ of \num{22416} frames ($0.12\%$). The residual is irreducible without
-    matching glibc's eigensolver and \texttt{f64} transcendentals bit-for-bit: sub-f32-ULP
-    differences in the internal \texttt{f64} trajectory (eigensolver ${\le}2{\times}10^{-15}$
-    on the inverse covariances; \texttt{libm}-vs-glibc \texttt{exp}) surface only on
-    knife-edge frames. ``Bit-exact'' therefore means bit-exact on the tested domain: equal work
-    is \emph{certified per frame} by the replay assertion, and the $0.13\%$ is flagged rather
+  \item \textbf{Real-data representativity.} The real-data reference
+    (Sec.~\ref{sec:eval-realdata}) is one route, one vehicle, and a \emph{degraded-prior}
+    guess track (offline NDT-odometry, not the production localization filter); its iteration
+    statistics over-represent nominal cruising, and its margins are specific to that drive.
+  \item \textbf{Bit-exactness and the residual divergence.} The real-data replay surfaced what
+    the synthetic suites never did: iteration counts initially diverged by ${\pm}1$ on
+    ${\sim}2\%$ of real frames. Root-causing identified and fixed two port-fidelity gaps
+    invisible to translation-only fixtures --- the C++ engine transforms its \emph{initial}
+    pass by the guess matrix (not the Euler rebuild), and pcl's SSE transform kernel is
+    right-associated with the translation innermost --- reducing the divergence to $28$ of
+    \num{22416} frames ($0.12\%$). The residual is irreducible without matching glibc's
+    eigensolver and \texttt{f64} transcendentals bit-for-bit: sub-f32-ULP differences in the
+    internal \texttt{f64} trajectory (eigensolver ${\le}2{\times}10^{-15}$ on the inverse
+    covariances; \texttt{libm}-vs-glibc \texttt{exp}) surface only on knife-edge frames.
+    ``Bit-exact'' therefore means bit-exact on the tested domain: equal work is
+    \emph{certified per frame} by the replay assertion, and the $0.12\%$ is flagged rather
     than silently compared.
-  \item \textbf{Input realizability and caller-side assumptions.} The engine-level fixtures
-    are API-legal but not reachable through the production preprocessing pipeline (duplicate
-    source points, sub-downsample map clusters, overlapping tiles); the bound they support is
-    the \emph{untrusted-input} tier, deliberately conservative. The deployment tier is measured
-    separately (Sec.~\ref{sec:eval-twotier}), but its contracts --- tile disjointness and
+  \item \textbf{Deployment-tier contracts.} The engine-tier fixtures are API-legal but not
+    reachable through the production preprocessing (duplicate source points, sub-downsample
+    map clusters, overlapping tiles); the bound they support is the \emph{untrusted-input}
+    tier, deliberately conservative. The deployment tier's contracts --- tile disjointness and
     alignment, map/scan downsampling, the $P \le 1500$ cap --- are properties of the map and
     sensing pipelines that the engine does \emph{not} verify; a violated contract silently
-    moves the system back to the engine-level tier. On the iteration axis the tier's time bound
+    moves the system back to the engine tier. On the iteration axis, the tier's time bound
     (\emph{legal-worst}) pins $N_{\mathrm{iter}} = 30$ via a non-production $\epsilon$; the
     cap itself is legally reachable (the production-parameterized \emph{legal-osc} witness,
     Sec.~\ref{sec:impl-legal}), but no single legal input in our search family achieves the
-    $K = 8$ and 30-iteration worst cases \emph{simultaneously} --- the tier bound therefore
-    combines the two axes conservatively rather than exhibiting one witness for both. The affine $\mathrm{WCET}(P)$ law is
+    $K = 8$ and 30-iteration worst cases \emph{simultaneously} --- the tier bound combines
+    the two axes conservatively rather than exhibiting one witness for both.
+  \item \textbf{Neighbor-cap and scaling preconditions.} The \maxnn{} sufficiency derivation
+    (Sec.~\ref{sec:implementation}) assumes the search radius stays coupled to the voxel size;
+    decoupling them would require re-deriving the cap. The affine $\mathrm{WCET}(P)$ law is
     validated over $P \in [\psweepPmin{}, \psweepPmax{}]$ on the host
     (Sec.~\ref{sec:eval-psweep}); beyond that range, working sets exceeding the last-level
     cache could bend the slope upward, and the engine's zero-allocation guarantee is tied to
-    the pre-reserved capacity (exceeding it costs a one-time buffer growth). \maxnn{}
-    truncation deviates from C++'s unbounded neighbor set only beyond ${\ge}3$ adversarially
-    crowded overlapping tiles (Sec.~\ref{sec:implementation}: the per-tile geometric cap is
-    27); the derivation additionally assumes the search radius stays coupled to the voxel size
-    --- decoupling them would require re-deriving the cap.
+    the pre-reserved capacity (exceeding it costs a one-time buffer growth).
   \item \textbf{Cross-ISA transfer.} ISA-independence of the Rust floating-point stream is by
     construction (pure-software \texttt{libm}) and verified via counter equality, but the C++
     comparison itself is inherently x86/Linux-bound (pcl/ROS dependency).
   \item \textbf{Absolute WCET: what is proven and what is observed.} None of the reported
-    times is a certified hard bound, but the layers carry different epistemic strength, and the
-    distinction is the point of the decomposition. The \emph{work} bound of
+    times is a certified hard bound, but the layers carry different epistemic strength, and
+    the distinction is the point of the decomposition. The \emph{work} bound of
     Eq.~\eqref{eq:decomp} is proven --- its terms are enforced by construction and
     machine-checked, so no input can exceed it --- and for the kernel-evaluation term a frozen
     input provably \emph{achieves} the maximum (the saturation certificate; the kd-traversal
@@ -64,11 +63,11 @@
     structural cap). Every \emph{time} figure, by contrast, is an observation: warm caches,
     one container, no interference, and a microarchitecture (out-of-order x86) for which no
     sound static timing model exists --- on this hardware class a true WCET is practically
-    unobtainable by any method, and the Gumbel extrapolation inherits MBPTA's representativity
-    caveats. The counter decomposition thus \emph{factorizes} WCET into a proven part (work)
-    and an empirical part (time per unit of work); only the latter is unproven. On a
-    timing-predictable target --- precisely the \texttt{no\_std} kernel deployment of
-    Sec.~\ref{sec:intro} --- a defensible per-operation cost bound would promote
+    unobtainable by any method, and the Gumbel extrapolation inherits MBPTA's
+    representativity caveats. The counter decomposition thus \emph{factorizes} WCET into a
+    proven part (work) and an empirical part (time per unit of work); only the latter is
+    unproven. On a timing-predictable target --- precisely the \texttt{no\_std} kernel
+    deployment of Sec.~\ref{sec:intro} --- a defensible per-operation cost bound would promote
     $\text{work bound} \times \text{unit-cost bound}$ to an analytical WCET. Separately, the
     structural-hazard removals (allocation-, recursion-, panic-freedom) are constructive
     properties, not measurements: they are what make a finite bound \emph{possible} at all ---
