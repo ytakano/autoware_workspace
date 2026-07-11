@@ -34,15 +34,18 @@ ORDER = [
     "legal_osc",
 ]
 LABEL = {
-    "search_00": r"\emph{search-00} (union worst)",
+    "search_00": r"\emph{search-00}",
     "search_01": r"\emph{search-01}",
-    "dense_neighbors": r"\emph{dense-neighbors}",
-    "max_iterations": r"\emph{max-iterations}",
+    "dense_neighbors": r"\emph{dense-nbrs}",
+    "max_iterations": r"\emph{max-iters}",
     "cache_hostile": r"\emph{cache-hostile}",
     "subnormal": r"\emph{subnormal}",
-    "legal_worst": r"\emph{legal-worst} (deployment tier)",
-    "legal_osc": r"\emph{legal-osc} (deployment tier)",
+    "legal_worst": r"\emph{legal-worst}$^\dagger$",
+    "legal_osc": r"\emph{legal-osc}$^\dagger$",
 }
+# Shared table footnote for the tier markers.
+TIER_NOTE = (r"\emph{search-00} is the union-worst search output; "
+             r"$^\dagger$\,deployment-tier fixtures.")
 
 
 def pct(sorted_xs, p):
@@ -61,7 +64,8 @@ def write(name, caption, label, colspec, header, rows, note=None):
         r"\centering",
         rf"\caption{{{caption}}}",
         rf"\label{{{label}}}",
-        r"\small",
+        r"\footnotesize",
+        r"\setlength{\tabcolsep}{4pt}",
         rf"\begin{{tabular}}{{{colspec}}}",
         r"\toprule",
         header + r" \\",
@@ -99,7 +103,7 @@ def main():
         r"fixture & $N_{\mathrm{iter}}$ & \sumnbr{} & \kdnodes{} & map pts & tiles",
         rows,
         note=r"$\sumnbr = \num{3968000} = 2000 \cdot 64 \cdot 31$ on "
-        r"\emph{search-00}: the analytic kernel-evaluation maximum, reached exactly.",
+        r"\emph{search-00}: the analytic kernel-evaluation maximum, reached exactly. " + TIER_NOTE,
     )
 
     # ---- tails.tex ----
@@ -122,7 +126,7 @@ def main():
         r"fixture & \multicolumn{2}{c}{C++ (p50 / max)} "
         r"& \multicolumn{2}{c}{Rust (p50 / max)} & ratio",
         rows,
-        note=r"ratio = Rust max / C++ max; $<1$ everywhere.",
+        note=r"ratio = Rust max / C++ max; $<1$ everywhere. " + TIER_NOTE,
     )
 
     # ---- alloc.tex ----
@@ -146,7 +150,7 @@ def main():
         rows,
         note=r"The constant ${\approx}11$ per point per pass locates the source in the "
         r"per-point inner loop (Sec.~\ref{sec:eval-alloc}). Rust: zero, matching the "
-        r"allocation-freedom proof.",
+        r"allocation-freedom proof. " + TIER_NOTE,
     )
 
     # ---- regression.tex ----
