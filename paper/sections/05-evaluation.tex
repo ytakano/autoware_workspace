@@ -112,8 +112,12 @@ Third, under degraded priors the iteration cap is \emph{routinely} reached on re
 the real worst frame costs \SI{\realCppMax}{ms} (C++) --- grazing the \SI{100}{ms} budget ---
 vs.\ \SI{\realRustMax}{ms} (Rust), which sits $\realMarginDeploy\times$ below the
 deployment-tier bound and ${\sim}\realMarginEngine\times$ below the engine tier. Fourth, equal
-work holds on \realMatchPct\% of frames (\realMatch{} of \realFrames); the exceptions
-motivated the divergence finding discussed in Sec.~\ref{sec:threats}.
+work holds on \realMatchPct\% of frames (\realMatch{} of \realFrames) --- and the initial
+${\sim}2\%$ of exceptions became a product of the method itself: real rotated poses exposed
+two port-fidelity gaps that every translation-only synthetic fixture is structurally blind to
+(the C++ engine's initial-pass guess-matrix transform, and pcl's right-associated SSE transform
+kernel). Fixing both reduced the divergence to the $0.12\%$ residual characterized in
+Sec.~\ref{sec:threats}.
 
 \input{tables/realdata}
 
