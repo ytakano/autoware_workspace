@@ -104,10 +104,10 @@ files"). One redesign is required: the node crate owns the opaque-pointer manage
 
 - 2026-07-09: confirmed by the user — engine = pure Rust / all C-ABI to node / after Phase 8.
 - 2026-07-09: **IMPLEMENTED** (branch `ndt_in_rust_3_clean`, not yet committed). Engine crate name =
-  `autoware_ndt_rs`; layout = node crate as Cargo workspace root at its existing path (CMake
+  `realtime_ndt_scan_matcher`; layout = node crate as Cargo workspace root at its existing path (CMake
   `MANIFEST_PATH` unchanged) with the engine nested at `engine/`. Phase 8 turned out already complete,
   so no timing wait was needed. Verification: 84 exported C symbols identical (names + signatures)
-  pre/post split; cbindgen regenerated with `parse_deps = true` + `include = ["autoware_ndt_rs"]`
+  pre/post split; cbindgen regenerated with `parse_deps = true` + `include = ["realtime_ndt_scan_matcher"]`
   (opaque `AwNdtEngine`/`AwNdtVoxelGrid`/`AwNdtVoxelGridMap` resolve via the parsed dependency); colcon
   build ON (C++ compiles+links) and OFF both green; `colcon test` (functional + FFI differential
   gtests) exit 0; engine `cargo build` default/no_std/`mt`(+concurrency test)/clippy/test all green;
