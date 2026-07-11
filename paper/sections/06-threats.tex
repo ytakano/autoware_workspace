@@ -54,8 +54,26 @@
   \item \textbf{Cross-ISA transfer.} ISA-independence of the Rust floating-point stream is by
     construction (pure-software \texttt{libm}) and verified via counter equality, but the C++
     comparison itself is inherently x86/Linux-bound (pcl/ROS dependency).
-  \item \textbf{Absolute WCET.} Nothing here is a certified hard bound: measurement-based
-    results bound observed behavior, and the Gumbel extrapolation inherits MBPTA's usual
-    representativity caveats. The deliverable is ``the port does not regress WCET on any
-    adversarial fixture, and removes structural hazards'' --- not a proven absolute bound.
+  \item \textbf{Absolute WCET: what is proven and what is observed.} None of the reported
+    times is a certified hard bound, but the layers carry different epistemic strength, and the
+    distinction is the point of the decomposition. The \emph{work} bound of
+    Eq.~\eqref{eq:decomp} is proven --- its terms are enforced by construction and
+    machine-checked, so no input can exceed it --- and for the kernel-evaluation term a frozen
+    input provably \emph{achieves} the maximum (the saturation certificate; the kd-traversal
+    term has no matching certificate, so a worse traversal geometry may exist within its
+    structural cap). Every \emph{time} figure, by contrast, is an observation: warm caches,
+    one container, no interference, and a microarchitecture (out-of-order x86) for which no
+    sound static timing model exists --- on this hardware class a true WCET is practically
+    unobtainable by any method, and the Gumbel extrapolation inherits MBPTA's representativity
+    caveats. The counter decomposition thus \emph{factorizes} WCET into a proven part (work)
+    and an empirical part (time per unit of work); only the latter is unproven. On a
+    timing-predictable target --- precisely the \texttt{no\_std} kernel deployment of
+    Sec.~\ref{sec:intro} --- a defensible per-operation cost bound would promote
+    $\text{work bound} \times \text{unit-cost bound}$ to an analytical WCET. Separately, the
+    structural-hazard removals (allocation-, recursion-, panic-freedom) are constructive
+    properties, not measurements: they are what make a finite bound \emph{possible} at all ---
+    an engine that calls the allocator inside its align loop forfeits the premise of a finite
+    WCET under fragmentation. The deliverable is therefore ``the port does not regress WCET on
+    any adversarial fixture, removes the structural hazards, and carries a proven work
+    envelope'' --- not a proven absolute time bound.
 \end{itemize}
