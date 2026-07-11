@@ -18,13 +18,18 @@
     reference (Sec.~\ref{sec:eval-realdata}) is one route, one vehicle, and a
     \emph{degraded-prior} guess track (offline NDT-odometry, not the production EKF); its
     iteration statistics over-represent nominal cruising and its margins are specific to that
-    drive. It also surfaced a finding the synthetic suites never did: on
-    ${\sim}0.5\text{--}2\%$ of real frames the two engines' iteration counts differ by
-    ${\pm}1$ (deterministically reproducible; suspected ULP-level differences between the Rust
-    engine's pure-\texttt{libm} transcendentals --- chosen for cross-ISA determinism --- and
-    glibc's, flipping knife-edge convergence tests). ``Bit-exact'' therefore means bit-exact
-    on the tested domain: equal work is \emph{certified per frame} by the replay assertion,
-    and mismatching frames are flagged rather than silently compared. Root-causing is ongoing.
+    drive. It also surfaced a finding the synthetic suites never did: iteration
+    counts diverged by ${\pm}1$ on ${\sim}2\%$ of real frames. Root-causing identified and
+    fixed two port-fidelity gaps invisible to translation-only fixtures --- the C++ engine
+    transforms its \emph{initial} pass by the guess matrix (not the Euler rebuild), and pcl's
+    SSE transform kernel is right-associated with the translation innermost --- reducing the
+    divergence to $28$ of \num{22416} frames ($0.12\%$). The residual is irreducible without
+    matching glibc's eigensolver and \texttt{f64} transcendentals bit-for-bit: sub-f32-ULP
+    differences in the internal \texttt{f64} trajectory (eigensolver ${\le}2{\times}10^{-15}$
+    on the inverse covariances; \texttt{libm}-vs-glibc \texttt{exp}) surface only on
+    knife-edge frames. ``Bit-exact'' therefore means bit-exact on the tested domain: equal work
+    is \emph{certified per frame} by the replay assertion, and the $0.13\%$ is flagged rather
+    than silently compared.
   \item \textbf{Input realizability and caller-side assumptions.} The engine-level fixtures
     are API-legal but not reachable through the production preprocessing pipeline (duplicate
     source points, sub-downsample map clusters, overlapping tiles); the bound they support is

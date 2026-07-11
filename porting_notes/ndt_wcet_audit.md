@@ -496,3 +496,35 @@ open-loop replay (expect ~100% equal-work).
 
 Diagnostics kept: WCET_DUMP in ndt_bench_replay --capture (per-iteration score/pose arrays,
 leaf mean/icov comparison, neighbor-set comparison, first-step pose fork).
+
+### Divergence layers 2+3 resolved (2026-07-11); residual characterized as irreducible
+
+**Layer 2 (FIXED)** — the f32 transform kernel: pcl 1.12's SSE `Transformer<float>::se3`
+(pcl/common/impl/transforms.hpp:124-129) computes `x·c0 + (y·c1 + (z·c2 + t))` —
+RIGHT-associated, translation innermost — while the port computed `((x·c0 + y·c1) + z·c2) + t`.
+Translation-only poses are exact in either order (products with 0/1), which is exactly why every
+synthetic suite passed while real rotated poses diverged. `transform_cloud_by_matrix` now keeps
+pcl's association. Frame-86: iterations 0–5 became **bit-identical** end-to-end (tp/nvl arrays);
+22k open-loop mismatches fell **107 → 30**.
+
+**Layer 3a (FIXED, cosmetic)** — Eigen `AngleAxisf::toRotationMatrix` computes the on-axis
+diagonal as `(1−c)+c` (not exactly 1.0 in f32); `se3_matrix_f32` now reproduces it.
+
+**Layer 3b (INVESTIGATED, deliberately NOT adopted)** — Eigen uses the platform sinf/cosf
+(glibc), which disagrees with the pure-Rust `libm` crate on **1.25 % of arguments** (measured,
+10M-point sweep; both ≤1-ULP implementations, differently rounded; `libm::sin(f64) as f32` does
+not match glibc sinf either — glibc sinf is its own polynomial). Switching the pose rebuild to
+platform trig under `std` bought exactly **1 frame** (30 → 29 of 22,416) and broke std/no_std
+build equivalence — reverted; `libm` kept for build/ISA determinism.
+
+**Residual (irreducible without heroics): 30/22,416 = 0.13 %** ±1-iteration flips. Mechanism:
+the f64-internal trajectory (gradients/Hessians) carries unavoidable ULP-level differences from
+(a) nalgebra `symmetric_eigen` vs Eigen `SelfAdjointEigenSolver` (icov ≤ 1.9e-15 relative) and
+(b) musl-libm vs glibc f64 `exp`; these stay invisible at f32 observation granularity until a
+knife-edge frame's f32 rounding boundary or convergence test flips. Frame-86 exhibits this: all
+f32 score arrays bit-equal through pass 5, fork at pass 6 with equal iteration counts. Full
+bit-parity would require matching glibc's eigensolver and f64 transcendentals bit-for-bit —
+out of scope; the per-frame equal-work certification handles the residual.
+
+Verification: engine tests 93/93 (both builds), colcon differential suite 21/21, no_std intact;
+synthetic fixtures byte-unchanged (translation-only guesses are fixed-point of all three fixes).
