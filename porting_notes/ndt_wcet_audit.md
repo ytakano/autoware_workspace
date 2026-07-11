@@ -409,3 +409,58 @@ Canonical 8-fixture re-run (equal-work 8/8):
   (higher total cost) remains the tier's time bound; legal_osc is the iteration witness. The
   tier bound therefore combines the axes conservatively — stated in the paper (§4/§5/§6).
 - Regression re-fit at n=8: 143 (C++) vs 69 (Rust) ns/kernel eval, R² ≥ 0.9909.
+
+## FINDING (2026-07-11): C++/Rust iteration divergence on real map data (~2 % of frames)
+
+While measuring the operational envelope on the İstanbul urban drive (22,416 captured aligns
+replayed offline through both engines on identical buffers), the per-frame equal-work check
+failed on **466/22,416 frames (2.1 %)** — iteration counts differ by ±1 (e.g., frame 86:
+C++ 7 vs Rust 6, deterministic across replays and binaries). The synthetic differential suite
+(21/21) and all 8 frozen WCET fixtures (equal-work 8/8) never exposed this; ~10⁸ kernel
+evaluations over real map geometry did.
+
+- **Deterministic minimal repro** saved at scratchpad `divergence_repro_frame86/` (single
+  frame + tile in NDT_CAPTURE_DIR format; replay with `wcet_frame --capture` and
+  `ndt_bench_replay --capture`).
+- **Suspected root cause (unconfirmed)**: ULP-level differences between the Rust engine's
+  pure-`libm` transcendentals (`exp`, chosen for cross-ISA determinism) and glibc's — a 1-ULP
+  score difference flips the convergence test on knife-edge frames. Alternatives to rule out:
+  voxel-covariance accumulation order on real (noisy, near-min_points) voxels; kd neighbor
+  order on degenerate splits.
+- **Impact assessment**: divergence is ±1 iteration on marginal frames, not a wrong-pose class
+  of failure; the WCET transfer argument degrades gracefully (equal work is *certified
+  per-frame* by the replay assert — mismatching frames are flagged, 98 % carry over exactly).
+  Paper claims to be softened from "bit-exact" to "bit-exact on the tested domain; ±1-iteration
+  divergence on ~2 % of real frames, under investigation".
+- **TODO**: root-cause with per-iteration score dumps on frame 86; if libm-vs-glibc, evaluate
+  pinning the C++ comparison baseline to the same libm (bench-only) or documenting as a
+  permanent, bounded divergence.
+
+## Real-data replay results (2026-07-11, İstanbul 57-min drive, 22,416 captured aligns)
+
+Protocol that finally worked: capture at the ENGINE entry points (align_with /
+add_target_bytes / set_params — the node's production path bypasses the C-ABI engine calls, so
+the first FFI-level hook captured nothing), then a **two-step offline replay**: (1) one chained
+Rust pass (guess = constant-velocity extrapolation of the previous result, GNSS seed) dumps a
+frozen guess track; (2) open-loop pass feeds both engines identical per-frame inputs from that
+track. Chaining both engines independently is NOT comparable (the ±1-iteration divergence
+compounds through the feedback: equal-work collapsed to 60% chained vs **99.5% open-loop**).
+
+Results (paper §5 "Real-data replay", tables auto-generated from paper/data/realdata.json):
+- **P ≤ 1500 on all 22,416 frames** — production preprocessing contract confirmed.
+- **max K = 9** (all frames) — within the per-tile geometric bound 27, one ABOVE the
+  voxel-center heuristic 8 (real centroids deviate from centers). Paper §4/§5 updated: the 27
+  is the load-bearing bound.
+- **Degraded-prior behavior**: with NDT-odometry-quality guesses, 72% of on-map frames hit the
+  30-iteration cap on real geometry — the cap is routine, not exotic, when priors degrade
+  (corroborates legal_osc with real data). Real worst frame: C++ 99.5 ms (grazing the 100 ms
+  budget) vs Rust 58.1 ms (2.5× under the deployment tier, ~11× under the engine tier).
+- Caveats recorded in §6: one route; degraded-prior track over-represents iterations vs nominal
+  cruising (converged node baseline: 3 iters); the ±1-iteration divergence finding (previous
+  section) is cross-referenced.
+
+Ops notes for reruns: run_l1b.sh had two real bugs, both fixed — quoted "${VAR:+...}" with
+unset VAR yields an EMPTY '' argument in this bash (ros2 launch dies: "malformed launch
+argument ''"), and l1b_ndt_align_init.py left the bag PAUSED on failure paths. Also: never
+invoke run_l1b.sh with "ndt_scan_matcher" in the command line (cleanup_graph's pkill pattern
+kills the invoking shell), and a stale run_l1b process's cleanup can kill a concurrent graph.

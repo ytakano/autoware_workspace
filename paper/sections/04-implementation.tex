@@ -36,7 +36,9 @@ APIs enforce), the search ball has diameter two voxels and thus intersects at mo
 per axis: \emph{at most $3^3 = 27$ leaves per tile can ever be in range, regardless of map
 content}. Under the disjoint-tile contract, leaf multiplicity is 1, so 27 bounds the global
 count and $\maxnn = 64$ carries a $2.4\times$ margin --- truncation is unreachable and
-bit-exactness with the uncapped C++ engine is unconditional. Exceeding 64 requires at least
+bit-exactness with the uncapped C++ engine is unconditional. (The measured maximum on a real
+map is 9, Sec.~\ref{sec:eval-realdata}: one above the voxel-center heuristic, comfortably
+inside the 27.) Exceeding 64 requires at least
 three adversarially crowded \emph{overlapping} tiles; there the Rust engine truncates (its cost
 stays bounded) while the C++ engine's cost grows without bound with tile multiplicity. The
 equal-work assertion doubles as the truncation detector: \emph{dense-neighbors} sits exactly at

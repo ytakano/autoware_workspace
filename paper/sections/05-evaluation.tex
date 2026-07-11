@@ -90,6 +90,33 @@ tier is not an artifact of the $\epsilon$ pin: the production-parameterized lega
 (\SI{\legalOscMaxRust}{ms} Rust / \SI{\legalOscMaxCpp}{ms} C++, $\bar{K} = \legalOscKbar$) ---
 below \emph{legal-worst}, which therefore remains the tier's time bound.
 
+\subsection{Real-data replay: contract validation and degraded-prior behavior}
+\label{sec:eval-realdata}
+% Captured via the env-gated engine hook during an L1b run, replayed offline with counters.
+To place the tiers against real inputs, we captured every NDT input (map tile, per-align guess
+and source cloud) during a replay of a real urban drive (İstanbul; \realFrames{} aligns over
+57 minutes through the production preprocessing) via an environment-gated hook at the engine's
+entry points, then replayed the captured frames offline through both engines on identical
+buffers with the cost counters enabled. Because the benchmark harness could not reproduce the
+production EKF's prior quality offline, the guess track is a frozen NDT-odometry
+reconstruction (constant-velocity extrapolation from a GNSS seed) --- \emph{representative of
+degraded-prior operation} (initialization, EKF dropouts), not of nominal cruising, which the
+converged node-level baseline shows at 3 iterations/frame.
+Table~\ref{tab:realdata} shows the distributions; four observations. First, the preprocessing
+contracts hold empirically: $P \le \realPMax = 1500$ on all \realFrames{} frames. Second, the
+per-point neighbor count reaches at most $\realKmaxMax$: within the per-tile geometric bound
+of 27, but \emph{one above} the voxel-center heuristic of 8 --- real centroids deviate from
+voxel centers, pulling a ninth leaf into range; the load-bearing bound is the 27, not the 8.
+Third, under degraded priors the iteration cap is \emph{routinely} reached on real geometry
+(72\% of on-map frames), corroborating the deployment tier's iteration axis with real data;
+the real worst frame costs \SI{\realCppMax}{ms} (C++) --- grazing the \SI{100}{ms} budget ---
+vs.\ \SI{\realRustMax}{ms} (Rust), which sits $\realMarginDeploy\times$ below the
+deployment-tier bound and ${\sim}\realMarginEngine\times$ below the engine tier. Fourth, equal
+work holds on \realMatchPct\% of frames (\realMatch{} of \realFrames); the exceptions
+motivated the divergence finding discussed in Sec.~\ref{sec:threats}.
+
+\input{tables/realdata}
+
 \subsection{Scaling with the input size $P$}
 \label{sec:eval-psweep}
 % Controlled experiment: P is the only variable (counters verify invariant per-point work).

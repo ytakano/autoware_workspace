@@ -14,6 +14,17 @@
     the full input space; the saturation argument covers the kernel-evaluation term exactly,
     but the kd-traversal term has no matching analytic maximum, so a worse traversal geometry
     may exist. The structural $O(N_{\mathrm{leaves}})$ bound still caps it.
+  \item \textbf{Real-data representativity and the divergence finding.} The real-data
+    reference (Sec.~\ref{sec:eval-realdata}) is one route, one vehicle, and a
+    \emph{degraded-prior} guess track (offline NDT-odometry, not the production EKF); its
+    iteration statistics over-represent nominal cruising and its margins are specific to that
+    drive. It also surfaced a finding the synthetic suites never did: on
+    ${\sim}0.5\text{--}2\%$ of real frames the two engines' iteration counts differ by
+    ${\pm}1$ (deterministically reproducible; suspected ULP-level differences between the Rust
+    engine's pure-\texttt{libm} transcendentals --- chosen for cross-ISA determinism --- and
+    glibc's, flipping knife-edge convergence tests). ``Bit-exact'' therefore means bit-exact
+    on the tested domain: equal work is \emph{certified per frame} by the replay assertion,
+    and mismatching frames are flagged rather than silently compared. Root-causing is ongoing.
   \item \textbf{Input realizability and caller-side assumptions.} The engine-level fixtures
     are API-legal but not reachable through the production preprocessing pipeline (duplicate
     source points, sub-downsample map clusters, overlapping tiles); the bound they support is
