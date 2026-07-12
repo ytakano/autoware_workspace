@@ -1,0 +1,323 @@
+# Paper revision — addressing `paper/review.md` — Roadmap
+
+## Goal
+
+Make the WCET paper (`paper/main.tex`) defensible for resubmission by resolving the review's
+verdict (Major Revision / Reject-and-Resubmit) in `paper/review.md`. The review's own assessment:
+the idea is strong (novelty 4.5/5, industrial relevance 4.5/5) and the gaps are execution, not
+concept — fixing the blocking items targets its stated 7–8/10 resubmission score.
+
+The reviewer's five blocking items:
+
+1. the **K = 8 vs K ≤ 27** deployment-tier contradiction (review #1),
+2. **equal iteration count ≠ equal work** certification (review #3),
+3. the **Rust cap-64 vs C++ uncapped** input-domain mismatch (review #2),
+4. **pWCET statistics** (n=10 Gumbel, internal contradictions) (review #7),
+5. **measurement under target conditions** (review #6),
+
+plus the data-integrity issues (#8 stale prose numbers, #10 effective real-data sample size).
+
+This roadmap only plans the work; it does not edit the paper. Review points are cited as
+`#1`–`#11` (the numbering in `paper/review.md`).
+
+## Review-validity audit (what we verified, 2026-07-11)
+
+Every review point was checked against `paper/sections/*.tex`, `paper/tables/*.tex`, and the
+frozen data `paper/data/*.json`. Verdicts:
+
+| # | Review claim | Verdict | Evidence |
+|---|---|---|---|
+| 1 | Deployment-tier K ≤ 8 is refuted by the paper's own max K = 9 | **Valid** | `04-implementation.tex:76` calls K̄ = 8.0 a "deployment geometric ceiling"; `05-evaluation.tex:152-153` itself observes max K = 9 and says "the load-bearing bound is the 27, not the 8". Internal contradiction. Nuance: the 4.6× is a *measured fixture ratio*, not a K=8-derived bound, so the fix is reframing + a K-maximizing legal witness, not a full recompute. |
+| 2 | C++ engine-tier worst is not bounded by the Rust search (cap 64 vs uncapped) | **Valid** | `04-implementation.tex` §"Sufficiency of the neighbor cap" concedes C++ cost "grows without bound with tile multiplicity" beyond 64. The abstract's "transfers verbatim" needs a domain qualifier. |
+| 3 | Equal iteration count is necessary, not sufficient, for equal work | **Partially valid** | The per-input runtime certificate is only `iteration_num` (`03-methodology.tex` §C); the offline differential suite checks more. Cheaper fixes than the reviewer's instrumented-C++-fork exist (below). Reviewer's "line-search trial counts may differ" is empirically closed on this engine: `derivative_passes == iteration_num + 1` holds on **all 22,416** real frames (checked against `data/realdata.json`). |
+| 4 | Work model has an off-by-one and unmodelled passes | **Valid** | Eq (1) (`02-problem.tex:31`) multiplies by N_iter; the saturation identity, property tests, and all experiments use N_iter+1 passes. Needs N_pass as a first-class variable + explicit line-search accounting. |
+| 5 | "proven" / "machine-checked" overstates property tests + counting allocator | **Valid (wording)** | `06-threats.tex:63` "the work bound … is proven"; abstract "a proven zero". Fix by tiering evidence strength; the by-construction parts (loop guards, hard cap, fixed arrays) genuinely are structural. |
+| 6 | Measurement conditions insufficient for a WCET paper | **Valid** | Conceded by the paper's own red TODOs (`05-evaluation.tex:8-9`, `06-threats.tex:9,12`): powersave governor, container, warm cache, one machine, 100 samples. |
+| 7 | pWCET section statistically indefensible + internally contradictory | **Valid, data-confirmed** | `05-evaluation.tex:174` "β ≤ 1.3 ms everywhere" vs `tables/gumbel.tex` β = 15.81/15.41/12.34 ms. "A few percent above the measured maximum" is actually **+28%** (C++ 1201.5/937.4) and **+32%** (Rust 868.9/656.0). Stale prose vs regenerated table. |
+| 8 | Result numbers disagree across the paper | **Valid, data-confirmed** | `05-evaluation.tex:30` "876 ms → 608 ms" matches neither Table `tails` (937.4/656.0) nor Table `psweep` P=2000 (891.2/608.6). The adjacent `% DATA-CHECKED` comment verified only the ratio, not the ms values. Root cause: tables are generated (`scripts/gen_tables.py`), prose numbers are hand-typed. |
+| 9 | Lexicographic counter search need not find the time-worst input | **Partially valid** | A strengthening request, not an error — the paper already hedges (kd term unsaturated, `06-threats.tex` §B). Pareto-frontier archiving + ablations are worthwhile additions; claims should say "counter-worst". |
+| 10 | Effective real-data sample is 501, not 22,416 | **Valid — and worse than the reviewer feared** | Verified from `data/realdata.json`: on-map (sum_neighbors > 0) = 501/22,416; **all 28 divergences are on-map → 5.6% divergence on meaningful frames** (vs the headline 0.12%). Off-map frames are trivial (iteration p50 = 0, C++ p50 ≈ 1.9 ms). This must be disclosed, not discovered by a referee. |
+| 11 | Unit-cost regression (n=6, 2 regressors) is under-determined | **Valid** | `tables/regression.tex` n=6, negative Rust intercept (paper flags it). P-sweep points can double n from existing data. |
+
+Where the review overstates (usable in the rebuttal letter):
+
+- The "mallocがあるのでWCETは数学的に無限" paraphrase is stronger than the paper's actual wording
+  ("forfeits the premise of a finite WCET under fragmentation", `06-threats.tex:78-80`); the
+  paper's framing is already close to the reviewer's requested "structural hazard" phrasing.
+- The line-search-trial divergence concern (#3, #4) is empirically impossible on this engine:
+  the pass counter equals N_iter+1 exactly on every real and synthetic frame measured. Cite the
+  invariant check; still adopt N_pass in the model for clarity.
+
+## Phase A — prose/logic fixes (no new experiments)
+
+Ordering inside A: **A1 and A2 first** (data integrity — anything a referee can check against our
+own tables must be fixed before any other claim is touched), then A3–A6.
+
+### A1 (#10) Real-data honesty — top priority
+
+- Report the on-map denominator: equal work is 473/501 = **94.4% of on-map frames** (28
+  divergences, all on-map), alongside 22,388/22,416 = 99.88% overall. Never present 0.12%
+  without the 5.6% on-map figure next to it.
+- Explain the off-map cause in the text: the frozen degraded-prior guess track leaves the
+  benchmark's cropped map (the comment at `paper/scripts/gen_tables.py:283` is the current only
+  record); state the on-map/off-map criterion (sum_neighbors > 0) explicitly.
+- Characterize off-map frames (iteration p50 = 0, ~2 ms) so the reader sees they are near-no-ops,
+  and recompute/report every distribution row's population clearly (the table footnote already
+  splits populations; the prose must too).
+- Soften the claim: "validates the contracts and margins" → "one-drive evidence consistent with
+  the contracts"; propagate to abstract and intro contribution 4.
+- Files: `sections/05-evaluation.tex` §G, `sections/06-threats.tex` §C, `main.tex` abstract,
+  `sections/01-introduction.tex`, `tables/realdata.tex` footnote via `gen_tables.py`.
+- Acceptance: the words "on-map" and both percentages appear wherever the residual is claimed;
+  no reader can derive the 5.6% before we state it.
+
+### A2 (#7, #8) Single-source every number
+
+- Extend `scripts/gen_tables.py` to emit prose macros the way `psweep_macros.tex` /
+  `legal_macros.tex` already work: `\searchZeroMaxCpp`, `\searchZeroMaxRust`, `\gumbelBetaMax`,
+  `\gumbelExceedPctCpp`, `\gumbelExceedPctRust`, real-data on-map counts, etc.
+- Replace the hand-typed "876 ms → 608 ms" (`05-evaluation.tex:30`), "β ≤ 1.3 ms" and "a few
+  percent above the measured maximum" (`05-evaluation.tex:174-177`) with macros. Grep the
+  sections for any remaining hard-coded measurement number and macro-ize it.
+- Label the psweep-vs-tails discrepancy: Table `psweep` P=2000 (891.2/608.6) is a *regenerated*
+  union-worst geometry, not the frozen `search-00` (937.4/656.0) — say so in both captions.
+- Add provenance to every table caption: run ID, git commit, fixture hash, measurement date,
+  CPU/governor state, sample count (the reviewer's #8 list). Emit from a single manifest block
+  in the JSON `meta`.
+- Acceptance: `grep -nE '[0-9]+\.[0-9]+' sections/*.tex` finds no timing/β/quantile value that
+  is not a macro or clearly a config constant; the `% DATA-CHECKED` comments are replaced by
+  generation, not assertion.
+
+### A3 (#1) Reframe the deployment tier around K ≤ 27
+
+- The provable per-tile ceiling is **K ≤ 27** (already derived in `04-implementation.tex` §"
+  Sufficiency of the neighbor cap"); under disjoint tiles it is also the global ceiling. State
+  it as *the* deployment-tier bound.
+- Demote *legal-worst* from "deployment geometric ceiling" to **constructed witness / stress
+  fixture (a lower bound on the tier's worst case)**; the K = 8 construction is the
+  voxel-center heuristic, and the real-map K = 9 observation is presented as refuting that
+  heuristic while sitting comfortably inside 27 — one consistent story in §IV-D, §V-F(two-tier),
+  §V-G(real data), §VI.
+- Re-present 4.6×/5.6× as the **measured gap between the engine-tier and deployment-tier
+  fixtures**, explicitly *not* a proven bound-tightening factor; if a bound-tightening number is
+  wanted, derive the parametric one from K ≤ 27 (Σnbr ceiling 27·P·N_pass vs 64·P·N_pass ⇒
+  provable ≥ 2.37× on the kernel term) and label the rest empirical.
+- Add the reviewer's boundary-validation point to §VI (Contract preconditions): the tier bound
+  becomes a guarantee only when tile disjointness / voxel-radius coupling / P / leaf count /
+  capacity are *checked at the boundary with defined violation behavior* — fold into the A5
+  preconditions table and mark runtime-checked vs assumed rows honestly.
+- Acceptance: the phrase "geometric ceiling" is attached only to 27; *legal-worst* is nowhere
+  called a bound; §IV/§V/§VI tell the same K story.
+
+### A4 (#2) Domain-scope the cross-language transfer
+
+- Define the comparison domain **D = { inputs whose every radius query returns ≤ 64 in-range
+  leaves }** (equivalently: tile multiplicity ≤ 2 over crowded corners) in §III-C, and scope
+  every transfer/worst claim to D: "worst input **within D**", "transfers verbatim **within D**".
+- The equal-work assertion already doubles as the runtime membership check for D (truncation
+  detector, `04-implementation.tex`); promote that from an aside to the definition of D's
+  enforcement.
+- Report C++ behavior outside D (cost growing with tile multiplicity, allocation hazard) as a
+  **hazard finding about the uncapped implementation**, not as a bounded quantity; rename the
+  "untrusted-input tier" to "engine-API tier (bounded-neighbor domain)" or similar so the name
+  no longer promises unrestricted inputs.
+- Files: abstract, `01-introduction.tex` contribution 2, `03-methodology.tex` §C,
+  `04-implementation.tex`, `06-threats.tex`.
+- Acceptance: no sentence claims a C++ worst case over inputs outside D; the abstract's transfer
+  sentence carries the domain qualifier.
+
+### A5 (#4) Rewrite the work model with N_pass
+
+- Eq (1) (`02-problem.tex:31`): replace the N_iter multiplier with **N_pass**, define
+  N_pass = N_iter + 1 (initial derivative pass + one per Newton step), and state the line-search
+  accounting: the More–Thuente-style step selection in this engine performs **no additional
+  derivative passes** — enforced by the property test `passes ≤ N_iter+1` and observed exactly
+  (`derivative_passes = iteration_num + 1` on all 22,416 real frames and every fixture).
+  Before writing, re-verify in the C++ source that `computeStepLengthMT` cannot re-enter
+  `computeDerivatives` in the shipped configuration, and cite where the trial loop is bounded.
+- Make the kd term's parametric nature explicit where it is used: Σkd ≤ P · N_pass · N_leaves is
+  a bound *given* a leaf-count cap; say who caps N_leaves (map loader / int32 guard — see
+  `plan/ndt_wcet.md` operational envelope) or mark it assumed.
+- Add the reviewer's **preconditions table** (limit / enforced by / on violation) covering P,
+  N_iter, line-search trials, K, N_leaves, buffer capacity — place in §II or §VI; mark each row
+  as runtime-checked, build-enforced, or assumed-contract (ties into A3's boundary point).
+- Acceptance: the saturation identity P·64·(N_iter+1) and Eq (1) use the same variable; the
+  preconditions table exists and every row's enforcer is named.
+
+### A6 (#5, #7) Epistemic tiering, softened claims, pWCET demotion
+
+- Replace flat "proven" with the four-tier vocabulary everywhere: **enforced by construction**
+  (loop guards, hard cap, fixed arrays) / **statically checked** (panic-free lints, no-recursion)
+  / **tested** (property tests, counting allocator, differential suite) / **formally proven**
+  (reserved; currently nothing). `06-threats.tex` §E is the anchor; abstract and intro follow.
+- Zero-allocation claim → "zero allocations **under the declared capacity contract** (verified by
+  a counting allocator including the first frame)"; the capacity caveat already in
+  `06-threats.tex:56-57` gets referenced from the abstract.
+- Soften the allocator-hazard wording toward the reviewer's "structural hazard that resists
+  bounding under the current allocator/system model" (small edit; current text is close).
+- Title: adopt the reviewer's direction — e.g. "Toward WCET Analysis of an Industrial NDT Scan
+  Matcher: Counter-Guided Worst-Input Search and Cross-Language Validation" — and add the
+  reviewer's suggested abstract disclaimer sentence (parametric work bound + empirical unit
+  cost; no certified hard time bound claimed on the evaluated platform).
+- **Demote pWCET**: remove from abstract and contributions; keep §V-H only as "exploratory EVT
+  tail fit", with the corrected numbers from A2, until C2 either rebuilds or deletes it.
+- "Bit-exact" in title/abstract → qualified per `06-threats.tex` §C ("bit-exact on the tested
+  domain") or the reviewer's "work-equivalent on per-input certified traces".
+- Also strip the remaining red `\todo{}`s that A/B/C items resolve, and state explicitly that
+  the analysis covers the align kernel only (not map build / preprocessing / ROS scheduling) in
+  title-adjacent text (reviewer's "次点" list).
+- Acceptance: `grep -in "proven\|bit-exact" sections/*.tex main.tex` shows only tiered/qualified
+  uses; abstract contains the disclaimer; pWCET absent from abstract/contributions.
+
+## Phase B — new analysis from existing data and tools (no re-measurement)
+
+### B1 (#3) Strengthen the per-input equal-work certificate — without touching C++ sources
+
+The reviewer asks for an instrumented C++ analysis fork. That collides with the project's hard
+constraint (upstream C++ byte-identical; see memory `ndt-original-cpp-untouched` and
+`03-methodology.tex` §C). Two zero-source-change strengtheners come first:
+
+1. **Assert final pose + score agreement per input** in the replay harness (both engines already
+   output them; today only `iteration_num` is asserted at measurement time). Certificate becomes
+   (iteration_num equal) ∧ (pose/score within the differential-suite tolerance) per frame.
+2. **Use the LD_PRELOAD allocation counts as an independent C++-side work counter**: the
+   interposer (already built, `03-methodology.tex` §D) yields allocs ≈ 11 · P · N_pass plus
+   per-radius-search terms (682,248/(31·2000) = 11.0), so C++'s P·N_pass and query count are
+   cross-checkable against the Rust counters with the production binary untouched. Report the
+   per-fixture and real-data cross-check.
+
+Then re-word the claim to the reviewer's "work-equivalent on per-input certified traces". If
+referees still insist on trace hashes (Σnbr, Σkd, neighbor-ID hashes from the C++ side), the
+documented fallback is a clearly-labeled **analysis-only instrumented C++ build** — the upstream
+constraint governs what we ship/PR, not what a measurement harness may compile locally; the paper
+should state this distinction (review #3's "製品バイナリ vs 解析専用fork" point) even if we don't
+build it.
+
+- Acceptance: replay harness asserts pose/score; alloc-derived C++ counters appear in the paper
+  as the second certification leg; methodology §C rewritten around the two-leg certificate.
+
+### B2 (#11) Regression strengthening
+
+- Pool the six P-sweep points into the unit-cost regression (n: 6 → 12 per engine; counters are
+  certified invariant per point, `tables/psweep.tex`).
+- Add bootstrap confidence intervals for a, b, c; leave-one-fixture-out prediction error;
+  a collinearity check (Σnbr vs Σkd correlation across fixtures); report all in the table or an
+  appendix. All computable in `scripts/gen_tables.py` (stdlib-only — keep it that way).
+- Re-word the attribution ("pcl/FLANN machinery") as arithmetic-plausible hypothesis (already
+  done in §V-C/D; keep) and note hardware-counter attribution as C1 follow-up.
+- Acceptance: regression table shows n=12, CIs, and LOO error; negative intercept either gone or
+  explained with its CI covering zero.
+
+### B3 (#1) K-maximizing legal witness
+
+- Re-run the existing production-parameterized legal search (the legality-verifier machinery
+  that produced *legal-osc*, `04-implementation.tex` §D) with fitness = max per-point K (then
+  lexicographic on cost) to find a legal K ≥ 9 witness, tightening the empirical gap between the
+  K = 8 construction and the K ≤ 27 ceiling.
+- Freeze it as *legal-k* (or fold into a rebuilt *legal-worst*) and measure it in the same
+  harness; feeds A3's reframed tier narrative.
+- Acceptance: the deployment tier has a frozen witness with K ≥ 9, or a documented negative
+  search result strengthening the empirical case that legal K stays far below 27.
+
+### B4 (#9) Pareto archive + cheap ablations
+
+- Modify the search driver to archive the counter-space **Pareto frontier** (N_iter, Σnbr, Σkd)
+  instead of only the lexicographic best; measure every frontier candidate on the host; report
+  whether any non-lexicographic candidate beats *search-00* in wall time.
+- Cheap ablations from existing/new search logs: hill-climb vs random-search budget-matched;
+  single vs multiple seeds; counter fitness vs wall-clock fitness (one run suffices to show
+  noise); evaluations-to-saturation. Present as a small table.
+- Re-word "worst-input search" claims to "counter-worst" / scoped to the generator family
+  (§III-B, §VI-B already hedge; make the naming consistent).
+- Acceptance: paper states whether the Pareto frontier changed the answer; at least the
+  hill-climb-vs-random ablation is reported.
+
+### B5 (#10) Real-data scenario breakdown
+
+- From `data/realdata.json`: on-map segment structure (the 501 frames span seq 0–539,
+  non-contiguous — report segments), per-population stats (on-map vs off-map), where the 28
+  divergences sit within on-map segments, iteration/K/timing distributions per scenario
+  (initialization / tracking / off-map).
+- Feeds A1's prose; also answer the reviewer's "nominal-prior" question honestly: the nominal
+  case is future work (multiple routes/priors → C-phase or explicitly future work).
+- Acceptance: a per-scenario table or paragraph exists; the 28 divergences are located.
+
+## Phase C — re-measurement (required for resubmission)
+
+These are the paper's own red `\todo{}`s; the review correctly says they are prerequisites, not
+future work. Protocol details live in `plan/ndt_wcet.md` (Layer 3) and `plan/ndt_bench.md`
+(capture-once/replay-everywhere); this phase just pins what the paper needs.
+
+### C1 (#6) Host measurement redo
+
+- performance governor, isolated core (`isolcpus`/`cset`), cold-cache series alongside warm,
+  interference co-runner series, ≥ 3 independent runs on different days, C++/Rust interleaved
+  and order-randomized.
+- Publish the full build/run manifest: compiler versions and *all* flags (C++ `-O2 …` vs Rust
+  release profile: opt-level, LTO, codegen-units, target-cpu), FMA/fast-math status, OpenMP
+  runtime presence even at num_threads=1, link mode, allocator, CPU frequency/thermal state,
+  SMT/IRQ/NUMA config. Answer #6's "this Rust implementation vs this C++ baseline" framing in
+  §V-A prose.
+- Acceptance: no measurement claim in the paper rests on the powersave/container data; TODOs
+  gone; manifest table present.
+
+### C2 (#7) EVT redo — or delete (decision gate)
+
+- If kept: ≥ 1,000–10,000 samples per fixture across multiple runs/days; POT/GPD (and GEV for
+  comparison) with MLE; shape-parameter estimates with CIs; independence/stationarity
+  diagnostics; block/threshold sensitivity; per-block → per-align probability conversion;
+  extrapolation distance stated. Only then may pWCET reappear beyond "exploratory".
+- If not affordable: delete §V-H and Table `gumbel`, keep max/percentile tails only. The paper
+  is publishable without pWCET; it is not publishable with the current n=10 fit as a claim.
+- Acceptance: either the full protocol above or no pWCET table; A6's demotion holds meanwhile.
+
+### C3 (#6) AArch64 target evidence
+
+- Minimum for the cross-ISA transfer claim: run the counter replay on AArch64 and assert
+  counter/trace equality on the frozen fixtures (the protocol of `03-methodology.tex` §E).
+  Timing on target is better but equality alone already substantiates the transfer argument.
+- If not run: soften §III-E to future work and remove cross-ISA from the contribution list.
+- Acceptance: cross-ISA claims match the evidence actually collected.
+
+### C4 (#8) One-manifest regeneration
+
+- All C-phase data lands in `paper/data/*.json` with a `meta.manifest` block (run ID, commits,
+  fixture hashes, binary hashes, date, CPU config, sample count); `scripts/gen_tables.py`
+  regenerates **every** table, figure, and prose macro from it (A2 made the prose macro-driven,
+  so this is push-button). Pin exact autoware_core/port commits (`04-implementation.tex` TODO).
+- Acceptance: `python3 scripts/gen_tables.py && make -C paper` reproduces the submitted PDF's
+  numbers exactly from the JSONs.
+
+## Milestones / ordering
+
+| Milestone | Items | Gate |
+|---|---|---|
+| M1 — data integrity | A1, A2 | Nothing a referee can cross-check against our own tables is wrong. Blocks everything. |
+| M2 — claims consistent | A3, A4, A5, A6 | The paper no longer contradicts itself; every claim scoped to its evidence. Rebuttal letter can be drafted after M2. |
+| M3 — existing-data strengthening | B1, B2, B5 (then B3, B4) | Certification and statistics upgraded without new hardware time. |
+| M4 — measurement redo | C1, then C2 decision, C3, C4 | Resubmission-ready experiments. |
+| M5 — resubmission package | re-run audit table against final PDF; rebuttal letter from the audit table (including the two push-back points) | Submit. |
+
+A before B before C. B3/B4 can run concurrently with C1 (different machines/queues). The review's
+"次点" items not explicitly scheduled above (artifact publication of generators/seeds/fixtures,
+multiple routes/nominal-prior drive) are strengthening add-ons: artifact publication rides C4;
+extra drives are declared future work unless time permits.
+
+## Acceptance checklist (review point → roadmap item)
+
+- #1 → A3 + B3 - #2 → A4 - #3 → B1 (+ A6 wording)
+- #4 → A5 - #5 → A6 - #6 → C1 + C3
+- #7 → A2 + A6 + C2 - #8 → A2 + C4 - #9 → B4
+- #10 → A1 + B5 - #11 → B2
+- Review's title/abstract suggestions → A6.
+
+## Cross-references
+
+- `paper/review.md` — the review being addressed (point numbers #1–#11).
+- `paper/scripts/gen_tables.py` — single-source table/macro generator (A2, B2, C4 extend it).
+- `paper/data/*.json` — frozen measurement data; audit findings above were verified against
+  `realdata.json` (on-map split, divergence locations) and `wcet.json`.
+- `plan/ndt_wcet.md` — the measurement/EVT protocol layer (C1/C2 details, operational envelope
+  for the N_leaves precondition in A5).
+- `plan/ndt_bench.md` — capture-once/replay-everywhere fixture discipline (C-phase replays).
+- Memory `ndt-original-cpp-untouched` — the constraint shaping B1's no-fork-first strategy.
