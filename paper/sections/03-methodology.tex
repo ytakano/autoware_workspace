@@ -37,12 +37,21 @@ The C++ sources must remain byte-identical (an upstream constraint), so they can
 instrumented. Instead we rely on bit-exactness: the Rust port reproduces the C++ engine's
 floating-point operand stream --- validated by a differential test suite that runs both
 engines on identical inputs and requires exactly equal iteration counts and near-exact poses
-and scores --- hence identical iteration counts, neighbor sets, and \emph{work} on any input.
-A worst input discovered on the instrumented Rust engine is therefore a worst input for the
-C++ engine by construction. Rather than trusting this globally, the replay harness
-\emph{re-certifies it per input} at measurement time by asserting equal
-\texttt{iteration\_num} across engines; a mismatch flags that input instead of silently
-comparing unequal work. This certification is load-bearing: on real map data it caught two
+and scores --- hence identical iteration counts, neighbor sets, and \emph{work}. This
+equivalence holds on the \textbf{bounded-neighbor domain} $D$ --- the set of inputs whose
+every radius query returns at most \maxnn{} in-range leaves ---
+where the port's hard cap never truncates; Sec.~\ref{sec:implementation} shows all
+preprocessing-reachable inputs (and everything short of three adversarially crowded
+overlapping tiles) lie in $D$. Every worst-case claim that crosses languages in this paper is
+a claim \emph{over $D$}: a worst input discovered on the instrumented Rust engine is a worst
+input for the C++ engine over $D$ by construction. Outside $D$ the engines intentionally
+diverge --- the C++ engine's neighbor set, and with it its cost, grows without bound with
+tile multiplicity; we report that as a structural hazard of the uncapped implementation
+(Sec.~\ref{sec:implementation}), not as a bounded quantity. Rather than trusting membership
+globally, the replay harness \emph{re-certifies it per input} at measurement time by
+asserting equal \texttt{iteration\_num} across engines; a mismatch flags that input instead
+of silently comparing unequal work, and the same assertion doubles as the runtime membership
+check for $D$, since truncation breaks equal work. This certification is load-bearing: on real map data it caught two
 port-fidelity gaps that the synthetic suite could not see, and after fixing them it bounds the
 remaining divergence at \realDivergences{} frames (\realOnMapDivPct\% of the frames doing
 meaningful matching work; \realDivPctAll\% of all captured frames;

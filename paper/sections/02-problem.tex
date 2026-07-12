@@ -28,14 +28,25 @@ tiles) and consumes its poses. We analyze the serial engine configuration
 \label{sec:decomposition}
 For one align call:
 \begin{equation}
-  T \;\le\; N_{\mathrm{iter}} \cdot \Bigl[\; \sum_{p=1}^{P} \bigl( T_{\mathrm{search}}(p) +
+  T \;\le\; N_{\mathrm{pass}} \cdot \Bigl[\; \sum_{p=1}^{P} \bigl( T_{\mathrm{search}}(p) +
       K(p)\, T_{\mathrm{kernel}} \bigr) + T_{\mathrm{solve}} \Bigr],
   \label{eq:decomp}
 \end{equation}
-with exactly four data-dependent freedoms:
+with $N_{\mathrm{pass}} = N_{\mathrm{iter}} + 1$,
+where a \emph{derivative pass} transforms all $P$ source points and accumulates the score,
+gradient, and Hessian: one initial pass evaluates the guess pose, then each Newton iteration
+performs exactly one more at its trial step. The step-length procedure re-evaluates
+derivatives \emph{only} in its More--Thuente refinement loop (up to 10 further passes per
+iteration), which sits behind a \texttt{use\_line\_search} flag that the shipped
+configuration disables and the port implements as the default (disabled) path --- so
+$N_{\mathrm{pass}} = N_{\mathrm{iter}}{+}1$ holds structurally, is machine-checked per input
+(Sec.~\ref{sec:methodology}), and holds exactly on every fixture and every real frame of
+Sec.~\ref{sec:eval-realdata}. The bound has exactly four data-dependent freedoms
+(Table~\ref{tab:preconditions} in Sec.~\ref{sec:threats} collects each limit, its enforcer,
+and the behavior on violation):
 \begin{itemize}
   \item $N_{\mathrm{iter}} \le$ \texttt{max\_iterations}: the Newton iteration count (static
-        loop guard; the shipped default is 30);
+        loop guard; the shipped default is 30, hence $N_{\mathrm{pass}} \le 31$);
   \item $P$: the source-cloud size --- a \emph{caller-side} bound (Autoware's shipped pipeline
         random-downsamples the scan to exactly $P \le 1500$ points); we use $P = 2000$ for the
         engine-level fixtures (a margin above the production cap) except in the scaling study

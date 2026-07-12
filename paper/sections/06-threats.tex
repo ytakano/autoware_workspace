@@ -44,17 +44,28 @@ Relatedly, ISA-independence of the Rust floating-point stream is by construction
 itself is inherently x86/Linux-bound (pcl/ROS dependency).
 
 \subsection{Contract preconditions}
-The engine-tier fixtures are API-legal but not reachable through the production preprocessing
+\input{tables/preconditions}
+Table~\ref{tab:preconditions} collects every precondition of the work
+bound~\eqref{eq:decomp}: its limit, who enforces it, and what happens on violation ---
+distinguishing limits the engine enforces at runtime from contracts that are merely
+\emph{assumed}. The engine-tier fixtures are API-legal but not reachable through the
+production preprocessing
 (duplicate source points, sub-downsample map clusters, overlapping tiles); the bound they
-support is the \emph{untrusted-input} tier, deliberately conservative. The deployment tier's
+support is the engine-API tier over the bounded-neighbor domain $D$
+(Sec.~\ref{sec:meth-transfer}), deliberately conservative. The deployment tier's
 contracts --- tile disjointness and alignment, map/scan downsampling, the $P \le 1500$ cap ---
 are properties of the map and sensing pipelines that the engine does \emph{not} verify; a
-violated contract silently moves the system back to the engine tier. On the iteration axis,
-the tier's time bound (\emph{legal-worst}) pins $N_{\mathrm{iter}} = 30$ via a non-production
+violated contract silently moves the system back to the engine tier, so the tier is an
+\emph{assumption}, not a guarantee --- converting it into one requires a boundary validator
+that checks the assumed rows of Table~\ref{tab:preconditions} at runtime with a defined
+rejection behavior (future work, with its overhead measured). On the iteration axis,
+the tier's time witness (\emph{legal-worst}) pins $N_{\mathrm{iter}} = 30$ via a non-production
 $\epsilon$; the cap itself is legally reachable (the production-parameterized \emph{legal-osc}
 witness, Sec.~\ref{sec:impl-legal}), but no single legal input in our search family achieves
 the $K = 8$ and 30-iteration worst cases \emph{simultaneously} --- the tier bound combines
-the two axes conservatively rather than exhibiting one witness for both. Two further
+the two axes conservatively rather than exhibiting one witness for both, and the tier's
+provable $K$ ceiling of 27 has no constructed witness at all (legal inputs above the observed
+$K = \realKmaxMax$ may exist below it). Two further
 preconditions: the \maxnn{} sufficiency derivation (Sec.~\ref{sec:implementation}) assumes
 the search radius stays coupled to the voxel size (decoupling them would require re-deriving
 the cap), and the affine $\mathrm{WCET}(P)$ law is validated over
@@ -63,20 +74,28 @@ that range, working sets exceeding the last-level cache could bend the slope upw
 zero-allocation guarantee is tied to the pre-reserved capacity (exceeding it costs a one-time
 buffer growth).
 
-\subsection{What is proven and what is observed}
+\subsection{Evidence strength: what is enforced, checked, tested, and proven}
 \label{sec:threats-epistemic}
 None of the reported times is a certified hard bound, but the layers carry different epistemic
-strength, and the distinction is the point of the decomposition. The \emph{work} bound of
-Eq.~\eqref{eq:decomp} is proven --- its terms are enforced by construction and
-machine-checked, so no input can exceed it --- and for the kernel-evaluation term a frozen
-input provably \emph{achieves} the maximum (the saturation certificate; the kd-traversal term
+strength, and the distinction is the point of the decomposition. We distinguish four evidence
+tiers: \emph{enforced by construction} (static loop guards, the hard \maxnn{} cap,
+fixed-capacity buffers, the fixed-depth kd stack); \emph{statically checked} (lint-enforced
+absence of panicking operations); \emph{dynamically verified} (randomized property tests, the
+counting allocator, the differential suite, the per-input replay certificates); and
+\emph{formally proven} --- a tier we claim for \emph{nothing} in this paper: no property has
+been shown in a proof assistant, and property testing is not exhaustive. The \emph{work}
+bound of Eq.~\eqref{eq:decomp} carries the strongest evidence we have --- every term enforced
+by construction, with the enforcement dynamically verified over randomized inputs --- and for
+the kernel-evaluation term a frozen input demonstrably \emph{achieves} the maximum (the
+saturation certificate, an exact counter identity; the kd-traversal term
 has no matching certificate, so a worse traversal geometry may exist within its structural
 cap). Every \emph{time} figure, by contrast, is an observation: warm caches, one container,
 no interference, and a microarchitecture (out-of-order x86) for which no sound static timing
 model exists --- on this hardware class a true WCET is practically unobtainable by any method,
 and the Gumbel extrapolation inherits MBPTA's representativity caveats. The counter
-decomposition thus \emph{factorizes} WCET into a proven part (work) and an empirical part
-(time per unit of work); only the latter is unproven. On a timing-predictable target ---
+decomposition thus \emph{factorizes} WCET into a structurally-enforced part (work) and an
+empirical part
+(time per unit of work); only the former is load-bearing. On a timing-predictable target ---
 precisely the \texttt{no\_std} kernel deployment of Sec.~\ref{sec:intro} --- a defensible
 per-operation cost bound would promote $\text{work bound} \times \text{unit-cost bound}$ to
 an analytical WCET. Separately, the structural-hazard removals (allocation-, recursion-,
@@ -84,4 +103,5 @@ panic-freedom) are constructive properties, not measurements: they are what make
 bound \emph{possible} at all --- an engine that calls the allocator inside its align loop
 forfeits the premise of a finite WCET under fragmentation. The deliverable is therefore ``the
 port does not regress WCET on any adversarial fixture, removes the structural hazards, and
-carries a proven work envelope'' --- not a proven absolute time bound.
+carries a work envelope enforced by construction and machine-checked'' --- not a proven
+absolute time bound.

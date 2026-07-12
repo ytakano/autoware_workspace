@@ -325,7 +325,7 @@ def main():
         rows,
         note=r"The constant ${\approx}11$ per point per pass locates the source in the "
         r"per-point inner loop (Sec.~\ref{sec:eval-alloc}). Rust: zero, matching the "
-        r"allocation-freedom proof. " + TIER_NOTE + " " + prov,
+        r"counting-allocator-verified allocation-freedom contract. " + TIER_NOTE + " " + prov,
     )
 
     # ---- regression.tex ----

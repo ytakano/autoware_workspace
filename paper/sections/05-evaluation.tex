@@ -65,8 +65,8 @@ fresh index/distance vectors per radius-search call, and per-query result contai
 pcl/FLANN (${\approx}8$/point). These ride the allocator's thread-cache fast path ---
 invisible on average, but each is a potential lock, page fault, or fragmentation stall inside
 the innermost loop. The Rust engine hoists all three allocation sites into a pre-reserved
-workspace and measures zero in the same harness, consistent with its allocation-freedom proof
-(Table~\ref{tab:alloc}).
+workspace and measures zero in the same harness, consistent with its counting-allocator-verified
+allocation freedom (Table~\ref{tab:alloc}).
 
 \input{tables/alloc}
 
@@ -115,27 +115,37 @@ yields the slope that matters there.)
 
 \subsection{Two-tier bound: engine tier vs.\ deployment tier}
 \label{sec:eval-twotier}
-The adversarial fixtures bound the engine at its API --- the right contract for the
+The adversarial fixtures bound the engine at its API over the domain $D$
+(Sec.~\ref{sec:meth-transfer}) --- the right contract for the
 \texttt{no\_std} kernel deployment, where inputs cross a trust boundary unvalidated. When the
 production preprocessing contracts hold (Sec.~\ref{sec:impl-legal}), the reachable input
-space shrinks, and with it the bound: on \emph{legal-worst}, the hardest
-preprocessing-reachable input we can construct, the observed maximum drops to
-\SI{\legalWorstMaxRust}{ms} (Rust) / \SI{\legalWorstMaxCpp}{ms} (C++) --- a factor of
-\legalWorstRatioRust$\times$ / \legalWorstRatioCpp$\times$ below the engine-tier union worst
-(Table~\ref{tab:tails}). The mechanism is the $K$ ceiling: disjoint voxel-aligned map tiles
-cap leaf multiplicity at 1, so $\bar{K} = \legalWorstKbar$ instead of 64, and the production
+space shrinks, and with it the observed worst case: on \emph{legal-worst}, the hardest
+preprocessing-reachable input we constructed, the observed maximum drops to
+\SI{\legalWorstMaxRust}{ms} (Rust) / \SI{\legalWorstMaxCpp}{ms} (C++) --- a measured factor
+of \legalWorstRatioRust$\times$ / \legalWorstRatioCpp$\times$ below the engine-tier union
+worst (Table~\ref{tab:tails}). Two caveats scope this factor. It is a
+\emph{fixture-to-fixture measurement}, not a proven tightening: \emph{legal-worst} realizes
+the voxel-center heuristic $K = 8$ per point, while the tier's provable ceiling is $K \le 27$
+(Sec.~\ref{sec:implementation}) --- the tightening the contracts alone guarantee on the
+kernel term is the parametric $64/27 \approx 2.4\times$, and a legal input between our
+witness and that ceiling may exist. And it is conditional on the contracts actually holding:
+the engine does not check them (Table~\ref{tab:preconditions}). The mechanism is the $K$
+ceiling: disjoint voxel-aligned map tiles
+cap leaf multiplicity at 1, capping $K$ at 27 --- realized at $\bar{K} = \legalWorstKbar$ by
+this witness --- instead of 64, and the production
 random-downsample cap fixes $P \le 1500$. Note the shift in the cost structure: kernel
-evaluations drop $\twoTierKernelDrop\times$ ($\sumnbr$: $\searchZeroSumNbrM\,\mathrm{M}
-\rightarrow \legalWorstSumNbrK\,\mathrm{k}$)
+evaluations drop $\twoTierKernelDrop\times$ ($\sumnbr$: $\searchZeroSumNbrM\,\mathrm{M}$
+$\rightarrow \legalWorstSumNbrK\,\mathrm{k}$)
 but time drops less, because kd-tree traversal --- unaffected by the $K$ ceiling --- becomes
 the dominant term of the deployment tier. Read constructively, the pair quantifies what
 \emph{enforcing input contracts at the component boundary} buys: validating tile disjointness
-and scan-downsample invariants before the align tightens the defensible WCET bound by
-$\legalWorstRatioRust\times$ without touching the kernel itself. The iteration axis of the
+and scan-downsample invariants before the align narrows the observed worst case by a measured
+$\legalWorstRatioRust\times$ (provably $\ge 2.4\times$ on the kernel term) without touching
+the kernel itself. The iteration axis of the
 tier is not an artifact of the $\epsilon$ pin: the production-parameterized legal search
 (Sec.~\ref{sec:impl-legal}) reaches the full 30-iteration cap on \emph{legal-osc}
 (\SI{\legalOscMaxRust}{ms} Rust / \SI{\legalOscMaxCpp}{ms} C++, $\bar{K} = \legalOscKbar$)
---- below \emph{legal-worst}, which therefore remains the tier's time bound.
+--- below \emph{legal-worst}, which therefore remains the tier's hardest measured witness.
 
 \subsection{Real-data replay: contract validation and degraded-prior behavior}
 \label{sec:eval-realdata}

@@ -32,7 +32,7 @@ port commits at camera-ready.}
 
 \paragraph{Sufficiency of the neighbor cap}
 The port caps the radius search at $\maxnn = 64$ where the C++ engine collects an unbounded
-neighbor set --- the cap is what makes the $P \cdot \maxnn \cdot N_{\mathrm{iter}}$
+neighbor set --- the cap is what makes the $P \cdot \maxnn \cdot N_{\mathrm{pass}}$
 decomposition exist at all. Its value is justified geometrically. A leaf's centroid lies inside
 its own voxel, and with the search radius equal to the voxel size (a coupling both engines'
 APIs enforce), the search ball has diameter two voxels and thus intersects at most three cells
@@ -42,9 +42,12 @@ count and $\maxnn = 64$ carries a $2.4\times$ margin --- truncation is unreachab
 bit-exactness with the uncapped C++ engine is unconditional. (The measured maximum on a real
 map is \realKmaxMax, Sec.~\ref{sec:eval-realdata}: one above the voxel-center heuristic of 8,
 comfortably inside the 27.) Exceeding 64 requires at least three adversarially crowded \emph{overlapping}
-tiles; there the Rust engine truncates (its cost stays bounded) while the C++ engine's cost
-grows without bound with tile multiplicity. The equal-work assertion doubles as the truncation
-detector: \emph{dense-neighbors} sits exactly at the cap ($8 \times 8 = 64$ in-range leaves)
+tiles --- inputs that leave the comparison domain $D$ of Sec.~\ref{sec:meth-transfer}. There
+the Rust engine truncates (its cost stays bounded) while the C++ engine's cost
+grows without bound with tile multiplicity: an asymmetry we report as a structural hazard of
+the uncapped implementation, not as something this analysis bounds. The equal-work assertion
+doubles as the runtime membership check for $D$ (truncation breaks equal work):
+\emph{dense-neighbors} sits exactly at the cap ($8 \times 8 = 64$ in-range leaves)
 and passes, certifying that the two engines still saw identical neighbor sets.
 
 \subsection{Adversarial fixture construction (engine tier)}
@@ -65,15 +68,20 @@ then composes and exceeds them.
 The fixtures above are \emph{engine-API-legal} but not \emph{preprocessing-reachable}: the
 production pipeline voxel-downsamples the scan (leaf \SI{3.0}{m}; no duplicate points), caps
 it at $P = 1500$ points (random downsample), and crops it to $\pm\SI{60}{m}$ --- and the map
-pipeline emits disjoint, voxel-aligned tiles from a downsampled map, which limits leaf
-multiplicity to 1 and hence $K$ to the ${\le}8$ voxels sharing a corner (the values are
+pipeline emits disjoint, voxel-aligned tiles from a downsampled map, which caps leaf
+multiplicity at 1 and hence $K$ at the per-tile geometric ceiling of 27 (Sec.~B); the
+voxel-center heuristic suggests the ${\le}8$ voxels sharing a corner, but real centroids sit
+anywhere inside their voxel and Sec.~\ref{sec:eval-realdata} observes $K = \realKmaxMax$
+(the parameter values are
 Autoware's shipped localization defaults). We therefore add a fifth fixture,
-\emph{legal-worst}: the hardest input satisfying all of these contracts --- a single tile
+\emph{legal-worst}: the hardest such input we \emph{constructed} --- a single tile
 whose per-voxel points are spaced to survive map downsampling (centroids ${\approx}$ voxel
 centers, $\sqrt{3} < 2.0$ from each lattice corner), and $P = 1500$ duplicate-free source
 points on distinct lattice corners at \SI{4}{m} pitch inside the crop, each collecting exactly
-$K = 8$, with $\epsilon = 10^{-10}$ pinning the iteration cap. Its counters certify the
-deployment geometric ceiling: $\bar{K} = \legalWorstKbar$ against the engine-level 64.
+$K = 8$ --- the voxel-center heuristic's maximum --- with $\epsilon = 10^{-10}$ pinning the
+iteration cap. Its counters certify the construction ($\bar{K} = \legalWorstKbar$ against the
+engine-level 64); it is the tier's \emph{witness} --- a constructed lower bound on the tier's
+worst case --- while the tier's provable ceiling remains $K \le 27$.
 
 One axis of this fixture is deliberately \emph{not} production-parameterized: with the shipped
 $\epsilon = 0.01$, its smooth lattice geometry converges in \oneoffLegalWorstProdEpsIters{}
@@ -90,4 +98,4 @@ geometry, map mismatch, coarse initialization guesses). Within this search famil
 worst axes resist combination: reaching $K = 8$ wants a smooth lattice (which converges
 quickly), while oscillation wants roughness (which scatters centroids to $\bar{K} =
 \legalOscKbar$); \emph{legal-worst} ($\epsilon$-pinned, higher total cost) therefore remains
-the tier's time bound and \emph{legal-osc} is its iteration-axis witness.
+the tier's hardest measured witness and \emph{legal-osc} its iteration-axis witness.
