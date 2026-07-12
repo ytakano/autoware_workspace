@@ -146,6 +146,16 @@ frozen NDT-odometry reconstruction (constant-velocity extrapolation from a globa
 \emph{representative of degraded-prior operation} (initialization, filter dropouts), not of
 nominal cruising, which the converged node-level baseline shows at 3 iterations per frame.
 
+One consequence of this open-loop track must be stated up front: the offline benchmark map is
+a cropped extract, and the reconstructed trajectory exits it after frame \realOnMapSeqMax{} ---
+so only \realOnMap{} aligns, a prefix window covering ${\sim}2\%$ of the drive, perform
+meaningful matching work. We call a frame \emph{on-map} when at least one of its radius
+searches returns a neighbor ($\sumnbr > 0$); on the remaining \realOffMap{} \emph{off-map}
+frames every radius search returns empty and the align is a near-no-op (iteration count p50
+$= \realOffMapIterMed$, C++ p50 ${\approx}\SI{\realOffMapCppMed}{ms}$). The per-frame
+envelope rows of Table~\ref{tab:realdata} therefore use the on-map subset, while the $P$ and
+max-$K$ contract checks --- which do not depend on map coverage --- use all frames.
+
 Table~\ref{tab:realdata} shows the distributions; four observations. First, the preprocessing
 contracts hold empirically: $P \le \realPMax = 1500$ on all \realFrames{} frames. Second, the
 per-point neighbor count reaches at most $\realKmaxMax$: within the per-tile geometric bound
@@ -158,12 +168,18 @@ corroborating the deployment tier's iteration axis with real data; the real wors
 \SI{\realCppMax}{ms} (C++) --- grazing the \SI{100}{ms} budget --- vs.\
 \SI{\realRustMax}{ms} (Rust), which sits $\realMarginDeploy\times$ below the deployment-tier
 bound and ${\sim}\realMarginEngine\times$ below the engine tier. Fourth, equal work holds on
-\realMatchPct\% of frames (\realMatch{} of \realFrames) --- and the initial ${\sim}2\%$ of
-exceptions became a product of the method itself: real rotated poses exposed two
+\realMatch{} of \realFrames{} frames overall (\realMatchPct\%) --- but the honest denominator
+is the on-map subset: all \realDivergences{} divergences fall on on-map frames, so the
+equal-work rate over the frames doing meaningful matching work is \realOnMapMatchPct\%
+(\realOnMapMatch{} of \realOnMap).
+% DATA-CHECKED(2026-07-11): every mismatch frame in data/realdata.json has sum_neighbors > 0;
+% gen_tables.py hard-fails if that ever changes.
+The initial exceptions became a product of the method itself: real rotated poses exposed two
 port-fidelity gaps that every translation-only synthetic fixture is structurally blind to
 (the C++ engine's initial-pass guess-matrix transform, and pcl's right-associated SSE
-transform kernel). Fixing both reduced the divergence to the $0.12\%$ residual characterized
-in Sec.~\ref{sec:threats}.
+transform kernel). Fixing both reduced the divergence to the residual characterized in
+Sec.~\ref{sec:threats}: \realDivergences{} frames --- \realOnMapDivPct\% of the on-map
+frames, \realDivPctAll\% of all captured frames.
 
 \input{tables/realdata}
 

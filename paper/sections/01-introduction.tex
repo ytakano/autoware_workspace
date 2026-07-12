@@ -55,7 +55,8 @@ Our contributions:
     equal work is certified \emph{per input} by an iteration-count assertion. The
     certification earns its keep: on real map data it exposed --- and led us to fix --- two
     port-fidelity gaps that translation-only synthetic fixtures are structurally blind to,
-    leaving a characterized $0.12\%$ residual (Sec.~\ref{sec:threats}).
+    leaving a characterized residual of \realDivergences{} frames (\realOnMapDivPct\% of the
+    on-map aligns; Sec.~\ref{sec:threats}).
   \item \textbf{Evidence that the search is effective}: it saturates the analytic
     kernel-evaluation maximum $P \cdot \maxnn \cdot (N_{\mathrm{iter}}{+}1)$ exactly, then
     grows the remaining free term (kd-tree traversal) by a further 35\%.
@@ -67,6 +68,6 @@ Our contributions:
     the untrusted-input (engine-API) worst case from the preprocessing-reachable one ---
     each axis of the deployment tier backed by a legal witness input --- quantifying what
     enforcing input contracts at the component boundary buys
-    ($\legalWorstRatioRust\times$ here). A 57-minute real drive validates the contracts and
-    the margins.
+    ($\legalWorstRatioRust\times$ here). A 57-minute real drive provides one-drive evidence
+    consistent with the contracts and the margins.
 \end{enumerate}

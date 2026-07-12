@@ -44,8 +44,9 @@ C++ engine by construction. Rather than trusting this globally, the replay harne
 \texttt{iteration\_num} across engines; a mismatch flags that input instead of silently
 comparing unequal work. This certification is load-bearing: on real map data it caught two
 port-fidelity gaps that the synthetic suite could not see, and after fixing them it bounds the
-remaining divergence at $0.12\%$ of frames (Secs.~\ref{sec:eval-realdata}
-and~\ref{sec:threats}).
+remaining divergence at \realDivergences{} frames (\realOnMapDivPct\% of the frames doing
+meaningful matching work; \realDivPctAll\% of all captured frames;
+Secs.~\ref{sec:eval-realdata} and~\ref{sec:threats}).
 
 \subsection{Layer 3: measurement and \pwcet}
 Worst inputs are frozen in a self-contained little-endian binary format readable from both

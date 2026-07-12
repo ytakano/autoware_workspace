@@ -63,9 +63,11 @@ analytic kernel-evaluation bound ($P \cdot \maxnn \cdot (N_{\mathrm{iter}}{+}1)$
 controlled sweep shows the bound is affine in the scan size $P$. A two-tier formulation
 separates the untrusted-input worst case from the preprocessing-reachable one ($5\times$
 apart), quantifying the value of validating input contracts at the component boundary, and a
-57-minute real urban drive (\num{22416} aligns) validates the contracts and margins ---
-its per-input certification also exposed, and led us to fix, two port-fidelity gaps invisible
-to synthetic fixtures, leaving a characterized $0.12\%$ residual. Measurements show the Rust
+57-minute real urban drive (\num{22416} aligns, \realOnMap{} of them exercising the map)
+provides one-drive evidence consistent with the contracts and margins --- its per-input
+certification also exposed, and led us to fix, two port-fidelity gaps invisible to synthetic
+fixtures, leaving a characterized residual of \realDivergences{} frames
+(\realOnMapDivPct\% of on-map aligns). Measurements show the Rust
 port meets or beats the C++ engine's observed maximum on every fixture (max-latency ratios
 0.14--0.85), while the C++ engine performs ${\approx}11$ heap allocations per point per
 derivative pass ($\num{682248}$ per align on the worst fixture) against a proven zero for
