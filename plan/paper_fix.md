@@ -234,7 +234,20 @@ to "exploratory EVT tail fit for cross-engine comparison" in contribution 1.
 
 ## Phase B — new analysis from existing data and tools (no re-measurement)
 
-### B1 (#3) Strengthen the per-input equal-work certificate — without touching C++ sources
+### B1 (#3) Strengthen the per-input equal-work certificate — **DONE (2026-07-12)**
+
+Both zero-source-change legs done. (a) **Alloc cross-check**: allocs/(pt·pass) computed from
+`wcet_alloc.json`/`wcet_rust.json` is 11.003–11.005 on every neighbor-returning fixture — a
+0.02% spread across geometries differing 100× in cost, fine enough to expose a single extra
+derivative pass (~3%); the one deviation (subnormal, 9.4) is structural (empty queries skip
+per-result containers). Guarded in `gen_tables.py` (>0.5% spread fails generation); reported
+in §V-C + §III-C. (b) **Pose/score leg**: `bench/ndt_bench_replay.cpp` fixture mode now
+records and asserts final pose + transform_probability + NVTL agreement; run on all 8 frozen
+fixtures → poses agree to ≤2e-7 m, both scores bit-identical on 7/8 (max delta 6e-8 = one f32
+ULP on subnormal); frozen as `data/wcet_cert.json` (deterministic per input, so independent
+of the timing run), generation hard-fails if any pose_match goes false. §III-C notes the
+real-data replay still certifies the iteration leg only (capture not on disk; re-capture is a
+C-phase item). The analysis-fork distinction is documented in §III-C.
 
 The reviewer asks for an instrumented C++ analysis fork. That collides with the project's hard
 constraint (upstream C++ byte-identical; see memory `ndt-original-cpp-untouched` and
@@ -259,7 +272,15 @@ build it.
 - Acceptance: replay harness asserts pose/score; alloc-derived C++ counters appear in the paper
   as the second certification leg; methodology §C rewritten around the two-leg certificate.
 
-### B2 (#11) Regression strengthening
+### B2 (#11) Regression strengthening — **DONE (2026-07-12)**
+
+Pooled design (8 fixtures + 6 P-sweep points, n=14/engine), seeded 2000-resample bootstrap
+CIs in Table IV, LOO prediction error (median 4%/7%, worst 58%/91% on *cache-hostile* — the
+per-point-overhead fixture the two-term model cannot see, corroborating §V-B), and the
+honest headline: **regressor correlation 0.99** — the reviewer's collinearity suspicion
+confirmed and reported; coefficients share variance, the combined prediction is what is
+identified. The negative Rust intercept's CI covers zero. The C++/Rust kernel-cost CI
+disjointness (which carries the 2.1× claim) is asserted at generation time.
 
 - Pool the six P-sweep points into the unit-cost regression (n: 6 → 12 per engine; counters are
   certified invariant per point, `tables/psweep.tex`).
@@ -271,7 +292,15 @@ build it.
 - Acceptance: regression table shows n=12, CIs, and LOO error; negative intercept either gone or
   explained with its CI covering zero.
 
-### B3 (#1) K-maximizing legal witness
+### B3 (#1) K-maximizing legal witness — **DONE (2026-07-12, documented negative)**
+
+`wcet_search_legal.rs` gained a `WCET_SEARCH_FITNESS=maxk` mode (fitness = per-point max K,
+then iter, Σnbr; freezes `legal_k.ndtfix` only if K ≥ 9). Three seeds (25–40 gens) through
+the unchanged legality verifier all **plateau at K = 6**: the rough-surface family scatters
+centroids and cannot crowd 7+ into one search ball. The corner-lattice construction (K = 8)
+and the real map (K = 9) remain the strongest known legal witnesses. Frozen as
+`data/legal_k_search.json`; reported in §VI-D as evidence (not proof) that legal K
+concentrates far below the 27 ceiling.
 
 - Re-run the existing production-parameterized legal search (the legality-verifier machinery
   that produced *legal-osc*, `04-implementation.tex` §D) with fitness = max per-point K (then
@@ -282,7 +311,13 @@ build it.
 - Acceptance: the deployment tier has a frozen witness with K ≥ 9, or a documented negative
   search result strengthening the empirical case that legal K stays far below 27.
 
-### B4 (#9) Pareto archive + cheap ablations
+### B4 (#9) Pareto archive + cheap ablations — deferred (run with C1)
+
+Assessed 2026-07-12: needs a search-driver restructure (non-dominated archive) plus *timing*
+of every frontier candidate — timing that would come from the deprecated powersave setup and
+be re-measured in C1 anyway. Decision: implement the Pareto archive + hill-climb-vs-random /
+multi-seed ablations together with the C1 campaign so the frontier candidates are measured
+once, under the final protocol.
 
 - Modify the search driver to archive the counter-space **Pareto frontier** (N_iter, Σnbr, Σkd)
   instead of only the lexicographic best; measure every frontier candidate on the host; report
@@ -295,7 +330,14 @@ build it.
 - Acceptance: paper states whether the Pareto frontier changed the answer; at least the
   hill-climb-vs-random ablation is reported.
 
-### B5 (#10) Real-data scenario breakdown
+### B5 (#10) Real-data scenario breakdown — **DONE (2026-07-12)**
+
+From `realdata.json`: the 501 on-map frames form 15 contiguous segments (route repeatedly
+grazes the crop edge); all 28 divergences cluster in 3 segments yet look like ordinary frames
+(K̄ near the on-map median, iterations 9–30, only 7 at the cap) and none is the worst frame
+(divergent C++ max 87.5 ms vs 99.8 overall) — the signature of the knife-edge ±1 mechanism,
+not a blind regime. Macros + a §V-G paragraph; per-scenario (nominal-prior) data remains a
+C-phase capture item.
 
 - From `data/realdata.json`: on-map segment structure (the 501 frames span seq 0–539,
   non-contiguous — report segments), per-population stats (on-map vs off-map), where the 28
@@ -357,7 +399,7 @@ future work. Protocol details live in `plan/ndt_wcet.md` (Layer 3) and `plan/ndt
 |---|---|---|
 | M1 — data integrity | ~~A1~~ (done, 6a337bb), ~~A2~~ (done, 2026-07-12) | **COMPLETE.** Nothing a referee can cross-check against our own tables is wrong. |
 | M2 — claims consistent | ~~A3, A4, A5, A6~~ (done, 2026-07-12) | **COMPLETE.** The paper no longer contradicts itself; every claim scoped to its evidence. Rebuttal letter can be drafted. |
-| M3 — existing-data strengthening | B1, B2, B5 (then B3, B4) | Certification and statistics upgraded without new hardware time. |
+| M3 — existing-data strengthening | ~~B1, B2, B5, B3~~ (done, 2026-07-12); B4 → C1 | **COMPLETE** (B4 deliberately folded into the C1 campaign). |
 | M4 — measurement redo | C1, then C2 decision, C3, C4 | Resubmission-ready experiments. |
 | M5 — resubmission package | re-run audit table against final PDF; rebuttal letter from the audit table (including the two push-back points) | Submit. |
 
@@ -368,11 +410,11 @@ extra drives are declared future work unless time permits.
 
 ## Acceptance checklist (review point → roadmap item)
 
-- #1 → A3 + B3 - #2 → A4 - #3 → B1 (+ A6 wording)
-- #4 → A5 - #5 → A6 - #6 → C1 + C3
-- #7 → A2 + A6 + C2 - #8 → A2 + C4 - #9 → B4
-- #10 → A1 ✓ + B5 - #11 → B2
-- Review's title/abstract suggestions → A6.
+- #1 → A3 ✓ + B3 ✓ - #2 → A4 ✓ - #3 → B1 ✓ (+ A6 ✓ wording)
+- #4 → A5 ✓ - #5 → A6 ✓ - #6 → C1 + C3
+- #7 → A2 ✓ + A6 ✓ + C2 - #8 → A2 ✓ + C4 - #9 → B4 (rides C1)
+- #10 → A1 ✓ + B5 ✓ - #11 → B2 ✓
+- Review's title/abstract suggestions → A6 ✓.
 
 ## Status log
 
@@ -398,6 +440,16 @@ extra drives are declared future work unless time permits.
   gains the scope note + disclaimer, four evidence tiers defined in §VI-E (formally-proven
   claimed for nothing), pWCET out of the abstract. Rebuttal letter is now unblocked; next:
   M3 (B1, B2, B5, then B3, B4).
+- 2026-07-12: **M3 done (B1+B2+B5+B3; B4 → C1)** — equal-work certificate now three-legged
+  (iteration + pose/score on fixtures [≤2e-7 m, scores bit-identical 7/8, `wcet_cert.json`]
+  + the LD_PRELOAD alloc cross-check [11.003–11.005 allocs/(pt·pass), 0.02% spread]);
+  regression pooled to n=14 with bootstrap CIs / LOO / the confirmed 0.99 collinearity;
+  real-data residual located (15 segments, divergences in 3, none the worst frame); max-K
+  legal search: documented negative (3 seeds plateau at K=6; lattice 8 / real 9 / ceiling 27).
+  Harness changes live in the autoware_core clone (`bench/ndt_bench_replay.cpp` cert leg,
+  `wcet_search_legal.rs` maxk fitness mode) — commit there with sign-off. B4 (Pareto +
+  ablations) deliberately rides C1 so frontier candidates are timed once under the final
+  protocol. Next: M4 (C1–C4).
 
 ## Cross-references
 
