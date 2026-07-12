@@ -1,0 +1,71 @@
+{
+ "benchmark": "WCET fixture pose/score certificate (plan/paper_fix.md B1)",
+ "meta": {
+  "note": "second certificate leg: final pose + transform_probability + NVTL agreement per fixture, both engines on identical buffers; deterministic per input, so independent of the timing-run sample count",
+  "captured": "2026-07-12",
+  "thresholds": {
+   "trans_m": 0.0001,
+   "rot": 1e-05,
+   "tp": 0.0001,
+   "nvtl": 0.0001
+  }
+ },
+ "fixtures": {
+  "cache_hostile": {
+   "pose_match": true,
+   "trans_delta_m": 0.0,
+   "rot_delta": 0.0,
+   "tp_delta": 0.0,
+   "nvtl_delta": 0.0
+  },
+  "dense_neighbors": {
+   "pose_match": true,
+   "trans_delta_m": 1.215e-14,
+   "rot_delta": 1.2e-15,
+   "tp_delta": 0.0,
+   "nvtl_delta": 0.0
+  },
+  "legal_osc": {
+   "pose_match": true,
+   "trans_delta_m": 6.664e-08,
+   "rot_delta": 1.863e-09,
+   "tp_delta": 0.0,
+   "nvtl_delta": 0.0
+  },
+  "legal_worst": {
+   "pose_match": true,
+   "trans_delta_m": 0.0,
+   "rot_delta": 0.0,
+   "tp_delta": 0.0,
+   "nvtl_delta": 0.0
+  },
+  "max_iterations": {
+   "pose_match": true,
+   "trans_delta_m": 0.0,
+   "rot_delta": 0.0,
+   "tp_delta": 0.0,
+   "nvtl_delta": 0.0
+  },
+  "search_00": {
+   "pose_match": true,
+   "trans_delta_m": 1.192e-14,
+   "rot_delta": 1.244e-16,
+   "tp_delta": 0.0,
+   "nvtl_delta": 0.0
+  },
+  "search_01": {
+   "pose_match": true,
+   "trans_delta_m": 0.0,
+   "rot_delta": 0.0,
+   "tp_delta": 0.0,
+   "nvtl_delta": 0.0
+  },
+  "subnormal": {
+   "pose_match": true,
+   "trans_delta_m": 2.384e-07,
+   "rot_delta": 7.451e-09,
+   "tp_delta": 0.0,
+   "nvtl_delta": 5.96e-08
+  }
+ }
+}

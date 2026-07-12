@@ -25,8 +25,11 @@ percentile. Table~\ref{tab:counters} lists the frozen set.
 
 \subsection{Engine-tier frame times: C++ vs.\ Rust}
 \label{sec:eval-tails}
-The equal-work assertion holds on every fixture (identical \texttt{iteration\_num} per engine
-pair), so the comparison is algorithm-fair. The Rust port's observed maximum is at or below
+The equal-work certificate holds on every fixture: identical \texttt{iteration\_num} per
+engine pair, final poses agreeing to at most \certMaxTransDelta\,\si{m} of translation, and
+both convergence scores bit-identical on \certScoreExact{} of \certFixtures{} fixtures (the
+largest score delta, \certMaxScoreDelta{} on \emph{subnormal}, is one \texttt{f32} ULP) ---
+so the comparison is algorithm-fair. The Rust port's observed maximum is at or below
 the C++ engine's on every fixture (Table~\ref{tab:tails}; ratios
 \tailsRatioMin--\tailsRatioMax; union worst: \SI{\tailsSearchMaxCpp}{ms} $\rightarrow$
 \SI{\tailsSearchMaxRust}{ms}).
@@ -68,17 +71,39 @@ the innermost loop. The Rust engine hoists all three allocation sites into a pre
 workspace and measures zero in the same harness, consistent with its counting-allocator-verified
 allocation freedom (Table~\ref{tab:alloc}).
 
+Beyond the hazard reading, these counts double as an \emph{independent work certificate for
+the C++ side} (Sec.~\ref{sec:meth-transfer}): the numerator comes from the untouched
+production binary via \texttt{LD\_PRELOAD}, the denominator ($P \cdot N_{\mathrm{pass}}$)
+from the Rust counters, and the ratio is \allocCertMin--\allocCertMax{} on every fixture
+whose radius queries return neighbors --- a \allocCertSpreadPct\% spread across geometries
+whose cost differs by two orders of magnitude, fine enough that a single extra C++ derivative
+pass (a ${\sim}3\%$ shift at $N_{\mathrm{pass}} = 31$) could not hide. The one deviation ---
+\emph{subnormal} at \allocCertSparse{} --- is itself structural: its mostly-empty radius
+searches skip the per-result containers.
+
 \input{tables/alloc}
 
 \subsection{Unit-cost regression}
 \label{sec:eval-regression}
-Regressing median latency on the (shared) counters yields $R^2 \ge \regRsqRust$ for both
-engines: the two-term work model explains the timing. The per-kernel-evaluation cost is
+Regressing median latency on the (shared) counters over the fixtures pooled with the
+$P$-sweep points ($n = \regN$ per engine) yields $R^2 \ge \regRsqRust$ for both engines
+(Table~\ref{tab:regression}), and the model predicts held-out points with a median
+leave-one-out error of \regLooMedCpp\% (C++) / \regLooMedRust\% (Rust). Three diagnostics
+scope the fit. First, the regressors are nearly collinear over this design (correlation
+\regCorr): costly geometries grow both counters together, so the individual coefficients
+share variance and carry the wide bootstrap CIs shown in the table --- the combined
+prediction is far better identified than either coefficient alone. Second, the worst
+leave-one-out miss is \regLooWorstRust{} (\regLooMaxCpp\%/\regLooMaxRust\%) --- precisely the
+neighbor-sparse fixture whose cost the two-term model cannot see because it is dominated by
+the per-point constant overhead identified in Sec.~\ref{sec:eval-tails}, corroborating that
+analysis. Third, the negative Rust intercept is a fitting artifact whose bootstrap CI covers
+zero. What survives these diagnostics: the per-kernel-evaluation cost is
 \SI{\regKernelNsCpp}{ns} (C++) vs.\ \SI{\regKernelNsRust}{ns} (Rust) ---
-$\regKernelRatio\times$ --- while C++'s per-kd-node cost is lower (\SI{\regKdNsCpp}{ns} vs.\
-\SI{\regKdNsRust}{ns}); the kd term is second-order on the engine-tier worst set, though it
-dominates the deployment tier (Sec.~\ref{sec:eval-twotier}). (The small negative Rust
-intercept is an extrapolation artifact of the small-$n$ fit.) The per-kernel-evaluation gap is
+$\regKernelRatio\times$, with \emph{disjoint} 95\% CIs, a disjointness the generator asserts
+at regeneration time --- while C++'s per-kd-node cost is nominally lower (\SI{\regKdNsCpp}{ns}
+vs.\ \SI{\regKdNsRust}{ns}) but with overlapping CIs; the kd term is second-order on the
+engine-tier worst set, though it dominates the deployment tier
+(Sec.~\ref{sec:eval-twotier}). The per-kernel-evaluation gap is
 consistent with the same overhead structure as above --- each C++ evaluation reaches its leaf
 through a pointer indirection with the per-query machinery amortized over few neighbors,
 where the Rust engine reads a flat leaf array --- though without hardware counters we present
@@ -192,6 +217,16 @@ port-fidelity gaps that every translation-only synthetic fixture is structurally
 transform kernel). Fixing both reduced the divergence to the residual characterized in
 Sec.~\ref{sec:threats}: \realDivergences{} frames --- \realOnMapDivPct\% of the on-map
 frames, \realDivPctAll\% of all captured frames.
+
+Locating that residual sharpens its reading. The \realOnMap{} on-map frames form
+\realSegments{} contiguous segments (the reconstructed route repeatedly grazes the cropped
+map's edge before leaving it); the \realDivergences{} divergences cluster in
+\realDivSegments{} of them, yet look like ordinary frames --- $\bar{K}$ near the on-map
+median, iteration counts spanning \realDivIterMin--\realDivIterMax{} with only
+\realDivAtCap{} at the cap --- and none is the worst frame (divergent-frame C++ maximum
+\SI{\realDivCppMax}{ms} against the overall \SI{\realCppMax}{ms}). This is the signature of
+the knife-edge $\pm 1$-iteration mechanism of Sec.~\ref{sec:threats}, not of a systematic
+regime the certificate would be blind to.
 
 \input{tables/realdata}
 

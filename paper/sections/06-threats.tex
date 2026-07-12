@@ -65,7 +65,13 @@ witness, Sec.~\ref{sec:impl-legal}), but no single legal input in our search fam
 the $K = 8$ and 30-iteration worst cases \emph{simultaneously} --- the tier bound combines
 the two axes conservatively rather than exhibiting one witness for both, and the tier's
 provable $K$ ceiling of 27 has no constructed witness at all (legal inputs above the observed
-$K = \realKmaxMax$ may exist below it). Two further
+$K = \realKmaxMax$ may exist below it). A dedicated production-parameterized search with
+fitness set to the per-point maximum $K$ (\legalKSearchSeeds{} seeds through the same
+legality verifier) plateaus at $K = \legalKSearchMax$: the legal rough-surface family
+scatters centroids and cannot crowd more into one search ball, so the corner-lattice
+construction ($K = 8$) and the real map ($K = \realKmaxMax$) remain the strongest known legal
+witnesses --- evidence that legal $K$ concentrates far below the ceiling, though not a proof.
+Two further
 preconditions: the \maxnn{} sufficiency derivation (Sec.~\ref{sec:implementation}) assumes
 the search radius stays coupled to the voxel size (decoupling them would require re-deriving
 the cap), and the affine $\mathrm{WCET}(P)$ law is validated over

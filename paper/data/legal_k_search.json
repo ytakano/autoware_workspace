@@ -1,0 +1,22 @@
+{
+ "benchmark": "production-parameterized legal search, fitness = max per-point K (plan/paper_fix.md B3)",
+ "meta": {
+  "date": "2026-07-12",
+  "tool": "realtime_ndt_scan_matcher example wcet_search_legal, WCET_SEARCH_FITNESS=maxk",
+  "protocol": "hill-climb over the legal rough-surface generator (verify_legal-gated: 1 tile, P<=1500, one point per 3m cell, map sub-grid >= 0.35m), production params (eps 0.01, res 2.0, max_iter 30)",
+  "seeds": [
+   "0x1E9A05C1 (40 gens)",
+   "0x1E9A05C1 (25 gens)",
+   "0xDEADBEEF (25 gens)",
+   "0x12345678 (25 gens)"
+  ]
+ },
+ "result": {
+  "max_k_reached": 6,
+  "heuristic_witness_k": 8,
+  "real_map_observed_k": 9,
+  "provable_ceiling_k": 27,
+  "frozen": false,
+  "note": "all seeds plateau at K = 6: the rough-surface family scatters centroids and cannot crowd 7+ into one search ball; the corner-lattice construction (legal-worst, K = 8) and the real map (K = 9) remain the strongest known legal witnesses"
+ }
+}

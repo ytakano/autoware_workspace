@@ -49,9 +49,20 @@ diverge --- the C++ engine's neighbor set, and with it its cost, grows without b
 tile multiplicity; we report that as a structural hazard of the uncapped implementation
 (Sec.~\ref{sec:implementation}), not as a bounded quantity. Rather than trusting membership
 globally, the replay harness \emph{re-certifies it per input} at measurement time by
-asserting equal \texttt{iteration\_num} across engines; a mismatch flags that input instead
+asserting equal \texttt{iteration\_num} across engines and, on the frozen fixtures, agreement
+of the final pose and both convergence scores (the real-data replay of
+Sec.~\ref{sec:eval-realdata} currently certifies the iteration leg only); a mismatch flags
+that input instead
 of silently comparing unequal work, and the same assertion doubles as the runtime membership
-check for $D$, since truncation breaks equal work. This certification is load-bearing: on real map data it caught two
+check for $D$, since truncation breaks equal work. A second, independent certificate leg
+requires no instrumentation at all: the C++ engine's allocation count --- read from the
+untouched production binary by the \texttt{LD\_PRELOAD} interposer --- is a deterministic
+function of its per-point work, so it re-derives $P \cdot N_{\mathrm{pass}}$ on the C++ side
+and agrees with the Rust counters to \allocCertSpreadPct\% on every neighbor-returning
+fixture (Sec.~\ref{sec:eval-alloc}), a resolution that would expose even a single extra
+derivative pass. (An instrumented C++ \emph{analysis} build could add full trace hashes; the
+byte-identical constraint governs the shipped sources, not local analysis builds --- we
+prioritize certificates obtainable from the production binary itself.) This certification is load-bearing: on real map data it caught two
 port-fidelity gaps that the synthetic suite could not see, and after fixing them it bounds the
 remaining divergence at \realDivergences{} frames (\realOnMapDivPct\% of the frames doing
 meaningful matching work; \realDivPctAll\% of all captured frames;
