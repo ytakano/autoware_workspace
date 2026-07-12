@@ -349,32 +349,69 @@ C-phase capture item.
 
 ## Phase C — re-measurement (required for resubmission)
 
-These are the paper's own red `\todo{}`s; the review correctly says they are prerequisites, not
-future work. Protocol details live in `plan/ndt_wcet.md` (Layer 3) and `plan/ndt_bench.md`
-(capture-once/replay-everywhere); this phase just pins what the paper needs.
+These are the paper's own red `\todo{}`s; the review correctly says they are prerequisites,
+not future work. **The normative protocol for every M4 timing claim is
+`plan/ndt_timing_measurement_policy.md`** (two measurement profiles + mandatory bridge
+experiment, cache/co-runner/thermal rules, sample-count tiers, EVT policy, cross-language
+fairness, reproducibility manifest, allowed/not-allowed claims, agent completion criteria).
+This phase pins what the paper needs plus the roadmap-side amendments the campaign must
+apply; supporting detail also lives in `plan/ndt_wcet.md` (Layer 3) and `plan/ndt_bench.md`
+(capture-once/replay-everywhere).
 
-### C1 (#6) Host measurement redo
+### C1 (#6) Measurement campaign — execute the policy
 
-- performance governor, isolated core (`isolcpus`/`cset`), cold-cache series alongside warm,
-  interference co-runner series, ≥ 3 independent runs on different days, C++/Rust interleaved
-  and order-randomized.
-- Publish the full build/run manifest: compiler versions and *all* flags (C++ `-O2 …` vs Rust
-  release profile: opt-level, LTO, codegen-units, target-cpu), FMA/fast-math status, OpenMP
-  runtime presence even at num_threads=1, link mode, allocator, CPU frequency/thermal state,
-  SMT/IRQ/NUMA config. Answer #6's "this Rust implementation vs this C++ baseline" framing in
-  §V-A prose.
-- Acceptance: no measurement claim in the paper rests on the powersave/container data; TODOs
-  gone; manifest table present.
+Governed by `plan/ndt_timing_measurement_policy.md`; deltas and priorities:
 
-### C2 (#7) EVT redo — or delete (decision gate)
+- **Profile B (controlled engine)**: the frozen fixture set + P-sweep under isolated-core /
+  performance-governor / IRQ-moved / SMT-idle conditions, warm and cold series separated,
+  ≥ 3 independent sessions, C++/Rust interleaved, **fixture order randomized across runs**
+  (amendment). Output replaces `wcet.json` / `wcet_psweep.json`; Tables II/IV/V become
+  "controlled engine results". **B4 (Pareto frontier + ablations) rides this profile** so
+  frontier candidates are timed once under the final protocol.
+- **Profile A (production-representative)**: staged — **A2 first** (offline replay of the
+  real-data capture under CFS, unpinned; a cheap protocol upgrade of the current §V-G run),
+  **A1 as stretch** (full ROS-node replay via the existing `run_l1b.sh` machinery). Report
+  percentiles, observed maxima, and deadline-overrun counts per the policy; §V-G becomes the
+  Profile-A results. Note in prose that a production ECU's governor may differ from the
+  policy's `performance` setting (recorded, not assumed).
+- **Bridge experiment (NEW paper deliverable)**: the policy's 5 required inputs (union-worst,
+  legal-worst, legal-osc, slowest real frame, median real frame) under both profiles →
+  per-input interference-inflation ratios, presented as a new table + short subsection.
+  Prep tooling: a small **frame→`.ndtfix` freezer** for the two real-data frames (the
+  capture hook and the fixture writer already exist).
+- **Measurement budget matrix** (amendment — the full policy matrix is day-scale): 1000+
+  samples only where a tail claim is made (search-00, legal-worst, legal-osc); 100+ for the
+  rest; co-runner series (one resource at a time per the policy) only on union-worst +
+  legal-worst; cross-session variability reported as CIs on medians/maxima (feeds review #8).
+- **Prep work items** (buildable now, inside the container): governor/affinity/IRQ
+  verification + abort-rule scripts, documented cold-cache eviction method, co-runner
+  harness, manifest collector; engine change — expose **per-pass counter arrays under
+  `wcet-count` + a deterministic trace hash**, scoped to Rust↔Rust comparisons
+  (host/target/version regression detection, i.e. the search-01-class skew); **C++ fairness
+  remains the three-legged certificate** — the policy's "prefer a trace hash" cannot apply
+  to the uninstrumented C++ binary.
+- Manifest: per the policy's field list (see C4). Answer #6's "this Rust implementation vs
+  this C++ baseline" framing in §V-A prose.
+- **Environment prerequisite**: host root for governor/`isolcpus`/IRQ placement — outside
+  the dev container.
+- Acceptance: the policy's own completion criteria, plus — no measurement claim in the paper
+  rests on the powersave/container data; TODOs gone; manifest table present; claim wording
+  audited against the policy's allowed/not-allowed lists (they mirror A6/§VI-E).
 
-- If kept: ≥ 1,000–10,000 samples per fixture across multiple runs/days; POT/GPD (and GEV for
-  comparison) with MLE; shape-parameter estimates with CIs; independence/stationarity
-  diagnostics; block/threshold sensitivity; per-block → per-align probability conversion;
-  extrapolation distance stated. Only then may pWCET reappear beyond "exploratory".
-- If not affordable: delete §V-H and Table `gumbel`, keep max/percentile tails only. The paper
-  is publishable without pWCET; it is not publishable with the current n=10 fit as a claim.
-- Acceptance: either the full protocol above or no pWCET table; A6's demotion holds meanwhile.
+### C2 (#7) EVT — rebuild on Profile-B data only (policy split)
+
+- Per the policy's EVT section: probabilistic tail analysis uses **controlled-profile
+  (Profile B) data only** — ≥ 1,000 samples per tail fixture across sessions, POT/GPD (GEV
+  for comparison) with MLE, shape parameters with CIs, independence/stationarity
+  diagnostics, block/threshold sensitivity, per-block → per-align conversion, extrapolation
+  distance stated. Only then may pWCET reappear beyond "exploratory".
+- **Profile-A data never gets mechanical EVT**: empirical percentiles, observed maxima,
+  overrun counts, and time-series context instead (non-stationary CFS traces).
+- Delete remains the fallback: if the Profile-B sample budget isn't met, drop §V-J and Table
+  `gumbel`, keep max/percentile tails. Publishable either way; not with the n=10 fit as a
+  claim.
+- Acceptance: either the full Profile-B protocol or no pWCET table; A6's demotion holds
+  meanwhile.
 
 ### C3 (#6) AArch64 target evidence — **counter leg DONE on hardware (2026-07-12)**
 
@@ -409,8 +446,14 @@ app: `data/raspi4.txt` now shows **8/8 OK on-device**, counters bit-identical be
 two hardware runs (the first run's 7/8 log lives in git history at ba7068d and is narrated
 as history in §V-I).
 
-Remaining for C3:
-- the controlled **timing** protocol on target (repeats, warm/cold, co-runner) — rides C1.
+Remaining for C3 — **Profile C (bare-metal target), an amendment to the measurement
+policy**: the target is trivially "controlled" (no OS), but with target-specific rules —
+clock fixed via firmware config (no governor exists); **real thermal-throttling risk on the
+Pi 4 under sustained load** (heatsink, bounded series duration, record throttle state where
+obtainable); warm/cold series separated per the policy; the interference analog is kernel
+tasks on the other cores (connects to the future `mt` multi-core story). Reporting and
+manifest follow Profile B's rules with target fields (`target_board`, `firmware`;
+`qemu_version` for emulator runs). Rides the C1 campaign.
 
 Original scope (for reference):
 
@@ -443,12 +486,31 @@ Remaining for C3 proper:
 
 ### C4 (#8) One-manifest regeneration
 
-- All C-phase data lands in `paper/data/*.json` with a `meta.manifest` block (run ID, commits,
-  fixture hashes, binary hashes, date, CPU config, sample count); `scripts/gen_tables.py`
+- All C-phase data lands in `paper/data/*.json` with a `meta.manifest` block whose schema is
+  **the policy's Reproducibility Manifest field list** (experiment_id, measurement_profile,
+  host/CPU/microcode/kernel, governor, isolation/affinity/IRQ/SMT/memory config, compiler +
+  linker flags, allocator, cpp/rust commits, fixture id+hash, binary hash, sample/warmup
+  counts, cache condition, co-runner, notes) **plus** `dataset_id` (Profile A) and
+  `target_board`/`firmware`/`qemu_version` (Profile C); `scripts/gen_tables.py`
   regenerates **every** table, figure, and prose macro from it (A2 made the prose macro-driven,
-  so this is push-button). Pin exact autoware_core/port commits (`04-implementation.tex` TODO).
+  so this is push-button) and emits the provenance notes per table. Pin exact
+  autoware_core/port commits (`04-implementation.tex` TODO).
 - Acceptance: `python3 scripts/gen_tables.py && make -C paper` reproduces the submitted PDF's
-  numbers exactly from the JSONs.
+  numbers exactly from the JSONs; every table names its measurement profile.
+
+### Paper-structure impact of the two-profile split (C1/C2 outcome)
+
+- Table II and the fixture timing prose are relabeled **controlled-profile** results
+  (policy's allowed-claims wording: "controlled engine latency", "isolated-core observed
+  maximum").
+- §V-G (real data) becomes **production-representative (Profile A)** results with
+  deadline-overrun counts.
+- A **new bridge table + short subsection** reports the interference-inflation ratios for
+  the 5 bridge inputs — the measured link between the two, and the paper's answer to "how do
+  isolated numbers relate to deployment".
+- All claim wording audited against the policy's allowed/not-allowed lists (they mirror the
+  A6/§VI-E epistemic tiers; "never merge samples across profiles" becomes a generation-time
+  guard).
 
 ## Milestones / ordering
 
@@ -457,7 +519,7 @@ Remaining for C3 proper:
 | M1 — data integrity | ~~A1~~ (done, 6a337bb), ~~A2~~ (done, 2026-07-12) | **COMPLETE.** Nothing a referee can cross-check against our own tables is wrong. |
 | M2 — claims consistent | ~~A3, A4, A5, A6~~ (done, 2026-07-12) | **COMPLETE.** The paper no longer contradicts itself; every claim scoped to its evidence. Rebuttal letter can be drafted. |
 | M3 — existing-data strengthening | ~~B1, B2, B5, B3~~ (done, 2026-07-12); B4 → C1 | **COMPLETE** (B4 deliberately folded into the C1 campaign). |
-| M4 — measurement redo | C1, then C2 decision, C3, C4 | Resubmission-ready experiments. |
+| M4 — measurement campaign | Execute `plan/ndt_timing_measurement_policy.md`: C1 (Profiles A/B + bridge + B4), C2 (EVT on Profile B only), C3 (Profile C target timing), C4 (policy manifest) | Resubmission-ready experiments; every timing claim profile-labeled. |
 | M5 — resubmission package | re-run audit table against final PDF; rebuttal letter from the audit table (including the two push-back points) | Submit. |
 
 A before B before C. B3/B4 can run concurrently with C1 (different machines/queues). The review's
@@ -529,10 +591,28 @@ extra drives are declared future work unless time permits.
   app expectations updated, QEMU re-verified. `data/raspi4.txt` needed no re-capture — the
   hardware run was already exact against the correct baseline. C3 fully closed except the
   target timing protocol (rides C1).
+- 2026-07-12 (measurement policy): **`plan/ndt_timing_measurement_policy.md` adopted as the
+  normative protocol for M4** (user-authored: Profile A production-representative / Profile B
+  controlled + mandatory bridge experiment with interference-inflation ratios, EVT restricted
+  to Profile B, allowed/not-allowed claim lists, reproducibility manifest, completion
+  criteria). Roadmap amendments layered on top: (1) Profile-A staging — A2 offline-CFS first,
+  A1 full-ROS-node via `run_l1b.sh` as stretch; (2) measurement budget matrix — 1000+ samples
+  only for tail-claim fixtures, co-runners on union-worst + legal-worst only; (3) Profile C
+  for the bare-metal target — firmware-fixed clock, Pi 4 thermal-throttle handling,
+  other-core kernel tasks as the interference analog; (4) trace-hash scoped to Rust↔Rust
+  (C++ fairness stays on the three-legged certificate); (5) frame→`.ndtfix` freezer tooling
+  for the two real-data bridge inputs. C1/C2/C3/C4 sections rewritten accordingly; the
+  two-profile split adds a NEW bridge table/subsection to the paper and relabels Tables II /
+  §V-G by profile.
 
 ## Cross-references
 
 - `paper/review.md` — the review being addressed (point numbers #1–#11).
+- `plan/ndt_timing_measurement_policy.md` — **normative protocol for every M4 timing claim**
+  (Profiles A/B + bridge, cache/co-runner/thermal rules, sample tiers, EVT policy, fairness,
+  manifest, allowed/not-allowed claims); roadmap amendments: Profile-A staging (A2→A1),
+  measurement budget matrix, Profile C (bare-metal target), trace-hash scoping (Rust↔Rust),
+  bridge-input freezer tooling.
 - `paper/scripts/gen_tables.py` — single-source table/macro generator (A2, B2, C4 extend it).
 - `paper/data/*.json` — frozen measurement data; audit findings above were verified against
   `realdata.json` (on-map split, divergence locations) and `wcet.json`.
