@@ -41,12 +41,12 @@ covariances; \texttt{libm}-vs-glibc \texttt{exp}) surface only on knife-edge fra
 per frame} by the replay assertion, and the residual is flagged rather than silently compared.
 Relatedly, ISA-independence of the Rust floating-point stream is by construction
 (pure-software \texttt{libm}) and now \emph{measured} on the deployment hardware
-(Sec.~\ref{sec:eval-raspi4}): exact on \raspiOk{} of \raspiTotal{} fixtures, with one
-knife-edge fixture diverging by \raspiNbrDelta{} of \raspiMismatchNbrM\,M kernel evaluations
---- deterministic, certificate-flagged rather than silent, root cause open. The work-bound
-and domain-$D$ arguments are unaffected (the diverged counters remain within every enforced
-cap), but absolute cross-ISA bit-exactness is a \emph{per-fixture certified} property, not
-an unconditional one. The C++ comparison
+(Sec.~\ref{sec:eval-raspi4}): exact on all \raspiTotal{} fixtures. The one flag the
+on-target certificate initially raised was root-caused to a stale expected-value snapshot
+predating one of the port-fidelity fixes above --- a reminder that the counters are
+sensitive to the engine \emph{version} at parts-per-million resolution, so cross-version
+baselines must be commit-pinned; cross-ISA bit-exactness remains a per-fixture
+\emph{certified} property rather than an assumed one. The C++ comparison
 itself is inherently x86/Linux-bound (pcl/ROS dependency).
 
 \subsection{Contract preconditions}

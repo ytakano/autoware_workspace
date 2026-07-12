@@ -91,9 +91,10 @@ their counter values therefore carry over to the bare-metal deployment target un
 the transfer is \emph{checkable} there by re-running the counters and asserting equality ---
 the same per-input certification as the cross-language comparison. We executed this protocol
 on the deployment hardware (Raspberry Pi~4, bare-metal \texttt{no\_std} kernel): the
-counters are exact on \raspiOk{} of \raspiTotal{} frozen fixtures, and the certificate
-\emph{flagged} the eighth, whose work differs by \raspiNbrDelta{} kernel evaluations out of
-\raspiMismatchNbrM\,M --- ISA-independence holds up to a certificate-flagged residual
-(Sec.~\ref{sec:eval-raspi4}; threats in Sec.~\ref{sec:threats}). The \texttt{libm} choice
+counters transfer \emph{exactly} on all \raspiTotal{} frozen fixtures --- after the
+certificate first flagged one whose embedded expectations came from a stale host snapshot, a
+version skew of \raspiNbrDelta{} kernel evaluations out of \raspiMismatchNbrM\,M that
+bisection traced to a port-fidelity fix, not to the ISA
+(Sec.~\ref{sec:eval-raspi4}). The \texttt{libm} choice
 also costs a bounded,
 measured sliver of host C++ parity (Sec.~\ref{sec:threats}).

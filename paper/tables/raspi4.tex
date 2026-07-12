@@ -9,15 +9,15 @@
 \toprule
 fixture & align (\si{ms}) & counters vs.\ host \\
 \midrule
-\emph{search-00} & 9920 & exact \\
-\emph{search-01} & 6821 & $\sumnbr\,{+}2$, $\kdnodes\,{-}1$ \\
-\emph{dense-nbrs} & 6880 & exact \\
+\emph{search-00} & 9908 & exact \\
+\emph{search-01} & 6818 & exact \\
+\emph{dense-nbrs} & 6872 & exact \\
 \emph{max-iters} & 462 & exact \\
 \emph{cache-hostile} & 132 & exact \\
-\emph{subnormal} & 148 & exact \\
-\emph{legal-worst}$^\dagger$ & 1504 & exact \\
-\emph{legal-osc}$^\dagger$ & 844 & exact \\
+\emph{subnormal} & 149 & exact \\
+\emph{legal-worst}$^\dagger$ & 1502 & exact \\
+\emph{legal-osc}$^\dagger$ & 847 & exact \\
 \bottomrule
 \end{tabular}
-\par\smallskip\footnotesize Times are single-shot and informational (no warmup, $n{=}1$; an idle bare-metal core, but not the measurement protocol of Sec.~\ref{sec:evaluation}). Counter comparison is recomputed against \texttt{wcet\_rust.json} at generation time.
+\par\smallskip\footnotesize Times are single-shot and informational (no warmup, $n{=}1$; an idle bare-metal core, but not the measurement protocol of Sec.~\ref{sec:evaluation}). Counter comparison is recomputed against \texttt{wcet\_rust.json} at generation time; the on-device verdict is 8/8 (re-captured after the baseline refresh of Sec.~\ref{sec:eval-raspi4}).
 \end{table}

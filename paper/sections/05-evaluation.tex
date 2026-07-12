@@ -238,17 +238,26 @@ To validate the cross-ISA leg of the methodology (Sec.~\ref{sec:meth-crossisa}) 
 actual deployment class of hardware, we ran the same frozen fixtures through the engine on a
 Raspberry Pi~4 (Cortex-A72) under the bare-metal \texttt{no\_std} kernel: an async task
 parses the embedded fixture bytes, performs one counted align each, and asserts the counters
-against the host values (Table~\ref{tab:raspi4}). The result is \raspiOk{} of \raspiTotal{}
-exact --- and one genuine finding: \emph{search-01}'s work differs by
-$\sumnbr\,{+}\raspiNbrDelta$ / $\kdnodes\,{-}\raspiKdDelta$. The divergence is
-deterministic (bit-identical across runs), reproduced \emph{identically} under QEMU-TCG
-emulation and on the Cortex-A72 silicon --- so it is a property of the generated AArch64
-code, not of an emulator --- and the obvious mechanisms are excluded: the kernel image
-contains no fused-multiply-add instructions, and the FPU runs at IEEE defaults (no
-flush-to-zero; the \emph{subnormal} fixture transfers exactly). Root-causing the first
-divergent pass is future work; what matters for the methodology is that the per-input
-certificate \emph{caught} it, exactly as it caught the port-fidelity gaps of
-Sec.~\ref{sec:eval-realdata}, rather than silently comparing unequal work. The single-shot
+against the host values (Table~\ref{tab:raspi4}). The result: every counter of every fixture
+transfers \emph{exactly} (\raspiExact{} of \raspiTotal) --- reached via a detour that
+stress-tested the certificate. The \emph{first} hardware run reported 7 of 8 against the
+expectation table then embedded in the kernel app (that log is preserved in the repository
+history): on \emph{search-01} the measured work differed by
+$\sumnbr\,{+}\raspiNbrDelta$ / $\kdnodes\,{-}\raspiKdDelta$
+--- deterministically, and bit-identically under QEMU-TCG emulation and on the Cortex-A72
+silicon. After the ISA-level mechanisms were excluded (no fused-multiply-add instructions in
+the kernel image; the FPU at IEEE defaults, with the \emph{subnormal} fixture transferring
+exactly), commit bisection located the true cause \emph{off-target}: the embedded
+expectations had been transcribed from a host snapshot that predated one of the two
+port-fidelity fixes of Sec.~\ref{sec:threats} (the pcl f32 transform-association mirror),
+which shifts this knife-edge fixture's work by \raspiNbrDelta{} evaluations in
+\raspiMismatchNbrM\,M. Re-baselining against the fixed engine reconciles host, emulator, and
+hardware exactly: the re-captured hardware run (Table~\ref{tab:raspi4}) reports
+\raspiDeviceOk{} of \raspiTotal{} on-device, with counters bit-identical between the two
+hardware runs. No measurable ISA dependence remains, and the flag was the certificate
+doing its job at parts-per-million resolution --- the counters double as a behavioral
+fingerprint of the engine \emph{version}, which is why baselines must be pinned to engine
+commits (the artifact-manifest discipline of Sec.~\ref{sec:threats}). The single-shot
 align times (up to \SI{\raspiAlignWorstS}{s} on the engine-tier worst) are informational
 only; the controlled timing protocol on target is future work
 (Sec.~\ref{sec:conclusion}).

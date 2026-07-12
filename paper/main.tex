@@ -72,8 +72,7 @@ input domain (a runtime-checked condition), a worst input found on the
 instrumented Rust engine transfers verbatim to the uninstrumented C++ engine within that
 domain, with equal work
 certified per input by an iteration-count assertion; the same counter transfer is validated
-on a bare-metal AArch64 target (exact on \raspiOk{} of \raspiTotal{} frozen fixtures, the
-eighth differing by \raspiNbrDelta{} kernel evaluations and flagged by the certificate).
+on a bare-metal AArch64 target, exactly, on all \raspiTotal{} frozen fixtures.
 The search saturates the
 analytic kernel-evaluation bound ($P \cdot \maxnn \cdot (N_{\mathrm{iter}}{+}1)$) exactly,
 and a
