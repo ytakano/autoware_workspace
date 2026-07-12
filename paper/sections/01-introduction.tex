@@ -59,10 +59,11 @@ Our contributions:
     on-map aligns; Sec.~\ref{sec:threats}).
   \item \textbf{Evidence that the search is effective}: it saturates the analytic
     kernel-evaluation maximum $P \cdot \maxnn \cdot (N_{\mathrm{iter}}{+}1)$ exactly, then
-    grows the remaining free term (kd-tree traversal) by a further 35\%.
+    grows the remaining free term (kd-tree traversal) by a further \searchKdGrowthPct\%.
   \item An \textbf{industrial case study}: on every adversarial fixture the Rust port's
-    observed maximum is at or below C++'s (ratios 0.14--0.85); the C++ engine makes
-    ${\approx}11$ heap allocations per point per derivative pass (up to \num{682248} per
+    observed maximum is at or below C++'s (ratios \tailsRatioMin--\tailsRatioMax); the C++
+    engine makes ${\approx}\allocPerPtPass$ heap allocations per point per derivative pass
+    (up to \allocWorstPerAlign{} per
     align), a structural unbounded-latency hazard the Rust port eliminates by construction
     (proven zero-allocation, recursion-free, panic-free). A \textbf{two-tier bound} separates
     the untrusted-input (engine-API) worst case from the preprocessing-reachable one ---

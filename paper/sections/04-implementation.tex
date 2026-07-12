@@ -21,8 +21,8 @@ port commits at camera-ready.}
     64-entry stack (depth $\le \lceil \log_2 N \rceil{+}1$ by the median build). The exact
     near-then-far visit order is preserved --- neighbor order feeds float summation order,
     i.e.\ bit-exactness --- and is differential-tested against the recursive oracle. The
-    iterative form measured ${\approx}12\%$ faster than the recursive one (same day, same
-    core).
+    iterative form measured ${\approx}\oneoffKdIterSpeedup\%$ faster than the recursive one
+    (same day, same core).
   \item \textbf{Panic-free, lock-free}: lint-enforced absence of panicking operations on the
     real-time path; the align path takes no locks (it reads a lock-free snapshot of the map
     state).
@@ -40,8 +40,8 @@ per axis: \emph{at most $3^3 = 27$ leaves per tile can ever be in range, regardl
 content}. Under the disjoint-tile contract, leaf multiplicity is 1, so 27 bounds the global
 count and $\maxnn = 64$ carries a $2.4\times$ margin --- truncation is unreachable and
 bit-exactness with the uncapped C++ engine is unconditional. (The measured maximum on a real
-map is 9, Sec.~\ref{sec:eval-realdata}: one above the voxel-center heuristic of 8, comfortably
-inside the 27.) Exceeding 64 requires at least three adversarially crowded \emph{overlapping}
+map is \realKmaxMax, Sec.~\ref{sec:eval-realdata}: one above the voxel-center heuristic of 8,
+comfortably inside the 27.) Exceeding 64 requires at least three adversarially crowded \emph{overlapping}
 tiles; there the Rust engine truncates (its cost stays bounded) while the C++ engine's cost
 grows without bound with tile multiplicity. The equal-work assertion doubles as the truncation
 detector: \emph{dense-neighbors} sits exactly at the cap ($8 \times 8 = 64$ in-range leaves)
@@ -73,10 +73,11 @@ whose per-voxel points are spaced to survive map downsampling (centroids ${\appr
 centers, $\sqrt{3} < 2.0$ from each lattice corner), and $P = 1500$ duplicate-free source
 points on distinct lattice corners at \SI{4}{m} pitch inside the crop, each collecting exactly
 $K = 8$, with $\epsilon = 10^{-10}$ pinning the iteration cap. Its counters certify the
-deployment geometric ceiling: $\bar{K} = 8.0$ against the engine-level 64.
+deployment geometric ceiling: $\bar{K} = \legalWorstKbar$ against the engine-level 64.
 
 One axis of this fixture is deliberately \emph{not} production-parameterized: with the shipped
-$\epsilon = 0.01$, its smooth lattice geometry converges in 2 iterations, so the fixture pins
+$\epsilon = 0.01$, its smooth lattice geometry converges in \oneoffLegalWorstProdEpsIters{}
+iterations, so the fixture pins
 the iteration cap through $\epsilon$ instead. The cap assumption is nevertheless not
 hypothetical. Re-running the counter-guided search with the \emph{parameters frozen to the
 shipped values} and every candidate checked against the preprocessing contract by an

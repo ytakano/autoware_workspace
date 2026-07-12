@@ -21,6 +21,10 @@
 \input{tables/legal_macros}
 \input{tables/regression_macros}
 \input{tables/realdata_macros}
+\input{tables/tails_macros}
+\input{tables/gumbel_macros}
+\input{tables/env_macros}
+\input{tables/oneoff_macros}
 
 % --- editing aids (strip before submission) ---
 \newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
@@ -61,17 +65,19 @@ instrumented Rust engine transfers verbatim to the uninstrumented C++ engine, wi
 certified per input by an iteration-count assertion. The search provably saturates the
 analytic kernel-evaluation bound ($P \cdot \maxnn \cdot (N_{\mathrm{iter}}{+}1)$), and a
 controlled sweep shows the bound is affine in the scan size $P$. A two-tier formulation
-separates the untrusted-input worst case from the preprocessing-reachable one ($5\times$
-apart), quantifying the value of validating input contracts at the component boundary, and a
+separates the untrusted-input worst case from the preprocessing-reachable one
+($\legalWorstRatioRust\times$--$\legalWorstRatioCpp\times$ apart), quantifying the value of
+validating input contracts at the component boundary, and a
 57-minute real urban drive (\num{22416} aligns, \realOnMap{} of them exercising the map)
 provides one-drive evidence consistent with the contracts and margins --- its per-input
 certification also exposed, and led us to fix, two port-fidelity gaps invisible to synthetic
 fixtures, leaving a characterized residual of \realDivergences{} frames
 (\realOnMapDivPct\% of on-map aligns). Measurements show the Rust
 port meets or beats the C++ engine's observed maximum on every fixture (max-latency ratios
-0.14--0.85), while the C++ engine performs ${\approx}11$ heap allocations per point per
-derivative pass ($\num{682248}$ per align on the worst fixture) against a proven zero for
-Rust; a unit-cost regression ties median latency to the counters with $R^2 \ge 0.99$ on both
+\tailsRatioMin--\tailsRatioMax), while the C++ engine performs ${\approx}\allocPerPtPass$
+heap allocations per point per derivative pass (\allocWorstPerAlign{} per align on the worst
+fixture) against a proven zero for Rust; a unit-cost regression ties median latency to the
+counters with $R^2 \ge \regRsqRust$ on both
 engines, and a Gumbel tail fit provides comparative probabilistic-WCET (\pwcet) estimates.
 \end{abstract}
 
