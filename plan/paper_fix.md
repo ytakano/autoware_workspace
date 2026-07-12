@@ -604,6 +604,29 @@ extra drives are declared future work unless time permits.
   for the two real-data bridge inputs. C1/C2/C3/C4 sections rewritten accordingly; the
   two-profile split adds a NEW bridge table/subsection to the paper and relabels Tables II /
   §V-G by profile.
+- 2026-07-12 (C1 prep 1/4): **Profile-B measurement runner + manifest collector built and
+  smoke-tested** (`bench/wcet_campaign.py` + `campaign_config.json` + `corunner.c`;
+  `ndt_bench_replay` gained `WCET_ENGINE` and `WCET_EVICT_BYTES`; usage in
+  `bench/CAMPAIGN.md`). verify-env / plan / run / merge CLI; abort rules use the in-series
+  frequency median vs a per-host `abort.nominal_khz` (idle C-state readings and boost-vs-base
+  confusion excluded by design) + thermal ceiling; policy manifest (31 fields) embedded in
+  every output; merge re-asserts iteration equality across randomized single-engine cells.
+  Container smoke: verify-env failed actionably under powersave and passes now that the user
+  set the governor (isolation/SMT/IRQ remain as host prep, documented); tiny warm/cold/
+  corunner session ran end-to-end, cold median directionally slower on the cache-sensitive
+  fixture. Full campaign estimate ~2.8 h for 3 sessions. **Host prepared the same day**
+  (user): performance governor, cpu3 (SMT sibling) offline, `isolcpus=2 nohz_full=2
+  rcu_nocbs=2` via GRUB + reboot — verify-env exit 0; container pinning to the isolated core
+  confirmed (and the isolated core outperforms a non-isolated one). Found on the prepared
+  host: **frequency reporting is stale on nohz_full cores** (constant 400 MHz under load) →
+  the throttling guard was redesigned around a **fixed-work calibration spin** (session
+  baseline vs per-cell re-run, `abort.max_calib_slowdown`; 0.007% spread measured on the
+  isolated core), with sysfs frequency kept as telemetry and judged only when non-stale.
+  `corunner_cpu` moved 3→4 (sibling offline; different physical core sharing L3 is the
+  correct interference placement anyway). Strict-mode smoke session passed on the prepared
+  host. Remaining host prep: IRQ affinity move (warn-only). Remaining C1 prep:
+  frame→`.ndtfix` freezer (2/4), engine per-pass counters + trace hash (3/4), gen_tables
+  profile guards (4/4).
 
 ## Cross-references
 
