@@ -376,12 +376,33 @@ future work. Protocol details live in `plan/ndt_wcet.md` (Layer 3) and `plan/ndt
   is publishable without pWCET; it is not publishable with the current n=10 fit as a claim.
 - Acceptance: either the full protocol above or no pWCET table; A6's demotion holds meanwhile.
 
-### C3 (#6) AArch64 target evidence
+### C3 (#6) AArch64 target evidence — **platform prep done (2026-07-12, QEMU raspi3)**
 
-- Minimum for the cross-ISA transfer claim: run the counter replay on AArch64 and assert
-  counter/trace equality on the frozen fixtures (the protocol of `03-methodology.tex` §E).
-  Timing on target is better but equality alone already substantiates the transfer argument.
-- If not run: soften §III-E to future work and remove cross-ISA from the contribution list.
+**Status**: the bare-metal AArch64 kernel platform (`/autoware_workspace/awkernel`, branch
+`ndt_rs`) boots on QEMU Raspberry Pi 3 (`make aarch64 BSP=raspi3 RELEASE=1`, `make
+qemu-raspi3`): 4 CPUs, BLisp shell responsive. A new async app `applications/ndt` embeds all
+8 frozen fixtures (no_std NDTFIX01 byte parser; the engine's fixture module is std-only),
+runs one counted align each (engine built `--no-default-features --features wcet-count`,
+single-core, no `mt`), and asserts the counters against `paper/data/wcet_rust.json`. Build:
+`make aarch64 BSP=raspi3 RELEASE=1 FEATURES=ndt` (new Makefile `FEATURES` passthrough).
+
+**Result: 7/8 exact counter equality — and one real finding.** *search-01* diverges
+deterministically and microscopically on the target: Σnbr 2,321,941 vs host 2,321,939 (+2),
+Σkd 10,787,955 vs 10,787,956 (−1); iterations/passes/points identical; bit-identical across
+two QEMU runs. Ruled out: FMA contraction (zero fmadd/fmsub in the kernel binary), FP-context
+corruption (deterministic), flush-to-zero (FPCR at IEEE default; *subnormal* passes exactly).
+Remaining candidates: a QEMU TCG softfloat subtlety vs a genuine codegen difference — **the
+Raspberry Pi 4 hardware run discriminates**. Do not touch the §III-E ISA-independence claim
+until the hardware result is in; if the divergence survives on hardware, §III-E needs a
+measured caveat (per-pass counter dump to find the first divergent pass, then a targeted
+fix or a documented domain restriction).
+
+Remaining for C3 proper:
+- Raspberry Pi 4 hardware run (same `FEATURES=ndt` image path, BSP=raspi4): counter equality
+  first, then the timing protocol (cycle counter / `uptime_nano` per align, C1-grade
+  repeats) for the target-platform unit-cost bound of §VI-E.
+- Root-cause the search-01 delta (per-pass counters on both sides; qemu-user cross-check if
+  tools become available).
 - Acceptance: cross-ISA claims match the evidence actually collected.
 
 ### C4 (#8) One-manifest regeneration
@@ -450,6 +471,13 @@ extra drives are declared future work unless time permits.
   `wcet_search_legal.rs` maxk fitness mode) — commit there with sign-off. B4 (Pareto +
   ablations) deliberately rides C1 so frontier candidates are timed once under the final
   protocol. Next: M4 (C1–C4).
+- 2026-07-12 (later): **C3 platform prep done** — no_std kernel boots on QEMU raspi3; new
+  `applications/ndt` async app runs all 8 frozen fixtures on bare-metal AArch64 with the
+  wcet-count engine; **7/8 counters exactly equal the host**; *search-01* shows a
+  deterministic +2 Σnbr / −1 Σkd divergence (FMA/FZ/context-corruption ruled out; QEMU-TCG
+  vs codegen still open — Pi 4 hardware run discriminates). Kernel-side changes live in the
+  kernel repo (app crate + feature wiring + Makefile FEATURES passthrough); commit messages
+  there must say "no_std", never the kernel's name.
 
 ## Cross-references
 
