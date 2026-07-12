@@ -1,0 +1,21 @@
+Welcome to Awkernel!
+
+You can use BLisp language as follows.
+https://ytakano.github.io/blisp/
+
+> (factorial 20)
+2432902008176640000
+> (+ 10 20)
+30
+
+Enjoy!
+
+> [        10014 INFO] NDT cache_hostile: iter=3 passes=4 pts=8000 nbr=23776 kd=540048 maxk=3 build_ms=40 align_ms=132 OK
+[        16920 INFO] NDT dense_neighbors: iter=30 passes=31 pts=46500 nbr=2976000 kd=6643990 maxk=64 build_ms=24 align_ms=6880 OK
+[        17815 INFO] NDT legal_osc: iter=30 passes=31 pts=46500 nbr=139772 kd=3221237 maxk=5 build_ms=48 align_ms=844 OK
+[        19488 INFO] NDT legal_worst: iter=30 passes=31 pts=46500 nbr=372000 kd=4474819 maxk=8 build_ms=163 align_ms=1504 OK
+[        19956 INFO] NDT max_iterations: iter=30 passes=31 pts=37200 nbr=101760 kd=1319894 maxk=5 build_ms=4 align_ms=462 OK
+[        29937 INFO] NDT search_00: iter=30 passes=31 pts=62000 nbr=3968000 kd=12011903 maxk=64 build_ms=57 align_ms=9920 OK
+[        36843 INFO] NDT search_01: iter=30 passes=31 pts=62000 nbr=2321941 kd=10787955 maxk=64 build_ms=82 align_ms=6821 MISMATCH
+[        36994 INFO] NDT subnormal: iter=30 passes=31 pts=31000 nbr=21198 kd=493644 maxk=2 build_ms=1 align_ms=148 OK
+[        36994 INFO] NDT COUNTER CHECK: 7/8 OK

@@ -27,6 +27,7 @@
 \input{tables/oneoff_macros}
 \input{tables/cert_macros}
 \input{tables/legal_k_macros}
+\input{tables/raspi4_macros}
 
 % --- editing aids (strip before submission) ---
 \newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
@@ -70,7 +71,10 @@ worst-input search; because the two implementations are bit-exact over the bound
 input domain (a runtime-checked condition), a worst input found on the
 instrumented Rust engine transfers verbatim to the uninstrumented C++ engine within that
 domain, with equal work
-certified per input by an iteration-count assertion. The search saturates the
+certified per input by an iteration-count assertion; the same counter transfer is validated
+on a bare-metal AArch64 target (exact on \raspiOk{} of \raspiTotal{} frozen fixtures, the
+eighth differing by \raspiNbrDelta{} kernel evaluations and flagged by the certificate).
+The search saturates the
 analytic kernel-evaluation bound ($P \cdot \maxnn \cdot (N_{\mathrm{iter}}{+}1)$) exactly,
 and a
 controlled sweep shows the bound is affine in the scan size $P$. A two-tier formulation

@@ -230,6 +230,29 @@ regime the certificate would be blind to.
 
 \input{tables/realdata}
 
+\subsection{On-target counter transfer (AArch64)}
+\label{sec:eval-raspi4}
+\input{tables/raspi4}
+
+To validate the cross-ISA leg of the methodology (Sec.~\ref{sec:meth-crossisa}) on the
+actual deployment class of hardware, we ran the same frozen fixtures through the engine on a
+Raspberry Pi~4 (Cortex-A72) under the bare-metal \texttt{no\_std} kernel: an async task
+parses the embedded fixture bytes, performs one counted align each, and asserts the counters
+against the host values (Table~\ref{tab:raspi4}). The result is \raspiOk{} of \raspiTotal{}
+exact --- and one genuine finding: \emph{search-01}'s work differs by
+$\sumnbr\,{+}\raspiNbrDelta$ / $\kdnodes\,{-}\raspiKdDelta$. The divergence is
+deterministic (bit-identical across runs), reproduced \emph{identically} under QEMU-TCG
+emulation and on the Cortex-A72 silicon --- so it is a property of the generated AArch64
+code, not of an emulator --- and the obvious mechanisms are excluded: the kernel image
+contains no fused-multiply-add instructions, and the FPU runs at IEEE defaults (no
+flush-to-zero; the \emph{subnormal} fixture transfers exactly). Root-causing the first
+divergent pass is future work; what matters for the methodology is that the per-input
+certificate \emph{caught} it, exactly as it caught the port-fidelity gaps of
+Sec.~\ref{sec:eval-realdata}, rather than silently comparing unequal work. The single-shot
+align times (up to \SI{\raspiAlignWorstS}{s} on the engine-tier worst) are informational
+only; the controlled timing protocol on target is future work
+(Sec.~\ref{sec:conclusion}).
+
 \subsection{Gumbel tail fit (\pwcet)}
 \label{sec:eval-gumbel}
 \input{tables/gumbel}

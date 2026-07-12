@@ -82,11 +82,18 @@ comparative probabilistic-WCET (\pwcet) exceedance estimates. We use the fit for
 \emph{comparison}, not certification (Sec.~\ref{sec:threats}).
 
 \subsection{Cross-ISA transfer to the deployment target}
+\label{sec:meth-crossisa}
 The Rust engine routes every transcendental through a pure-Rust \texttt{libm} implementation
-(including inside its linear-algebra library), making its floating-point results independent
-of the instruction-set architecture and of the platform's C library. The frozen fixtures and
+(including inside its linear-algebra library), targeting floating-point results that are
+independent of the instruction-set architecture and of the platform's C library. The frozen
+fixtures and
 their counter values therefore carry over to the bare-metal deployment target unchanged, and
 the transfer is \emph{checkable} there by re-running the counters and asserting equality ---
-the same per-input certification as the cross-language comparison. Executing this protocol on
-target hardware is future work (Sec.~\ref{sec:conclusion}); the choice also costs a bounded,
+the same per-input certification as the cross-language comparison. We executed this protocol
+on the deployment hardware (Raspberry Pi~4, bare-metal \texttt{no\_std} kernel): the
+counters are exact on \raspiOk{} of \raspiTotal{} frozen fixtures, and the certificate
+\emph{flagged} the eighth, whose work differs by \raspiNbrDelta{} kernel evaluations out of
+\raspiMismatchNbrM\,M --- ISA-independence holds up to a certificate-flagged residual
+(Sec.~\ref{sec:eval-raspi4}; threats in Sec.~\ref{sec:threats}). The \texttt{libm} choice
+also costs a bounded,
 measured sliver of host C++ parity (Sec.~\ref{sec:threats}).

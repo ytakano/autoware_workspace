@@ -40,7 +40,13 @@ covariances; \texttt{libm}-vs-glibc \texttt{exp}) surface only on knife-edge fra
 ``Bit-exact'' therefore means bit-exact on the tested domain: equal work is \emph{certified
 per frame} by the replay assertion, and the residual is flagged rather than silently compared.
 Relatedly, ISA-independence of the Rust floating-point stream is by construction
-(pure-software \texttt{libm}) and verified via counter equality, but the C++ comparison
+(pure-software \texttt{libm}) and now \emph{measured} on the deployment hardware
+(Sec.~\ref{sec:eval-raspi4}): exact on \raspiOk{} of \raspiTotal{} fixtures, with one
+knife-edge fixture diverging by \raspiNbrDelta{} of \raspiMismatchNbrM\,M kernel evaluations
+--- deterministic, certificate-flagged rather than silent, root cause open. The work-bound
+and domain-$D$ arguments are unaffected (the diverged counters remain within every enforced
+cap), but absolute cross-ISA bit-exactness is a \emph{per-fixture certified} property, not
+an unconditional one. The C++ comparison
 itself is inherently x86/Linux-bound (pcl/ROS dependency).
 
 \subsection{Contract preconditions}
