@@ -113,7 +113,16 @@ low-confidence (full demotion still A6).
   is not a macro or clearly a config constant; the `% DATA-CHECKED` comments are replaced by
   generation, not assertion.
 
-### A3 (#1) Reframe the deployment tier around K ≤ 27
+### A3 (#1) Reframe the deployment tier around K ≤ 27 — **DONE (2026-07-12)**
+
+Done as planned: §IV-D now states the tier ceiling as the per-tile 27 with the ≤8 explicitly
+labeled the voxel-center heuristic (refuted by the real-map K=9, inside 27); *legal-worst* is
+"the hardest such input we constructed … the tier's witness — a constructed lower bound — while
+the tier's provable ceiling remains K ≤ 27"; §V-F scopes the 4.6×/5.6× as a fixture-to-fixture
+measurement with the parametric 64/27 ≈ 2.4× stated as the only guaranteed kernel-term
+tightening; §VI-D notes the 27 ceiling has no constructed witness; intro contribution 4 says
+"a measured 4.6×, provably ≥2.4× on the kernel term". Boundary-validation point folded into
+§VI-D via the preconditions table (see A5).
 
 - The provable per-tile ceiling is **K ≤ 27** (already derived in `04-implementation.tex` §"
   Sufficiency of the neighbor cap"); under disjoint tiles it is also the global ceiling. State
@@ -134,7 +143,16 @@ low-confidence (full demotion still A6).
 - Acceptance: the phrase "geometric ceiling" is attached only to 27; *legal-worst* is nowhere
   called a bound; §IV/§V/§VI tell the same K story.
 
-### A4 (#2) Domain-scope the cross-language transfer
+### A4 (#2) Domain-scope the cross-language transfer — **DONE (2026-07-12)**
+
+Done as planned: §III-C defines the bounded-neighbor domain D (every radius query ≤ 64
+in-range leaves) inline, scopes every cross-language worst-case claim to D, and promotes the
+equal-work assertion to D's runtime membership check (truncation breaks equal work); §IV-B
+says inputs beyond 64 "leave the comparison domain D" and reports the C++ unbounded growth as
+a structural hazard "not something this analysis bounds"; "untrusted-input" renamed to
+"engine-API worst case (unvalidated inputs)" in abstract/intro/§VI-D; abstract transfer
+sentence now carries "over the bounded-neighbor input domain (a runtime-checked condition) …
+within that domain".
 
 - Define the comparison domain **D = { inputs whose every radius query returns ≤ 64 in-range
   leaves }** (equivalently: tile multiplicity ≤ 2 over crowded corners) in §III-C, and scope
@@ -151,7 +169,17 @@ low-confidence (full demotion still A6).
 - Acceptance: no sentence claims a C++ worst case over inputs outside D; the abstract's transfer
   sentence carries the domain qualifier.
 
-### A5 (#4) Rewrite the work model with N_pass
+### A5 (#4) Rewrite the work model with N_pass — **DONE (2026-07-12)**
+
+Done as planned: Eq (1) now multiplies by N_pass with N_pass = N_iter + 1 and a derivative-pass
+definition; the line-search accounting is stated **and source-verified** — the shipped
+`computeStepLengthMT` performs exactly one unconditional derivative pass per Newton step
+(`multigrid_ndt_omp_impl.hpp:972`), the More–Thuente refinement (≤10 extra passes/iter) is
+gated behind `use_line_search`, disabled upstream (FIXME at `:975-982`) and in the port's
+default path — so the off-by-one is structural, machine-checked, and observed exactly on all
+frames. New hand-maintained `tables/preconditions.tex` (limit / enforced by / on violation,
+with assumed rows marked) placed in §VI-D, referenced from §II; kd term's parametric nature on
+N_leaves is a table row.
 
 - Eq (1) (`02-problem.tex:31`): replace the N_iter multiplier with **N_pass**, define
   N_pass = N_iter + 1 (initial derivative pass + one per Newton step), and state the line-search
@@ -169,7 +197,17 @@ low-confidence (full demotion still A6).
 - Acceptance: the saturation identity P·64·(N_iter+1) and Eq (1) use the same variable; the
   preconditions table exists and every row's enforcer is named.
 
-### A6 (#5, #7) Epistemic tiering, softened claims, pWCET demotion
+### A6 (#5, #7) Epistemic tiering, softened claims, pWCET demotion — **DONE (2026-07-12)**
+
+Done as planned: title is now "Toward WCET Analysis of an Industrial NDT Scan Matcher:
+Deterministic Cost Search and Cross-Language Validation"; abstract opens with the align-kernel
+scope note, the "bit-exact on the tested domain" qualification, and the reviewer's disclaimer
+sentence (parametric work bound + empirical unit cost, no certified hard time bound); §VI-E
+defines the four evidence tiers and explicitly claims the formally-proven tier for *nothing*;
+"proven/provably" purged or downgraded everywhere (abstract, intro contribution 4, §V-C alloc,
+§VII, §VIII); zero-allocation now "under a declared capacity contract, counting-allocator-
+verified" (incl. the generated alloc-table note); pWCET removed from the abstract and demoted
+to "exploratory EVT tail fit for cross-engine comparison" in contribution 1.
 
 - Replace flat "proven" with the four-tier vocabulary everywhere: **enforced by construction**
   (loop guards, hard cap, fixed arrays) / **statically checked** (panic-free lints, no-recursion)
@@ -318,7 +356,7 @@ future work. Protocol details live in `plan/ndt_wcet.md` (Layer 3) and `plan/ndt
 | Milestone | Items | Gate |
 |---|---|---|
 | M1 — data integrity | ~~A1~~ (done, 6a337bb), ~~A2~~ (done, 2026-07-12) | **COMPLETE.** Nothing a referee can cross-check against our own tables is wrong. |
-| M2 — claims consistent | A3, A4, A5, A6 | The paper no longer contradicts itself; every claim scoped to its evidence. Rebuttal letter can be drafted after M2. |
+| M2 — claims consistent | ~~A3, A4, A5, A6~~ (done, 2026-07-12) | **COMPLETE.** The paper no longer contradicts itself; every claim scoped to its evidence. Rebuttal letter can be drafted. |
 | M3 — existing-data strengthening | B1, B2, B5 (then B3, B4) | Certification and statistics upgraded without new hardware time. |
 | M4 — measurement redo | C1, then C2 decision, C3, C4 | Resubmission-ready experiments. |
 | M5 — resubmission package | re-run audit table against final PDF; rebuttal letter from the audit table (including the two push-back points) | Submit. |
@@ -350,6 +388,16 @@ extra drives are declared future work unless time permits.
   spots (876/608, β ≤ 1.3, "a few percent", 7.3×, regression n=6-vs-8 caption) are fixed.
   Review #11 note for the rebuttal: the regression n was mislabeled — the fit already uses
   all 8 fixtures. Next: M2 (A3–A6).
+- 2026-07-12: **M2 done (A3+A4+A5+A6)** — deployment tier reframed around the provable K ≤ 27
+  with legal-worst demoted to constructed witness and 4.6× scoped as measured (provable
+  kernel-term tightening 64/27 ≈ 2.4×); bounded-neighbor domain D defined and every
+  cross-language claim scoped to it ("untrusted-input" renamed); Eq (1) rewritten with
+  N_pass = N_iter+1 (line-search accounting source-verified: `use_line_search` disabled
+  upstream, one unconditional derivative pass per step) plus a hand-maintained preconditions
+  table (`tables/preconditions.tex`) in §VI-D; title → "Toward WCET Analysis…", abstract
+  gains the scope note + disclaimer, four evidence tiers defined in §VI-E (formally-proven
+  claimed for nothing), pWCET out of the abstract. Rebuttal letter is now unblocked; next:
+  M3 (B1, B2, B5, then B3, B4).
 
 ## Cross-references
 
