@@ -390,10 +390,27 @@ at +2/−1); §III-E rewritten from "future work" to the executed protocol with 
 statement; abstract transfer sentence extended; conclusion future-work updated. Single-shot
 align times reported as informational (n=1, no warmup — not the C1 protocol).
 
+**search-01 divergence ROOT-CAUSED (2026-07-12, later): NOT an ISA effect — a stale
+baseline.** Host probe at the baseline's own toolchain (rustc 1.96) reproduced the *target*
+values (2,321,941/10,787,955) at engine HEAD; commit-bisect via git worktrees pinned the flip
+to **`7caf44d7`** (pcl f32 transform-association mirror, one of the two port-fidelity fixes,
+landed 07-11 morning) — the frozen `wcet_rust.json` was captured 07-10 21:27, *before* it.
+The fix shifts the knife-edge fixture by 2 evaluations in 2.3 M; the other 7 fixtures are
+insensitive (verified byte-identical). Remediation: `wcet_rust.json` regenerated at engine
+HEAD (a58673ae) with a provenance `meta` block; only search_01 changes. Host == QEMU == Pi 4
+**exactly on all 8** — `data/raspi4.txt` was already an 8/8-exact hardware run against the
+correct baseline. `raspi4()` guard redesigned (recomputed mismatch must be empty; the
+historical on-device 7/8 verdict is pinned and explained in the table note). Paper updated:
+§V-I retold as the certificate catching a *version skew* at ppm resolution (counters =
+behavioral fingerprint of the engine version ⇒ commit-pinned baselines, feeding C4);
+§III-E/§VI-C/abstract now claim exact transfer on all 8. Kernel app expectation table
+updated (+ QEMU 8/8 verification). The user then re-captured the Pi 4 log with the updated
+app: `data/raspi4.txt` now shows **8/8 OK on-device**, counters bit-identical between the
+two hardware runs (the first run's 7/8 log lives in git history at ba7068d and is narrated
+as history in §V-I).
+
 Remaining for C3:
-- the controlled **timing** protocol on target (repeats, warm/cold, co-runner) — rides C1;
-- **root-cause the search-01 divergence**: add a per-pass counter dump to the kernel app,
-  find the first divergent pass, then bisect the operand stream (or qemu-user cross-check).
+- the controlled **timing** protocol on target (repeats, warm/cold, co-runner) — rides C1.
 
 Original scope (for reference):
 
@@ -504,6 +521,14 @@ extra drives are declared future work unless time permits.
   This closes reviewer #6's cross-ISA evidence demand, exception honestly included.
   Remaining in M4: C1 (host redo + B4 + target timing), C2 (EVT decision), C4 (manifest),
   search-01 root cause.
+- 2026-07-12 (root cause): **search-01 divergence solved — stale baseline, not ISA.**
+  Bisect: pre-fix worktree (660c1ea0) reproduces 2,321,939/10,787,956; the flip lands with
+  `7caf44d7` (pcl f32 transform-association mirror). Baseline refreshed at engine HEAD
+  (only search_01 changes; 7 others byte-identical), raspi4 guard redesigned, paper retold
+  (§V-I certificate-catches-version-skew; §III-E/§VI-C/abstract → exact on all 8), kernel
+  app expectations updated, QEMU re-verified. `data/raspi4.txt` needed no re-capture — the
+  hardware run was already exact against the correct baseline. C3 fully closed except the
+  target timing protocol (rides C1).
 
 ## Cross-references
 
