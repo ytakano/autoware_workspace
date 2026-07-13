@@ -861,7 +861,12 @@ def realdata():
     if not rj.exists():
         print("realdata absent -- skipping operational-envelope outputs")
         return
-    allframes = json.loads(rj.read_text())["frames"]
+    rdoc = json.loads(rj.read_text())
+    if rdoc.get("meta", {}).get("measurement_profile") != "A":
+        raise SystemExit(
+            "realdata.json lacks the Profile-A meta -- Sec. V-G presents Profile-A results; "
+            "regenerate via the open-loop replay protocol (tables must not mix profiles)")
+    allframes = rdoc["frames"]
     timing = json.loads((DATA / "wcet.json").read_text())["fixtures"]
     # Envelope rows use the on-map frames (the vehicle leaves the benchmark's cropped map for
     # most of the 57-min bag); P and max-K contract checks use ALL frames.
@@ -919,12 +924,19 @@ def realdata():
     mism_iters = sorted(x["iteration_num"] for x in mism)
     mism_at_cap = sum(1 for x in mism if x["iteration_num"] >= it[-1])
     mism_cpp_max = max(x["cpp_ms"] for x in mism)
-    # Prose claims the real worst C++ frame "grazes" the 100 ms budget.
-    if not (90.0 < cpp[-1] < 100.0):
+    # Deadline overruns at 10 Hz (policy: report frames > 100 ms). The prose claims C++
+    # overruns exist under Profile A while Rust never overruns; regenerate-or-break.
+    over_cpp = sum(1 for x in allframes if x["cpp_ms"] > 100.0)
+    over_cpp_onmap = sum(1 for x in frames if x["cpp_ms"] > 100.0)
+    over_rust = sum(1 for x in allframes if x["rust_ms"] > 100.0)
+    if over_cpp == 0:
         raise SystemExit(
-            f"real C++ max {cpp[-1]:.1f} ms no longer grazes the 100 ms budget -- "
-            "update the Sec. V-G prose"
-        )
+            "no C++ frame exceeds 100 ms in realdata.json -- the Sec. V-G Profile-A "
+            "overrun paragraph is stale; update the prose")
+    if over_rust != 0:
+        raise SystemExit(
+            f"{over_rust} Rust frames exceed 100 ms -- the prose claims zero Rust "
+            "overruns; update Sec. V-G")
 
     rows = []
     for label, xs, fmt in (
@@ -942,8 +954,9 @@ def realdata():
         )
     write(
         "realdata.tex",
-        rf"Real-data replay (İstanbul urban drive, open-loop frozen guess track): "
-        r"per-frame distributions.",
+        rf"Real-data replay (İstanbul urban drive, open-loop frozen guess track), "
+        r"\textbf{Profile A} (production-representative: CFS, unpinned, one align per "
+        r"frame): per-frame distributions.",
         "tab:realdata",
         "lrrr",
         r"metric & p50 & p99 & max",
@@ -984,6 +997,9 @@ def realdata():
         rf"\newcommand{{\realPMax}}{{{p[-1]}}}",
         rf"\newcommand{{\realRustMax}}{{{rust[-1]:.1f}}}",
         rf"\newcommand{{\realCppMax}}{{{cpp[-1]:.1f}}}",
+        rf"\newcommand{{\realOverrunsCpp}}{{{over_cpp}}}",
+        rf"\newcommand{{\realOverrunsCppOnMapPct}}{{{100.0 * over_cpp_onmap / len(frames):.0f}}}",
+        rf"\newcommand{{\realCppMedOnMap}}{{{pct(cpp, 0.5):.1f}}}",
     ]
     if "legal_worst" in timing and "search_00" in timing:
         lw = max(timing["legal_worst"]["rust"]["samples_ms"])
@@ -994,6 +1010,73 @@ def realdata():
         ]
     (OUT / "realdata_macros.tex").write_text("\n".join(macros) + "\n", encoding="utf-8")
     print("wrote tables/realdata_macros.tex")
+
+
+def bridge():
+    """A/B bridge table + macros (policy: Bridge Experiment) from data/bridge.json
+    (skipped if absent): the same five frozen inputs under Profile A (production CFS)
+    and Profile B (isolated core), per-engine inflation ratios."""
+    bj = DATA / "bridge.json"
+    if not bj.exists():
+        print("bridge data absent -- skipping bridge outputs")
+        return
+    doc = json.loads(bj.read_text())
+    inputs = doc["inputs"]
+    order = ["search_00", "legal_worst", "legal_osc", "real_slowest", "real_median"]
+    label = {"search_00": r"\emph{search-00}", "legal_worst": r"\emph{legal-worst}",
+             "legal_osc": r"\emph{legal-osc}", "real_slowest": r"\emph{real-slowest}",
+             "real_median": r"\emph{real-median}"}
+    rows = []
+    infl = {"cpp": [], "rust": []}
+    for fx in order:
+        e = inputs[fx]
+        for eng in ("cpp", "rust"):
+            v = e[eng]
+            infl[eng].append(v["inflation_max"])
+            a, b = v["profile_a"], v["profile_b"]
+            rows.append(
+                f"{label[fx] if eng == 'cpp' else ''} & {eng} & "
+                f"{b['p50_ms']:.1f} & {b['max_ms']:.1f} & "
+                f"{a['p50_ms']:.1f} & {a['max_ms']:.1f} & "
+                f"\\textbf{{{v['inflation_max']:.2f}}}"
+            )
+    # Guards: the prose claims Rust A/B ~= 1 and a C++ controlled-environment tax (< 1).
+    if not all(0.95 <= r <= 1.05 for r in infl["rust"]):
+        raise SystemExit(f"bridge: Rust inflation outside ~1 ({infl['rust']}) -- "
+                         "the Sec. V bridge prose claims ~=1.01; update it")
+    if not all(r < 1.0 for r in infl["cpp"]):
+        raise SystemExit(f"bridge: C++ inflation not uniformly < 1 ({infl['cpp']}) -- "
+                         "the controlled-environment-tax story is stale; update the prose")
+    write(
+        "bridge.tex",
+        r"Bridge experiment: the same frozen inputs under \textbf{Profile B} (controlled: "
+        r"isolated core, SMT sibling offline, IRQs moved) and \textbf{Profile A} "
+        r"(production-representative: normal CFS, unpinned, SMT on), same "
+        r"\SI{3.2}{GHz} reference clock. inflation = A/B at the maximum (descriptive only).",
+        "tab:bridge",
+        "llrrrrr",
+        r"input & engine & \multicolumn{2}{c}{B p50 / max (ms)} "
+        r"& \multicolumn{2}{c}{A p50 / max (ms)} & infl.",
+        rows,
+        note=r"Iteration counts identical across profiles on every input (equal work). "
+        r"Synthetic Profile-B legs: pooled 3-session campaign; real-frame legs: dedicated "
+        r"controlled session; Profile A: one session, 100 samples per cell.",
+    )
+    # C++ per-align controlled-environment tax on the three P=2000/31-pass synthetics.
+    syn = ["search_00", "legal_worst", "legal_osc"]
+    taxes = [inputs[fx]["cpp"]["profile_b"]["max_ms"] - inputs[fx]["cpp"]["profile_a"]["max_ms"]
+             for fx in syn]
+    macros = [
+        "% AUTO-GENERATED by scripts/gen_tables.py -- do not hand-edit.",
+        rf"\newcommand{{\bridgeCppInflMin}}{{{min(infl['cpp']):.2f}}}",
+        rf"\newcommand{{\bridgeCppInflMax}}{{{max(infl['cpp']):.2f}}}",
+        rf"\newcommand{{\bridgeRustInflMin}}{{{min(infl['rust']):.2f}}}",
+        rf"\newcommand{{\bridgeRustInflMax}}{{{max(infl['rust']):.2f}}}",
+        rf"\newcommand{{\bridgeCppTaxMinMs}}{{{min(taxes):.0f}}}",
+        rf"\newcommand{{\bridgeCppTaxMaxMs}}{{{max(taxes):.0f}}}",
+    ]
+    (OUT / "bridge_macros.tex").write_text("\n".join(macros) + "\n", encoding="utf-8")
+    print("wrote tables/bridge.tex + bridge_macros.tex")
 
 
 def linfit(xs, ys):
@@ -1151,5 +1234,6 @@ if __name__ == "__main__":
     cert_macros()
     legal_k_macros()
     ablation()
+    bridge()
     raspi4()
     interference()

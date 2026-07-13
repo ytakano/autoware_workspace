@@ -723,6 +723,43 @@ extra drives are declared future work unless time permits.
   frontier-vs-baseline counters, iter_match, time-fitness irreproducibility), §III-B Pareto/
   ablation protocol paragraph, §V-B results, scoped the "dominates every percentile" claim.
   Remaining M4: Profile A + bridge (frame freezer), C3 target timing; then M5.
+- 2026-07-13 (Profile A): **A2 + bridge A-leg measured; §V-G rebased on Profile A.** The
+  57-min capture (389 MB sidecar) survived in an old session scratchpad — archived to
+  `~/autoware_ista_data/{l1b_capture,guess_track.bin}` (+sha256 in the manifest) before
+  anything else. Freezer built (`wcet_frame --freeze <capture> <seq> <track> <out>`):
+  `real_slowest.ndtfix` (seq 15) + `real_median.ndtfix` (seq 132) reproduce their
+  realdata counters exactly (gitignored, 54 MB each, regenerable). `wcet_campaign.py` gained
+  Profile-A mode (verify-env inverts: isolation must be absent, SMT on; unpinned cells;
+  freq/calibration excursions recorded, not aborted; manifest profile=A).
+  Protocol trap re-discovered and dodged: `WCET_CHAIN` on both replayers is the
+  NON-comparable chained mode (guesses diverge at engine HEAD: 6 "mismatches", on-map
+  collapsed to 125) — the correct open-loop pass writes `guess_track.bin` into a capture
+  copy and replays without chaining: counters/iterations/divergences then reproduce the
+  frozen dataset EXACTLY (28/28 divergences, on-map 501). `realdata.json` rebased on the
+  Profile-A single-shot replay (counters unchanged; timing protocol-clean): on-map C++
+  p50 106.5 / max 133.3 ms — **284 aligns (57% of on-map) overrun the 10 Hz budget; Rust
+  max 57.2 ms, zero overruns**; new guards + overrun macros; §V-G rewritten (old numbers
+  were 3-repeat-median + uncontrolled boost). Bridge A-leg (5 inputs × 2 engines × 100):
+  Rust A/B ≈ ×1.01; **C++ A/B = ×0.81–0.96, i.e. the isolated Profile-B environment
+  taxes the C++ per-point machinery ~0.55-0.6 µs/pt·pass** (ruled out: pinning, core
+  choice, THP, page faults, CPU speed — calibration spin equal; Rust-in-same-binary
+  unaffected). Mechanism narrowed to SMT-sibling-offline vs boot-flag isolation — 1-command
+  host probe pending. Remaining: real-fixture B-leg (needs isolcpus back, short session),
+  bridge.json + `tab:bridge` + §V bridge subsection (assembly script ready), A1 full-ROS
+  stretch, C3 target timing.
+- 2026-07-13 (bridge complete): **C1's Profile A/B split + bridge DONE (review #6 timing
+  leg closed).** SMT probe ruled the sibling out (cpu3 offline: 160 vs 191 ms); after the
+  user restored isolcpus, a same-boot control nailed the mechanism: isolated cpu2 C++
+  194.9 ms vs non-isolated cpu6 165.8 ms (same pin), Rust unchanged — **the per-core
+  isolation flags tax the C++ per-align constant; sub-flag attribution recorded as open**.
+  Real-fixture B-leg measured (two EC-clamp aborts caught by the calibration guard;
+  clean session-3 after gated retry — the 4.65M-pt map build phase provokes the clamp).
+  `data/bridge.json` frozen (5 inputs × both profiles, iteration equality guarded):
+  Rust inflation ×1.01–1.02 everywhere; C++ ×0.77–0.96 (uniformly < 1, tax 37–42 ms/align).
+  New `bridge()` emitter (`tab:bridge` + `\bridge*` macros; guards pin the ≈1-Rust and
+  tax-<1-C++ stories), §V bridge subsection, §V-G margin justification now cites it, §VI
+  configuration-specificity warning. Paper builds clean at 13 pages. Remaining in M4:
+  A1 full-ROS stretch (optional), C3 target timing (Pi 4); then M5 rebuttal + final audit.
 
 ## Cross-references
 

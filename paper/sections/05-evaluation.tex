@@ -258,14 +258,22 @@ of 27, but \emph{one above} the voxel-center heuristic of 8 --- real centroids d
 voxel centers, pulling a ninth leaf into range; the load-bearing bound is the 27, not the 8.
 Third, under degraded priors the iteration cap is \emph{routinely} reached on real geometry
 (\realIterCapPct\% of on-map frames),
-corroborating the deployment tier's iteration axis with real data; the real worst frame costs
-\SI{\realCppMax}{ms} (C++) --- grazing the \SI{100}{ms} budget --- vs.\
-\SI{\realRustMax}{ms} (Rust), which sits $\realMarginDeploy\times$ below the deployment-tier
-witness and ${\sim}\realMarginEngine\times$ below the engine tier. Two caveats on the timing
-rows: they were captured under the \emph{pre-protocol} environment (uncontrolled boost ---
-faster than the pinned Profile-B regime, so these margins mix eras and are indicative), and
-a Profile-A re-capture under the measurement policy is pending future work. The counter rows
-are environment-independent. Fourth, equal work holds on
+corroborating the deployment tier's iteration axis with real data. The timing rows are
+\textbf{Profile-A} results under the measurement policy (normal CFS scheduling, no pinning,
+one align per frame in production order, all cores at the pinned \SI{3.2}{GHz} reference
+clock): the real worst frame costs \SI{\realCppMax}{ms} (C++) vs.\ \SI{\realRustMax}{ms}
+(Rust). At the 10\,Hz deadline this is no longer a grazing worst case:
+\realOverrunsCpp{} C++ aligns --- \realOverrunsCppOnMapPct\% of the on-map frames, with an
+on-map C++ median of \SI{\realCppMedOnMap}{ms} --- exceed the \SI{100}{ms} budget under this
+degraded-prior track, while Rust never does; the Rust maximum sits
+$\realMarginDeploy\times$ below the deployment-tier witness and
+${\sim}\realMarginEngine\times$ below the engine tier (tier maxima are Profile-B values;
+the comparison is justified for Rust by the bridge experiment's
+$\bridgeRustInflMin$--$\bridgeRustInflMax\times$ A/B ratios,
+Sec.~\ref{sec:eval-bridge}). Two scope notes: a production ECU's governor and boost
+behavior may differ from the pinned reference clock (recorded, not assumed), and no
+co-resident Autoware workload ran during the replay --- a full-stack co-residency run
+remains future work. The counter rows are environment-independent. Fourth, equal work holds on
 \realMatch{} of \realFrames{} frames overall (\realMatchPct\%) --- but the honest denominator
 is the on-map subset: all \realDivergences{} divergences fall on on-map frames, so the
 equal-work rate over the frames doing meaningful matching work is \realOnMapMatchPct\%
@@ -290,6 +298,39 @@ the knife-edge $\pm 1$-iteration mechanism of Sec.~\ref{sec:threats}, not of a s
 regime the certificate would be blind to.
 
 \input{tables/realdata}
+
+\subsection{Bridge experiment: controlled vs.\ production profiles}
+\label{sec:eval-bridge}
+The two profiles are linked by a mandatory bridge experiment (our measurement policy): the
+same five frozen inputs --- the union-worst, both deployment-legal witnesses, and the
+slowest and median-cost real frames (frozen from the drive capture) --- replayed under both
+profiles at the same \SI{3.2}{GHz} reference clock, same harness, differing only in the
+environment. Table~\ref{tab:bridge} reports medians, maxima, and the descriptive
+interference-inflation ratio (production over controlled).
+
+\input{tables/bridge}
+
+Two findings. For the \textbf{Rust} engine the ratio is
+$\bridgeRustInflMin$--$\bridgeRustInflMax\times$ on every input: the controlled maxima
+transfer to the production CFS configuration essentially unchanged (on an otherwise-idle
+host --- co-resident load is a separate axis, probed in
+Sec.~\ref{sec:eval-interference}). For the \textbf{C++} engine the ratio is
+\emph{uniformly below one} ($\bridgeCppInflMin$--$\bridgeCppInflMax\times$): the controlled
+environment is not engine-neutral. A same-boot control isolates the cause: pinned to the
+isolated core the C++ align costs \SI{194.9}{ms} (\emph{legal-osc}) against \SI{165.8}{ms}
+on a non-isolated core of the same boot, same pin --- while Rust, in the same binary, is
+unchanged --- so the per-core isolation flags themselves
+(\texttt{isolcpus}/\texttt{nohz\_full}/\texttt{rcu\_nocbs}) tax the C++ engine's per-align
+constant by \SI{\bridgeCppTaxMinMs}{}--\SI{\bridgeCppTaxMaxMs}{ms} on the measured inputs
+(sub-flag attribution not pursued; the zero-allocation engine's immunity points at the
+allocator/per-query machinery). Frequency, core choice, SMT-sibling state, transparent
+hugepages, and fault counts were ruled out by direct A/B tests; a fixed-work calibration
+spin runs marginally \emph{faster} on the isolated core.
+Consequently the Profile-B C++ maxima are \emph{conservative} for this production
+configuration, every cross-engine conclusion of Table~\ref{tab:tails} survives under
+Profile A with wider margins, and the policy's caution that scheduler and interference
+costs must not be assumed additive or constant is borne out in the strongest possible way:
+for one engine the ``interference inflation'' is not even ${\ge}1$.
 
 \subsection{On-target counter transfer (AArch64)}
 \label{sec:eval-raspi4}

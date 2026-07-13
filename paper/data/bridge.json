@@ -1,0 +1,501 @@
+{
+ "meta": {
+  "profile_a_manifest": {
+   "experiment_id": "session-1/warm/legal_osc__cpp",
+   "measurement_profile": "A",
+   "run_timestamp": "2026-07-13T11:51:29Z",
+   "host_name": "3e3c696402ac",
+   "cpu_model": "AMD Ryzen 9 5900HX with Radeon Graphics",
+   "cpu_microcode": "0xa500012",
+   "kernel_version": "Linux 6.8.0-134-generic",
+   "governor": "performance",
+   "isolated_cpus": "",
+   "benchmark_cpu": 2,
+   "affinity_mask": "none (CFS placement)",
+   "irq_configuration": {
+    "irqs_allowed_on_benchmark_cpu": 43
+   },
+   "smt_configuration": "2-3",
+   "memory_configuration": "MemTotal:       65249140 kB",
+   "compiler_versions": {
+    "cxx": "c++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0",
+    "rustc": "rustc 1.98.0-nightly (654079540 2026-06-12)"
+   },
+   "compiler_flags": {
+    "CMAKE_BUILD_TYPE": "Release",
+    "CMAKE_CXX_FLAGS": "",
+    "CMAKE_CXX_FLAGS_RELEASE": "-O3 -DNDEBUG",
+    "CMAKE_EXE_LINKER_FLAGS": ""
+   },
+   "linker_flags": "",
+   "cargo_profile": "[profile.release]\noverflow-checks = true",
+   "allocator": "glibc 2.35",
+   "cpp_commit": "5fad5a1753ebd45a6b52546c59913c40e2a8c59c",
+   "rust_commit": "5fad5a1753ebd45a6b52546c59913c40e2a8c59c",
+   "fixture_hashes": {
+    "cache_hostile": "1f33baa4e0da61d91010964ae093992bf9b6265945cc6e8f9cffeb7207f022ef",
+    "dense_neighbors": "7d0948dcb182a4e48bb1d1626b46a7e4ab9f33fe9c52aadba2db3144727950da",
+    "legal_osc": "50b4b85288636227141242a17ed003410ac2b844df2e62f86e3b604bb71bc7c6",
+    "legal_worst": "8a17a9b62ea057556c1e4821f853a47c371dbfc7ff6d0e89f31d9e31ff853e10",
+    "max_iterations": "c3ef78ec2a6f78d77016f3aa0d0a8160028a39293f8265e26fe2e4eab64137cf",
+    "real_median": "6ae94d3b4741a38231476cd01fac889cbfdcc86abd6144bee43811c74b7eb667",
+    "real_slowest": "5b197bbcfe69ce73b0473d2e0ef18cc8fbe025ca08182c767a6522bfca7b441b",
+    "search_00": "9db3efd47a2876ea4f8226c0686f056b7f0c6294e573b489cb56973d4d88df7c",
+    "search_01": "b4619620049a2de2e77211bb4d14ce63274590141c844c9b98fb938c99409548",
+    "subnormal": "db96d2a9cc3f71ca0ad10e8131dfce25af3792b58e2c122e25871afe4416f5be"
+   },
+   "binary_hash": "71aa831f9b95a91d15b6a6f4e560427910af51a2d6e8c36d146e79112c116b20",
+   "cache_condition": "warm",
+   "co_runner": null,
+   "env_check": "strict",
+   "dataset_id": null,
+   "target_board": null,
+   "firmware": null,
+   "qemu_version": null,
+   "notes": "Profile A (production-representative) bridge leg per plan/ndt_timing_measurement_policy.md: normal CFS, no isolation, no pinning, SMT on, performance governor; frequency kept pinned at 3.2 GHz so the A/B bridge ratios isolate scheduling/interference, not speed-regime changes. Offline fixture replay (A2 staging); the full-ROS-node run remains the A1 stretch."
+  },
+  "profile_b_pooled_manifest": {
+   "experiment_id": "campaign/pooled",
+   "measurement_profile": "B",
+   "run_timestamp": "2026-07-12T22:57:56Z",
+   "host_name": "3e3c696402ac",
+   "cpu_model": "AMD Ryzen 9 5900HX with Radeon Graphics",
+   "cpu_microcode": "0xa500012",
+   "kernel_version": "Linux 3e3c696402ac 6.8.0-134-generic",
+   "governor": "performance",
+   "isolated_cpus": "2",
+   "benchmark_cpu": 2,
+   "affinity_mask": "taskset -c 2",
+   "irq_configuration": {
+    "irqs_allowed_on_benchmark_cpu": 3
+   },
+   "smt_configuration": "2",
+   "memory_configuration": "MemTotal:       65249140 kB",
+   "compiler_versions": {
+    "cxx": "c++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0",
+    "rustc": "rustc 1.98.0-nightly (654079540 2026-06-12)"
+   },
+   "compiler_flags": {
+    "CMAKE_BUILD_TYPE": "Release",
+    "CMAKE_CXX_FLAGS": "",
+    "CMAKE_CXX_FLAGS_RELEASE": "-O3 -DNDEBUG",
+    "CMAKE_EXE_LINKER_FLAGS": ""
+   },
+   "linker_flags": "",
+   "cargo_profile": "[profile.release]\noverflow-checks = true",
+   "allocator": "glibc 2.35",
+   "cpp_commit": "9cd33c73006b63946a98fcced1a65c713ae47cbf",
+   "rust_commit": "9cd33c73006b63946a98fcced1a65c713ae47cbf",
+   "fixture_hashes": {
+    "cache_hostile": "1f33baa4e0da61d91010964ae093992bf9b6265945cc6e8f9cffeb7207f022ef",
+    "dense_neighbors": "7d0948dcb182a4e48bb1d1626b46a7e4ab9f33fe9c52aadba2db3144727950da",
+    "legal_osc": "50b4b85288636227141242a17ed003410ac2b844df2e62f86e3b604bb71bc7c6",
+    "legal_worst": "8a17a9b62ea057556c1e4821f853a47c371dbfc7ff6d0e89f31d9e31ff853e10",
+    "max_iterations": "c3ef78ec2a6f78d77016f3aa0d0a8160028a39293f8265e26fe2e4eab64137cf",
+    "search_00": "9db3efd47a2876ea4f8226c0686f056b7f0c6294e573b489cb56973d4d88df7c",
+    "search_01": "b4619620049a2de2e77211bb4d14ce63274590141c844c9b98fb938c99409548",
+    "subnormal": "db96d2a9cc3f71ca0ad10e8131dfce25af3792b58e2c122e25871afe4416f5be"
+   },
+   "binary_hash": "71aa831f9b95a91d15b6a6f4e560427910af51a2d6e8c36d146e79112c116b20",
+   "cache_condition": "warm",
+   "co_runner": null,
+   "env_check": "strict",
+   "dataset_id": null,
+   "target_board": null,
+   "firmware": null,
+   "qemu_version": null,
+   "notes": "primary timing base: pooled warm series of the 3-session Profile-B campaign",
+   "sessions": [
+    "session-1/warm/cache_hostile__cpp",
+    "session-2/warm/cache_hostile__cpp",
+    "session-3/warm/cache_hostile__cpp"
+   ],
+   "session_manifests": [
+    {
+     "experiment_id": "session-1/warm/cache_hostile__cpp",
+     "measurement_profile": "B",
+     "run_timestamp": "2026-07-12T22:57:56Z",
+     "host_name": "3e3c696402ac",
+     "cpu_model": "AMD Ryzen 9 5900HX with Radeon Graphics",
+     "cpu_microcode": "0xa500012",
+     "kernel_version": "Linux 3e3c696402ac 6.8.0-134-generic",
+     "governor": "performance",
+     "isolated_cpus": "2",
+     "benchmark_cpu": 2,
+     "affinity_mask": "taskset -c 2",
+     "irq_configuration": {
+      "irqs_allowed_on_benchmark_cpu": 3
+     },
+     "smt_configuration": "2",
+     "memory_configuration": "MemTotal:       65249140 kB",
+     "compiler_versions": {
+      "cxx": "c++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0",
+      "rustc": "rustc 1.98.0-nightly (654079540 2026-06-12)"
+     },
+     "compiler_flags": {
+      "CMAKE_BUILD_TYPE": "Release",
+      "CMAKE_CXX_FLAGS": "",
+      "CMAKE_CXX_FLAGS_RELEASE": "-O3 -DNDEBUG",
+      "CMAKE_EXE_LINKER_FLAGS": ""
+     },
+     "linker_flags": "",
+     "cargo_profile": "[profile.release]\noverflow-checks = true",
+     "allocator": "glibc 2.35",
+     "cpp_commit": "9cd33c73006b63946a98fcced1a65c713ae47cbf",
+     "rust_commit": "9cd33c73006b63946a98fcced1a65c713ae47cbf",
+     "fixture_hashes": {
+      "cache_hostile": "1f33baa4e0da61d91010964ae093992bf9b6265945cc6e8f9cffeb7207f022ef",
+      "dense_neighbors": "7d0948dcb182a4e48bb1d1626b46a7e4ab9f33fe9c52aadba2db3144727950da",
+      "legal_osc": "50b4b85288636227141242a17ed003410ac2b844df2e62f86e3b604bb71bc7c6",
+      "legal_worst": "8a17a9b62ea057556c1e4821f853a47c371dbfc7ff6d0e89f31d9e31ff853e10",
+      "max_iterations": "c3ef78ec2a6f78d77016f3aa0d0a8160028a39293f8265e26fe2e4eab64137cf",
+      "search_00": "9db3efd47a2876ea4f8226c0686f056b7f0c6294e573b489cb56973d4d88df7c",
+      "search_01": "b4619620049a2de2e77211bb4d14ce63274590141c844c9b98fb938c99409548",
+      "subnormal": "db96d2a9cc3f71ca0ad10e8131dfce25af3792b58e2c122e25871afe4416f5be"
+     },
+     "binary_hash": "71aa831f9b95a91d15b6a6f4e560427910af51a2d6e8c36d146e79112c116b20",
+     "cache_condition": "warm",
+     "co_runner": null,
+     "env_check": "strict",
+     "dataset_id": null,
+     "target_board": null,
+     "firmware": null,
+     "qemu_version": null,
+     "notes": "Profile B campaign per plan/ndt_timing_measurement_policy.md; sample tiers per the paper_fix.md budget matrix (1000+ only for tail-claim fixtures; co-runners on union-worst + legal-worst only)."
+    },
+    {
+     "experiment_id": "session-2/warm/cache_hostile__cpp",
+     "measurement_profile": "B",
+     "run_timestamp": "2026-07-13T01:08:59Z",
+     "host_name": "3e3c696402ac",
+     "cpu_model": "AMD Ryzen 9 5900HX with Radeon Graphics",
+     "cpu_microcode": "0xa500012",
+     "kernel_version": "Linux 3e3c696402ac 6.8.0-134-generic",
+     "governor": "performance",
+     "isolated_cpus": "2",
+     "benchmark_cpu": 2,
+     "affinity_mask": "taskset -c 2",
+     "irq_configuration": {
+      "irqs_allowed_on_benchmark_cpu": 3
+     },
+     "smt_configuration": "2",
+     "memory_configuration": "MemTotal:       65249128 kB",
+     "compiler_versions": {
+      "cxx": "c++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0",
+      "rustc": "rustc 1.98.0-nightly (654079540 2026-06-12)"
+     },
+     "compiler_flags": {
+      "CMAKE_BUILD_TYPE": "Release",
+      "CMAKE_CXX_FLAGS": "",
+      "CMAKE_CXX_FLAGS_RELEASE": "-O3 -DNDEBUG",
+      "CMAKE_EXE_LINKER_FLAGS": ""
+     },
+     "linker_flags": "",
+     "cargo_profile": "[profile.release]\noverflow-checks = true",
+     "allocator": "glibc 2.35",
+     "cpp_commit": "a8add9bd40064c863a73ee94342716843b3a315a",
+     "rust_commit": "a8add9bd40064c863a73ee94342716843b3a315a",
+     "fixture_hashes": {
+      "cache_hostile": "1f33baa4e0da61d91010964ae093992bf9b6265945cc6e8f9cffeb7207f022ef",
+      "dense_neighbors": "7d0948dcb182a4e48bb1d1626b46a7e4ab9f33fe9c52aadba2db3144727950da",
+      "legal_osc": "50b4b85288636227141242a17ed003410ac2b844df2e62f86e3b604bb71bc7c6",
+      "legal_worst": "8a17a9b62ea057556c1e4821f853a47c371dbfc7ff6d0e89f31d9e31ff853e10",
+      "max_iterations": "c3ef78ec2a6f78d77016f3aa0d0a8160028a39293f8265e26fe2e4eab64137cf",
+      "search_00": "9db3efd47a2876ea4f8226c0686f056b7f0c6294e573b489cb56973d4d88df7c",
+      "search_01": "b4619620049a2de2e77211bb4d14ce63274590141c844c9b98fb938c99409548",
+      "subnormal": "db96d2a9cc3f71ca0ad10e8131dfce25af3792b58e2c122e25871afe4416f5be"
+     },
+     "binary_hash": "71aa831f9b95a91d15b6a6f4e560427910af51a2d6e8c36d146e79112c116b20",
+     "cache_condition": "warm",
+     "co_runner": null,
+     "env_check": "strict",
+     "dataset_id": null,
+     "target_board": null,
+     "firmware": null,
+     "qemu_version": null,
+     "notes": "Profile B campaign per plan/ndt_timing_measurement_policy.md; sample tiers per the paper_fix.md budget matrix (1000+ only for tail-claim fixtures; co-runners on union-worst + legal-worst only). Frequency pinned at 3.2 GHz from session 1 onward."
+    },
+    {
+     "experiment_id": "session-3/warm/cache_hostile__cpp",
+     "measurement_profile": "B",
+     "run_timestamp": "2026-07-13T07:27:08Z",
+     "host_name": "3e3c696402ac",
+     "cpu_model": "AMD Ryzen 9 5900HX with Radeon Graphics",
+     "cpu_microcode": "0xa500012",
+     "kernel_version": "Linux 3e3c696402ac 6.8.0-134-generic",
+     "governor": "performance",
+     "isolated_cpus": "2",
+     "benchmark_cpu": 2,
+     "affinity_mask": "taskset -c 2",
+     "irq_configuration": {
+      "irqs_allowed_on_benchmark_cpu": 3
+     },
+     "smt_configuration": "2",
+     "memory_configuration": "MemTotal:       65249128 kB",
+     "compiler_versions": {
+      "cxx": "c++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0",
+      "rustc": "rustc 1.98.0-nightly (654079540 2026-06-12)"
+     },
+     "compiler_flags": {
+      "CMAKE_BUILD_TYPE": "Release",
+      "CMAKE_CXX_FLAGS": "",
+      "CMAKE_CXX_FLAGS_RELEASE": "-O3 -DNDEBUG",
+      "CMAKE_EXE_LINKER_FLAGS": ""
+     },
+     "linker_flags": "",
+     "cargo_profile": "[profile.release]\noverflow-checks = true",
+     "allocator": "glibc 2.35",
+     "cpp_commit": "a8add9bd40064c863a73ee94342716843b3a315a",
+     "rust_commit": "a8add9bd40064c863a73ee94342716843b3a315a",
+     "fixture_hashes": {
+      "cache_hostile": "1f33baa4e0da61d91010964ae093992bf9b6265945cc6e8f9cffeb7207f022ef",
+      "dense_neighbors": "7d0948dcb182a4e48bb1d1626b46a7e4ab9f33fe9c52aadba2db3144727950da",
+      "legal_osc": "50b4b85288636227141242a17ed003410ac2b844df2e62f86e3b604bb71bc7c6",
+      "legal_worst": "8a17a9b62ea057556c1e4821f853a47c371dbfc7ff6d0e89f31d9e31ff853e10",
+      "max_iterations": "c3ef78ec2a6f78d77016f3aa0d0a8160028a39293f8265e26fe2e4eab64137cf",
+      "search_00": "9db3efd47a2876ea4f8226c0686f056b7f0c6294e573b489cb56973d4d88df7c",
+      "search_01": "b4619620049a2de2e77211bb4d14ce63274590141c844c9b98fb938c99409548",
+      "subnormal": "db96d2a9cc3f71ca0ad10e8131dfce25af3792b58e2c122e25871afe4416f5be"
+     },
+     "binary_hash": "71aa831f9b95a91d15b6a6f4e560427910af51a2d6e8c36d146e79112c116b20",
+     "cache_condition": "warm",
+     "co_runner": null,
+     "env_check": "strict",
+     "dataset_id": null,
+     "target_board": null,
+     "firmware": null,
+     "qemu_version": null,
+     "notes": "Profile B campaign per plan/ndt_timing_measurement_policy.md; sample tiers per the paper_fix.md budget matrix (1000+ only for tail-claim fixtures; co-runners on union-worst + legal-worst only). Frequency pinned at 3.2 GHz from session 1 onward."
+    }
+   ],
+   "pooling": "samples concatenated in session order; per-session medians retained on each fixture for cross-session statistics"
+  },
+  "profile_b_real_manifest": {
+   "experiment_id": "session-3/warm/real_median__cpp",
+   "measurement_profile": "B",
+   "run_timestamp": "2026-07-13T12:42:08Z",
+   "host_name": "3e3c696402ac",
+   "cpu_model": "AMD Ryzen 9 5900HX with Radeon Graphics",
+   "cpu_microcode": "0xa500012",
+   "kernel_version": "Linux 6.8.0-134-generic",
+   "governor": "performance",
+   "isolated_cpus": "2",
+   "benchmark_cpu": 2,
+   "affinity_mask": "taskset -c 2",
+   "irq_configuration": {
+    "irqs_allowed_on_benchmark_cpu": 3
+   },
+   "smt_configuration": "2",
+   "memory_configuration": "MemTotal:       65249136 kB",
+   "compiler_versions": {
+    "cxx": "c++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0",
+    "rustc": "rustc 1.98.0-nightly (654079540 2026-06-12)"
+   },
+   "compiler_flags": {
+    "CMAKE_BUILD_TYPE": "Release",
+    "CMAKE_CXX_FLAGS": "",
+    "CMAKE_CXX_FLAGS_RELEASE": "-O3 -DNDEBUG",
+    "CMAKE_EXE_LINKER_FLAGS": ""
+   },
+   "linker_flags": "",
+   "cargo_profile": "[profile.release]\noverflow-checks = true",
+   "allocator": "glibc 2.35",
+   "cpp_commit": "5fad5a1753ebd45a6b52546c59913c40e2a8c59c",
+   "rust_commit": "5fad5a1753ebd45a6b52546c59913c40e2a8c59c",
+   "fixture_hashes": {
+    "cache_hostile": "1f33baa4e0da61d91010964ae093992bf9b6265945cc6e8f9cffeb7207f022ef",
+    "dense_neighbors": "7d0948dcb182a4e48bb1d1626b46a7e4ab9f33fe9c52aadba2db3144727950da",
+    "legal_osc": "50b4b85288636227141242a17ed003410ac2b844df2e62f86e3b604bb71bc7c6",
+    "legal_worst": "8a17a9b62ea057556c1e4821f853a47c371dbfc7ff6d0e89f31d9e31ff853e10",
+    "max_iterations": "c3ef78ec2a6f78d77016f3aa0d0a8160028a39293f8265e26fe2e4eab64137cf",
+    "real_median": "6ae94d3b4741a38231476cd01fac889cbfdcc86abd6144bee43811c74b7eb667",
+    "real_slowest": "5b197bbcfe69ce73b0473d2e0ef18cc8fbe025ca08182c767a6522bfca7b441b",
+    "search_00": "9db3efd47a2876ea4f8226c0686f056b7f0c6294e573b489cb56973d4d88df7c",
+    "search_01": "b4619620049a2de2e77211bb4d14ce63274590141c844c9b98fb938c99409548",
+    "subnormal": "db96d2a9cc3f71ca0ad10e8131dfce25af3792b58e2c122e25871afe4416f5be"
+   },
+   "binary_hash": "71aa831f9b95a91d15b6a6f4e560427910af51a2d6e8c36d146e79112c116b20",
+   "cache_condition": "warm",
+   "co_runner": null,
+   "env_check": "strict",
+   "dataset_id": null,
+   "target_board": null,
+   "firmware": null,
+   "qemu_version": null,
+   "notes": "Profile B leg of the bridge experiment for the two real-drive fixtures (real_slowest=seq15, real_median=seq132, frozen from the archived capture by wcet_frame --freeze); same protocol as the main campaign."
+  },
+  "note": "interference inflation = production-profile latency / controlled-profile latency (descriptive only, per the measurement policy). Synthetic B-leg = pooled 3-session campaign; real-frame B-leg = dedicated controlled session; A-leg = one Profile-A session, same 3.2 GHz reference clock."
+ },
+ "inputs": {
+  "search_00": {
+   "cpp": {
+    "profile_a": {
+     "p50_ms": 926.403,
+     "max_ms": 930.647,
+     "n": 100
+    },
+    "profile_b": {
+     "p50_ms": 963.873,
+     "max_ms": 969.06,
+     "n": 3000
+    },
+    "inflation_p50": 0.961,
+    "inflation_max": 0.96,
+    "abs_diff_max_ms": -38.413,
+    "overrun_only_in_a": false
+   },
+   "rust": {
+    "profile_a": {
+     "p50_ms": 597.826,
+     "max_ms": 602.871,
+     "n": 100
+    },
+    "profile_b": {
+     "p50_ms": 590.933,
+     "max_ms": 596.444,
+     "n": 3000
+    },
+    "inflation_p50": 1.012,
+    "inflation_max": 1.011,
+    "abs_diff_max_ms": 6.427,
+    "overrun_only_in_a": false
+   }
+  },
+  "legal_worst": {
+   "cpp": {
+    "profile_a": {
+     "p50_ms": 200.57,
+     "max_ms": 201.789,
+     "n": 100
+    },
+    "profile_b": {
+     "p50_ms": 236.273,
+     "max_ms": 243.436,
+     "n": 3000
+    },
+    "inflation_p50": 0.849,
+    "inflation_max": 0.829,
+    "abs_diff_max_ms": -41.647,
+    "overrun_only_in_a": false
+   },
+   "rust": {
+    "profile_a": {
+     "p50_ms": 121.456,
+     "max_ms": 121.658,
+     "n": 100
+    },
+    "profile_b": {
+     "p50_ms": 120.098,
+     "max_ms": 120.784,
+     "n": 3000
+    },
+    "inflation_p50": 1.011,
+    "inflation_max": 1.007,
+    "abs_diff_max_ms": 0.874,
+    "overrun_only_in_a": false
+   }
+  },
+  "legal_osc": {
+   "cpp": {
+    "profile_a": {
+     "p50_ms": 156.238,
+     "max_ms": 157.313,
+     "n": 100
+    },
+    "profile_b": {
+     "p50_ms": 191.057,
+     "max_ms": 194.177,
+     "n": 3000
+    },
+    "inflation_p50": 0.818,
+    "inflation_max": 0.81,
+    "abs_diff_max_ms": -36.864,
+    "overrun_only_in_a": false
+   },
+   "rust": {
+    "profile_a": {
+     "p50_ms": 65.106,
+     "max_ms": 65.301,
+     "n": 100
+    },
+    "profile_b": {
+     "p50_ms": 64.529,
+     "max_ms": 64.851,
+     "n": 3000
+    },
+    "inflation_p50": 1.009,
+    "inflation_max": 1.007,
+    "abs_diff_max_ms": 0.45,
+    "overrun_only_in_a": false
+   }
+  },
+  "real_slowest": {
+   "cpp": {
+    "profile_a": {
+     "p50_ms": 132.484,
+     "max_ms": 132.856,
+     "n": 100
+    },
+    "profile_b": {
+     "p50_ms": 166.375,
+     "max_ms": 166.555,
+     "n": 100
+    },
+    "inflation_p50": 0.796,
+    "inflation_max": 0.798,
+    "abs_diff_max_ms": -33.699,
+    "overrun_only_in_a": false
+   },
+   "rust": {
+    "profile_a": {
+     "p50_ms": 56.129,
+     "max_ms": 56.595,
+     "n": 100
+    },
+    "profile_b": {
+     "p50_ms": 55.252,
+     "max_ms": 55.578,
+     "n": 100
+    },
+    "inflation_p50": 1.016,
+    "inflation_max": 1.018,
+    "abs_diff_max_ms": 1.017,
+    "overrun_only_in_a": false
+   }
+  },
+  "real_median": {
+   "cpp": {
+    "profile_a": {
+     "p50_ms": 109.714,
+     "max_ms": 109.9,
+     "n": 100
+    },
+    "profile_b": {
+     "p50_ms": 141.94,
+     "max_ms": 143.033,
+     "n": 100
+    },
+    "inflation_p50": 0.773,
+    "inflation_max": 0.768,
+    "abs_diff_max_ms": -33.133,
+    "overrun_only_in_a": false
+   },
+   "rust": {
+    "profile_a": {
+     "p50_ms": 6.6,
+     "max_ms": 6.709,
+     "n": 100
+    },
+    "profile_b": {
+     "p50_ms": 6.541,
+     "max_ms": 6.67,
+     "n": 100
+    },
+    "inflation_p50": 1.009,
+    "inflation_max": 1.006,
+    "abs_diff_max_ms": 0.039,
+    "overrun_only_in_a": false
+   }
+  }
+ }
+}
