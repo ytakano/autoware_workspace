@@ -63,10 +63,10 @@ in an align call, \kdnodes{} for the total number of kd-tree nodes visited, and 
 \sumnbr / (\text{points processed})$ for the mean neighbor count per point; these are the
 \emph{work counters} that Sec.~\ref{sec:methodology} turns into instrumentation. \sumnbr{}
 is implementation-independent (both engines evaluate the same (point, leaf) pairs on equal
-neighbor sets), whereas \kdnodes{} is counted on the Rust engine's traversal: the C++
-engine walks its own pcl/FLANN structures, which are not instrumented, so for C++ the
-counter serves as a geometry-correlated traversal proxy
-(Sec.~\ref{sec:eval-regression}).
+neighbor sets), whereas kd traversal is engine-specific: \kdnodes{} counts the Rust
+engine's nodes examined, and the C++ engine's own traversal work (FLANN distance and plane
+evaluations) is measured separately by the traced analysis build
+(Sec.~\ref{sec:eval-tracecert}).
 In counter form the bound reads
 $T \le c_0 + c_{\mathrm{pt}}\, N_{\mathrm{pts}} + c_{\mathrm{nbr}}\, \sumnbr +
 c_{\mathrm{kd}}\, \kdnodes + c_{\mathrm{solve}}\, N_{\mathrm{iter}}$, where

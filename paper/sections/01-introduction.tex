@@ -57,13 +57,16 @@ Our contributions:
     with a diagnostics-gated extreme-value analysis in the style of measurement-based
     probabilistic timing analysis (MBPTA), where the diagnostics, not the fits, decide what
     may be extrapolated.
-  \item A \textbf{cross-language transfer argument}: instrumenting only the Rust port
-    suffices. Discovered inputs are carried to the unmodified C++ engine, and equal work is
-    certified \emph{per input} by an iteration-count assertion that doubles as the runtime
-    membership check for $D$; the transfer is claimed over the certified subset
-    $E \subseteq D$ (Sec.~\ref{sec:meth-transfer}). On real map data this certification
-    exposed, and led us to fix, two port-fidelity gaps that synthetic fixtures are
-    structurally blind to (Sec.~\ref{sec:threats}).
+  \item A \textbf{cross-language transfer argument}: instrumenting the Rust port and a
+    local C++ \emph{analysis} build suffices; the shipped C++ sources stay untouched.
+    Discovered inputs are carried to the unmodified C++ engine, and equal work is certified
+    \emph{per input}: a base iteration/pose/score assertion that doubles as the runtime
+    membership check for $D$, strengthened to a full per-pass trace comparison; the
+    transfer is claimed over the certified subset $E \subseteq D$
+    (Secs.~\ref{sec:meth-transfer} and~\ref{sec:eval-tracecert}). On real map data this
+    certification exposed, and led us to fix, two port-fidelity gaps that synthetic
+    fixtures are structurally blind to, and measured that equal iteration counts alone
+    would \emph{not} have implied equal work (Sec.~\ref{sec:threats}).
   \item \textbf{Evidence that the search is effective}: it exactly saturates the analytic
     maximum on the number of kernel evaluations per align,
     $P \cdot \maxnn \cdot (N_{\mathrm{iter}}{+}1)$, where $P$ is the scan size, \maxnn{}

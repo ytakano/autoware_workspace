@@ -823,13 +823,31 @@ def main():
     # Engine-specific model selection, guarded below: the per-point term is resolved and
     # physical for C++ (allocator + per-query machinery, corroborating Sec. V-C) and
     # degenerate for Rust (CI covers zero, LOO worsens) -- the port removes that axis.
+    # C1: each engine's kd regressor is its OWN traversal counter -- Rust: nodes examined
+    # (wcet counters); C++: FLANN distance+plane evaluations from the traced analysis build
+    # (data/trace_cert.json). Before C1 the Rust counter served as a proxy for both.
+    tj = DATA / "trace_cert.json"
+    if not tj.exists():
+        raise SystemExit("regression: data/trace_cert.json missing -- the C++ kd regressor "
+                         "comes from the traced analysis build (C1); rerun it")
+    trace_fx = json.loads(tj.read_text())["fixtures"]
+
+    def kd_of(engine, name, rust_counters):
+        if engine == "rust":
+            return float(rust_counters["kd_nodes_visited"])
+        tr = trace_fx.get(name, {}).get("trace")
+        if tr is None:
+            raise SystemExit(f"regression: no C++ trace counters for {name}; rerun the "
+                             "traced replay over this fixture")
+        return float(int(tr["cpp_kd_dist"]) + int(tr["cpp_kd_accum"]))
+
     def reg_rows(engine):
         rows_ = []
         for n in names:
             c = rust[n]["counters"]
             t50 = pct(sorted(timing[n][engine]["samples_ms"]), 0.5)
             rows_.append((float(c["points_processed"]), float(c["sum_neighbors"]),
-                          float(c["kd_nodes_visited"]), t50, n))
+                          kd_of(engine, n, c), t50, n))
         pj, prj = DATA / "wcet_psweep.json", DATA / "psweep_rust.json"
         if pj.exists() and prj.exists():
             pt = json.loads(pj.read_text())["fixtures"]
@@ -838,7 +856,7 @@ def main():
                 c = pr[n]["counters"]
                 t50 = pct(sorted(pt[n][engine]["samples_ms"]), 0.5)
                 rows_.append((float(c["points_processed"]), float(c["sum_neighbors"]),
-                              float(c["kd_nodes_visited"]), t50, n))
+                              kd_of(engine, n, c), t50, n))
         return rows_
 
     def reg_features(row, nterms):
@@ -946,10 +964,15 @@ def main():
             )
             if nterms == 4:
                 if eng == "cpp":
-                    if not cpt_lo > 0.0:
+                    # With the C++-own FLANN kd counter (C1), the per-point coefficient is
+                    # no longer separately identified (FLANN per-query work is itself nearly
+                    # proportional to points): the prose claims a positive point estimate
+                    # whose CI covers zero.
+                    if cpt <= 0.0 or cpt_lo > 0.0:
                         raise SystemExit(
-                            "regression: C++ per-point coefficient CI covers zero -- "
-                            "the Sec. V-F model-selection story is stale; update the prose")
+                            "regression: C++ per-point coefficient no longer matches the "
+                            "Sec. V-F story (positive point estimate, CI covering zero); "
+                            "update the prose")
                     reg_macros.append(rf"\newcommand{{\regPtUsCpp}}{{{cpt * 1e3:.1f}}}")
                     reg_macros.append(
                         rf"\newcommand{{\regPtUsCppLo}}{{{cpt_lo * 1e3:.1f}}}")
@@ -1016,17 +1039,18 @@ def main():
         rf"correlation {corr:.2f}). Two nested models per engine: 2-term "
         r"$T_{p50} \approx a\cdot\sumnbr + b\cdot\kdnodes + c$ and 4-term adding "
         r"$c_{\mathrm{pt}} \cdot N_{\mathrm{pts}}$ (per-point fixed cost). $\star$ marks "
-        r"the model adopted per engine (Sec.~\ref{sec:eval-regression}). \kdnodes{} is "
-        r"counted on the Rust engine's traversal: for C++ it is a geometry-correlated "
-        r"proxy, not a count of nodes the C++ engine visits.",
+        r"the model adopted per engine (Sec.~\ref{sec:eval-regression}). The kd regressor "
+        r"is each engine's \emph{own} traversal counter (C++: FLANN distance+plane "
+        r"evaluations, measured by the traced analysis build; Rust: nodes examined), so "
+        r"$b$ is a physical per-operation cost for both engines.",
         "tab:regression",
         "llrrrrr",
         r"engine & model & $c_{\mathrm{pt}}$ (\si{\micro\second}/pt) "
-        r"& $a$ (\si{ns}/kern.) & $b$ (\si{ns}/kd) "
+        r"& $a$ (\si{ns}/kern.) & $b$ (\si{ns}/kd op) "
         r"& $c$ (\si{ms}) & $R^2$",
         rows,
         note=prov,
-        tabcolsep="1.8pt",
+        tabcolsep="1.5pt",
         size=r"\scriptsize",
     )
     # (The exploratory Gumbel block-maxima table was replaced by scripts/evt.py's
@@ -1476,6 +1500,145 @@ def psweep():
               f"R2(max) {f['rmx']:.4f}, worst residual {worst[1]:+.1f} ms at P={worst[0]}")
 
 
+def trace_cert():
+    """C1 trace-certificate table + macros from data/trace_cert.json (fixture leg) and
+    data/trace_real.json (real-drive leg, optional until captured).
+
+    Guards (regenerate-or-break): on every fixture the STRUCTURAL legs must be exact
+    (equal pass count, per-pass points/neighbors, per-point neighbor sets), the line-search
+    entry counter must be zero, and the measured C++ pass count must equal iteration_num+1.
+    """
+    tj = DATA / "trace_cert.json"
+    if not tj.exists():
+        print("trace_cert absent -- skipping trace-certificate outputs")
+        return
+    doc = json.loads(tj.read_text())
+    fixtures = doc["fixtures"]
+    ulps = {}
+    rows = []
+    table_names = [n for n in ORDER if n in fixtures]
+    table_names += sorted(n for n in fixtures if n not in ORDER and not n.startswith("psweep"))
+    for n, fx in fixtures.items():
+        tr = fx.get("trace")
+        if tr is None:
+            raise SystemExit(f"trace_cert: fixture {n} lacks a trace block -- rerun the traced replay")
+        if not (tr["valid"] and tr["structural_match"]):
+            raise SystemExit(f"trace_cert: structural leg broken on {n} -- the Sec. III/V "
+                             "equal-work certificate claim is void; investigate before publishing")
+        if tr["line_search_loops"] != 0:
+            raise SystemExit(f"trace_cert: line-search entered on {n} -- N_pass = N_iter+1 is void")
+        if tr["passes_cpp"] != fx["cpp"]["iteration_num"] + 1:
+            raise SystemExit(f"trace_cert: C++ passes != iterations+1 on {n}")
+        ulps[n] = int(tr["score_max_ulp"])
+    for n in table_names:
+        tr = fixtures[n]["trace"]
+        kd_cpp = int(tr["cpp_kd_dist"]) + int(tr["cpp_kd_accum"])
+        rows.append(
+            f"{LABEL.get(n, tex_escape(n))} & {tr['passes_cpp']} & exact & "
+            f"${ulp_tex(int(tr['score_max_ulp']))}$ & {num(kd_cpp)} & {num(int(tr['rust_kd']))}"
+        )
+    write(
+        "tracecert.tex",
+        r"Per-input trace certificate (traced analysis build vs.\ the Rust engine's mirrored "
+        r"trace; deterministic, environment-independent). \emph{structural} = pass count, "
+        r"per-pass point/neighbor counts, and per-point neighbor \emph{sets} (leaf-mean bit "
+        r"hashes) all exact. score ULP = max per-pass f64 ULP distance of the score handed to "
+        r"the Newton step. $\Sigma_{\mathrm{kd}}$ columns are each engine's \emph{own} "
+        r"traversal counter (C++: FLANN distance+plane evaluations; Rust: nodes examined) and "
+        r"are not mutually comparable.",
+        "tab:tracecert",
+        "lrrrrr",
+        r"fixture & passes & structural & score ULP & $\Sigma_{\mathrm{kd}}^{\mathrm{C++}}$ "
+        r"& $\Sigma_{\mathrm{kd}}^{\mathrm{Rust}}$",
+        rows,
+        note=r"Line-search entries: 0 on every input (measured); C++ passes = "
+        r"$N_{\mathrm{iter}}{+}1$ exactly on every input. The 6 $P$-sweep instances (not "
+        r"shown) also certify structurally exact. " + TIER_NOTE,
+        size=r"\scriptsize",
+        tabcolsep="3pt",
+    )
+    conv = [v for v in ulps.values() if v < 1000]
+    macros = [
+        "% AUTO-GENERATED by scripts/gen_tables.py -- do not hand-edit.",
+        rf"\newcommand{{\traceFixtures}}{{{len(fixtures)}}}",
+        rf"\newcommand{{\traceUlpZeroCount}}{{{sum(1 for v in ulps.values() if v == 0)}}}",
+        rf"\newcommand{{\traceUlpConvMax}}{{{max(conv)}}}",
+        rf"\newcommand{{\traceUlpWorstTex}}{{{ulp_tex(max(ulps.values()))}}}",
+    ]
+
+    rj = DATA / "trace_real.json"
+    if rj.exists():
+        rdoc = json.loads(rj.read_text())
+        frames = rdoc["frames"]
+        rd = json.loads((DATA / "realdata.json").read_text())["frames"]
+        if len(frames) != len(rd):
+            raise SystemExit("trace_real: frame count != realdata.json -- protocol drift")
+        onmap = {f["seq"] for f in rd if f["counters"]["sum_neighbors"] > 0}
+        # Cross-check the replay against the frozen realdata capture: same per-frame
+        # iteration counts and match verdicts (same engine version, same open-loop track).
+        drift = sum(1 for a, b in zip(frames, rd)
+                    if a["seq"] != b["seq"] or a["iter_rust"] != b["iteration_num"]
+                    or a["match"] != b["match"])
+        if drift != 0:
+            raise SystemExit(f"trace_real: {drift} frames disagree with realdata.json -- "
+                             "stale or mis-protocolled capture; regenerate")
+        cert = [f for f in frames if f["match"]]
+        mism = [f for f in frames if not f["match"]]
+        # THE C1 headline finding: equal iteration count is necessary, NOT sufficient, for
+        # equal work -- some equal-iteration frames differ in their per-pass neighbor sets.
+        # Guards pin the finding's shape so the prose can never go stale.
+        work_gap = [f for f in cert if not f["trace"]["structural_match"]]
+        if any(f["seq"] not in onmap for f in work_gap):
+            raise SystemExit("trace_real: a work-gap frame is off-map -- prose says all are on-map")
+        if any(f["trace"]["first_div_leg"] != "passes" for f in mism):
+            raise SystemExit("trace_real: an iteration-divergent frame diverges before the "
+                             "pass-count leg -- update the Sec. V trace prose")
+        cert_onmap = [f for f in cert if f["seq"] in onmap]
+        work_cert_onmap = [f for f in cert_onmap if f["trace"]["structural_match"]]
+        etrace = sum(1 for f in frames if f["match"] and f["trace"]["structural_match"])
+        # Work-gap magnitude: |Sigma_nbr^C++ - Sigma_nbr^Rust| on the equal-iteration frames
+        # whose neighbor sets differ (requires the cpp_nbr/rust_nbr fields of the trace run).
+        gap_abs = sorted(abs(int(f["trace"]["cpp_nbr"]) - int(f["trace"]["rust_nbr"]))
+                         for f in work_gap)
+        gap_rel = sorted(
+            abs(int(f["trace"]["cpp_nbr"]) - int(f["trace"]["rust_nbr"]))
+            / max(int(f["trace"]["cpp_nbr"]), 1) for f in work_gap)
+        fd = sorted(f["trace"]["first_div_pass"] for f in mism)
+        iter_delta = sorted(abs(f["iter_cpp"] - f["iter_rust"]) for f in mism)
+        td_mism = sorted(f.get("trans_delta_m", 0.0) for f in mism)
+        td = sorted(f.get("trans_delta_m", 0.0) for f in cert_onmap)
+        macros += [
+            rf"\newcommand{{\traceRealCert}}{{\num{{{len(cert)}}}}}",
+            rf"\newcommand{{\traceRealCertOnMap}}{{{len(cert_onmap)}}}",
+            rf"\newcommand{{\traceRealWorkCertOnMap}}{{{len(work_cert_onmap)}}}",
+            rf"\newcommand{{\traceRealWorkGapFrames}}{{{len(work_gap)}}}",
+            rf"\newcommand{{\traceRealWorkGapNbrMed}}{{{gap_abs[len(gap_abs) // 2]}}}",
+            rf"\newcommand{{\traceRealWorkGapNbrMax}}{{{gap_abs[-1]}}}",
+            rf"\newcommand{{\traceRealWorkGapRelMaxPct}}{{{100.0 * gap_rel[-1]:.2f}}}",
+            rf"\newcommand{{\traceRealETrace}}{{\num{{{etrace}}}}}",
+            rf"\newcommand{{\traceRealDivFirstMin}}{{{fd[0]}}}",
+            rf"\newcommand{{\traceRealDivFirstMed}}{{{fd[len(fd) // 2]}}}",
+            rf"\newcommand{{\traceRealDivFirstMax}}{{{fd[-1]}}}",
+            rf"\newcommand{{\traceRealDivIterDeltaMax}}{{{iter_delta[-1]}}}",
+            rf"\newcommand{{\traceRealDivTransDeltaMax}}{{{td_mism[-1]:.2f}}}",
+            rf"\newcommand{{\traceRealTransDeltaMax}}{{{td[-1]:.2f}}}",
+        ]
+    else:
+        print("trace_real absent -- fixture-leg macros only")
+    (OUT / "tracecert_macros.tex").write_text("\n".join(macros) + "\n", encoding="utf-8")
+    print("wrote tables/tracecert.tex + tracecert_macros.tex")
+
+
+def ulp_tex(v):
+    """Render a ULP count for prose: exact when small, mantissa*10^e when large."""
+    v = int(v)
+    if v < 10000:
+        return str(v)
+    import math as _m
+    e = int(_m.floor(_m.log10(v)))
+    return rf"{v / 10 ** e:.1f}\times 10^{{{e}}}"
+
+
 def main_extra():
     timing = json.loads((DATA / "wcet.json").read_text())["fixtures"]
     rust = json.loads((DATA / "wcet_rust.json").read_text())["fixtures"]
@@ -1487,6 +1650,7 @@ if __name__ == "__main__":
     main()
     main_extra()
     realdata()
+    trace_cert()
     psweep()
     cert_macros()
     legal_k_macros()

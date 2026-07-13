@@ -111,6 +111,52 @@ overhead. (No hardware performance counters are available in the measurement con
 the final split is arithmetic over microbenchmarks rather than counter-attributed;
 Sec.~\ref{sec:threats}.)
 
+\subsection{Per-input trace certificate}
+\label{sec:eval-tracecert}
+\input{tables/tracecert}
+
+The trace certificate of Sec.~\ref{sec:meth-transfer} was executed on every frozen fixture
+and on all \realFrames{} captured real frames: the traced analysis build of the C++ engine
+(an instrumented copy of the engine sources plus a counting FLANN distance functor; the
+shipped sources remain byte-identical) emits a per-pass trace that the replay compares leg
+by leg against the Rust engine's mirrored trace. Every quantity is a deterministic function
+of the input, so the runs need no controlled environment, and the traced binaries are never
+used for timing.
+
+Table~\ref{tab:tracecert} shows the fixture leg. The \emph{structural} legs (pass count,
+per-pass point and neighbor counts, and each point's neighbor-leaf set) transfer
+\emph{exactly} on all \traceFixtures{} inputs, the line-search loop is never entered, and
+the measured C++ pass count equals $N_{\mathrm{iter}}{+}1$ on every input: the equal-work
+transfer previously certified indirectly (iteration/pose/score plus the allocation leg of
+Sec.~\ref{sec:eval-alloc}) is now measured directly on the C++ side, per input. The
+\emph{numeric} legs sharpen the fidelity picture: the per-pass score agrees to
+\traceUlpConvMax{} f64 ULP or better on the well-conditioned fixtures (bit-identical on
+\emph{cache-hostile}) but drifts to $\traceUlpWorstTex$ ULP on knife-edge geometries. The
+mechanism is structural, not a defect: pcl/FLANN returns each point's neighbors sorted by
+distance while the port's kd walk returns them in visit order, so the two engines
+accumulate identical per-point neighbor sets in different orders; f64 bit-equality of the
+sums is unattainable by design, and equivalence is correctly claimed at the \emph{work}
+level.
+
+The real-data leg turns the necessary-vs-sufficient distinction into measurement. The
+traced replay reproduces the frozen capture frame-exactly (identical per-frame iteration
+counts and match verdicts on all \realFrames{} frames). Of the \traceRealCertOnMap{} on-map
+frames that pass the base (equal-iteration) certificate, \traceRealWorkCertOnMap{} also
+pass the full trace certificate, while \traceRealWorkGapFrames{} perform
+\emph{equal-iteration but unequal work}: their per-point neighbor sets differ (median
+$|\Delta\sumnbr| = \traceRealWorkGapNbrMed$, maximum \traceRealWorkGapNbrMax, i.e.\ at most
+\traceRealWorkGapRelMaxPct\% of the frame's kernel evaluations) --- the same knife-edge
+boundary mechanism as the iteration divergences, caught below the iteration threshold.
+Equal iteration count is therefore measurably \emph{not} sufficient for equal work, and the
+strict work-certified set on this drive is $E_{\mathrm{trace}} = \traceRealETrace$ of
+\realFrames{} frames (all off-map frames certify exactly). The \realDivergences{}
+iteration-divergent frames all fork late (first divergent pass
+\traceRealDivFirstMin--\traceRealDivFirstMax, median \traceRealDivFirstMed) and then take
+different convergence paths (iteration counts up to $\pm\traceRealDivIterDeltaMax$ apart,
+final poses up to \SI{\traceRealDivTransDeltaMax}{m} apart). Every fixture-level comparison
+in this paper carries the full trace certificate; real-data work statements are scoped to
+$E_{\mathrm{trace}}$.
+
 \subsection{Heap allocations per align}
 \label{sec:eval-alloc}
 The interposer counts decompose as ${\approx}\allocPerPtPass$ allocations per point per
@@ -158,25 +204,28 @@ is what its kd-dominated cost structure predicts.
 We estimate the unit costs of the counter-form bound (Sec.~\ref{sec:decomposition}) by
 regressing median latency on the counters over the fixtures pooled with the $P$-sweep
 points ($n = \regN$ per engine), fitting two nested models per engine: the two-term model
-$T \approx a\cdot\sumnbr + b\cdot\kdnodes + c$ and the four-term model that adds the
+$T \approx a\cdot\sumnbr + b\cdot\mathrm{kd} + c$ and the four-term model that adds the
 per-point fixed cost $c_{\mathrm{pt}} \cdot N_{\mathrm{pts}}$ (Table~\ref{tab:regression}).
-The added axis matters for exactly one engine. For C++ it is resolved and physical:
-$c_{\mathrm{pt}} = \SI{\regPtUsCpp}{\micro\second}$ per point
-[\regPtUsCppLo,\,\regPtUsCppHi], independently corroborating the
-${\approx}\subnormalPtPassCppUs$\,\si{\micro\second} per-point overhead measured on the
-neighbor-sparse fixtures in Sec.~\ref{sec:eval-tails}, and adding it collapses the worst
-leave-one-out miss from \regLooMaxCppTwoTerm\% to \regLooMaxCppFourTerm\% (median
-\regLooMedCpp\%). For Rust the same term is degenerate: the fitted $c_{\mathrm{pt}}$ is
-\emph{negative} (\SI{\regPtUsRustFour}{\micro\second}, CI
-[\regPtUsRustFourLo,\,\regPtUsRustFourHi] --- nonphysical, the sign inverted by the
-collinear design), and the worst leave-one-out miss \emph{grows} from
-\regLooMaxRustTwoTerm\% to \regLooMaxRustFourTerm\%, because the port's true per-point
+The trace certificate (Sec.~\ref{sec:eval-tracecert}) supplies the C++ engine's own
+traversal counter, so the kd regressor is engine-own on both sides and $b$ is a physical
+per-operation cost for both engines. The per-point axis remains engine-asymmetric. For C++
+it is real but not separately identified: adding it collapses the worst leave-one-out miss
+from \regLooMaxCppTwoTerm\% to \regLooMaxCppFourTerm\% (median \regLooMedCpp\%), yet the
+coefficient's CI covers zero ([\regPtUsCppLo,\,\regPtUsCppHi]\,\si{\micro\second}) because
+FLANN's per-query work is itself nearly proportional to the point count --- the per-point
+machinery cost is shared between $c_{\mathrm{pt}}$ and $b$, with the point estimate
+(\SI{\regPtUsCpp}{\micro\second}) consistent with the
+${\approx}\subnormalPtPassCppUs$\,\si{\micro\second} per-point overhead measured
+independently in Sec.~\ref{sec:eval-tails}. For Rust the term is degenerate outright: the
+fitted $c_{\mathrm{pt}}$ is negative (\SI{\regPtUsRustFour}{\micro\second}, CI
+[\regPtUsRustFourLo,\,\regPtUsRustFourHi]) and the worst leave-one-out miss \emph{grows}
+from \regLooMaxRustTwoTerm\% to \regLooMaxRustFourTerm\%, because the port's true per-point
 cost (${\approx}\subnormalPtPassRustUs$\,\si{\micro\second}, measured directly in
 Sec.~\ref{sec:eval-tails}) sits below this design's resolution. We therefore adopt the
-four-term model for C++ and the two-term model for Rust ($\star$ in
-Table~\ref{tab:regression}): the axis the two-term model was missing is a \emph{C++}
-phenomenon (the allocator and per-query search machinery of
-Secs.~\ref{sec:eval-tails}--\ref{sec:eval-alloc}), and its absence from the Rust fit is
+four-term model for C++ (the only model that covers the neighbor-sparse regime) and the
+two-term model for Rust ($\star$ in Table~\ref{tab:regression}): the axis the two-term
+model was missing is a \emph{C++} phenomenon (the allocator and per-query search machinery
+of Secs.~\ref{sec:eval-tails}--\ref{sec:eval-alloc}), and its absence from the Rust fit is
 consistent with the port removing exactly that machinery.
 
 Three diagnostics scope the fits. First, the regressors are nearly collinear over this
@@ -199,10 +248,9 @@ the kernel-cost CIs overlap. The apparent kernel-cost gap (\SI{\regKernelNsCpp}{
 structure of Sec.~\ref{sec:eval-tails} (each C++ evaluation reaches its leaf through a
 pointer indirection, where the Rust engine reads a flat leaf array), though without
 hardware counters we present this attribution as arithmetic-plausible rather than
-counter-proven. The kd coefficient carries the further caveat of
-Sec.~\ref{sec:decomposition}: \kdnodes{} is counted on the Rust engine's traversal, so for
-C++ $b$ prices a \emph{Rust-reference} node count, a geometry-correlated proxy rather than
-a physical per-node cost of the uninstrumented pcl/FLANN traversal. The \emph{resolved}
+counter-proven. The kd coefficients are engine-own per-operation costs
+(\SI{\regKdNsCpp}{ns} per FLANN evaluation vs.\ \SI{\regKdNsRust}{ns} per node examined)
+and are not mutually comparable across engines. The \emph{resolved}
 engine comparison is the direct per-fixture one (Table~\ref{tab:tails}: max-latency ratios
 \tailsRatioMin--\tailsRatioMax, stable to $\pm\sessRatioSpreadWorst$ across sessions),
 which needs no decomposition. The kd term is second-order on the engine-tier worst set,
@@ -298,8 +346,10 @@ ${\approx}\SI{\realOffMapCppMed}{ms}$). The per-frame envelope rows of
 Table~\ref{tab:realdata} therefore use the on-map subset, while the $P$ and max-$K$
 contract checks, which do not depend on map coverage, use all frames. The align-time rows
 are additionally reported over the \emph{certified} subset (the \realOnMapMatch{} on-map
-frames whose equal-work certificate passed): the all-on-map rows are the system-level
-envelope, the certified rows the strict equal-work implementation comparison.
+frames whose base equal-iteration certificate passed): the all-on-map rows are the
+system-level envelope, the certified rows the equal-work implementation comparison. The
+stricter trace certificate subdivides the certified frames further
+(Sec.~\ref{sec:eval-tracecert}).
 
 Table~\ref{tab:realdata} shows the distributions; four observations. First, the observed
 inputs are consistent with the preprocessing contracts: $P \le \realPMax = 1500$ on all
@@ -335,9 +385,10 @@ on-map frames, so the equal-work rate over the frames doing meaningful matching 
 The initial exceptions exposed two port-fidelity gaps that translation-only synthetic
 fixtures are structurally blind to; fixing both reduced the divergence to the residual of
 \realDivergences{} frames (\realOnMapDivPct\% of on-map frames, \realDivPctAll\% of all
-captured frames) characterized in Sec.~\ref{sec:threats}. (The capture stores one shared
-iteration count plus the match verdict per frame; the signed per-engine iteration deltas
-and pose/score deltas of the divergent frames await an extended re-capture.)
+captured frames) characterized in Sec.~\ref{sec:threats}. (The traced replay of
+Sec.~\ref{sec:eval-tracecert} records per-engine iteration counts and pose deltas per
+frame: the divergent frames fork at a late pass and end up to
+$\pm\traceRealDivIterDeltaMax$ iterations and \SI{\traceRealDivTransDeltaMax}{m} apart.)
 
 Locating that residual sharpens its reading. The \realOnMap{} on-map frames form
 \realSegments{} contiguous segments (the reconstructed route repeatedly grazes the cropped
@@ -349,7 +400,8 @@ median ($\bar{K}$ \realDivKbarMin--\realDivKbarMax), iteration counts spanning
 \SI{\realDivCppMed}{ms}/\SI{\realDivCppMax}{ms} p50/max, Rust
 \SI{\realDivRustMed}{ms}/\SI{\realDivRustMax}{ms}, against the overall C++ maximum
 \SI{\realCppMax}{ms}). This is the signature of
-the knife-edge $\pm 1$-iteration mechanism of Sec.~\ref{sec:threats}, not of a systematic
+the knife-edge fork mechanism of Sec.~\ref{sec:threats} (a late derivative pass rounds
+differently and the engines then take different convergence paths), not of a systematic
 regime the certificate would be blind to.
 
 \input{tables/realdata}
