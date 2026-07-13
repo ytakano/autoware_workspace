@@ -415,9 +415,12 @@ the NDT measurement's own noise; the \SI{\traceRealTransDeltaMax}{m}--%
 production pipeline is built to attenuate --- the transform-probability/NVTL publish gates,
 the oscillation diagnostic (Sec.~\ref{sec:impl-legal}), the estimated pose covariance, and
 the downstream filter's innovation gating. Whether that attenuation fully absorbs an engine
-swap is a \emph{closed-loop} question our open-loop replay cannot answer; verifying that
-the divergent frames fall behind the quality gates (an offline re-analysis of this capture)
-or a closed-loop A/B remains future work.
+swap is a \emph{closed-loop} question that our open-loop replay cannot answer, so we state
+it as a deployment precaution rather than deferring it: any engine substitution should be
+accompanied by closed-loop validation, on-vehicle or in simulation, that monitors the
+quality-gate hit rate and the downstream filter's innovation statistics on exactly the
+ill-conditioned segments where the implementations can part ways (initialization,
+feature-poor geometry, map edges).
 
 \input{tables/realdata}
 
