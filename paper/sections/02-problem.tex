@@ -5,8 +5,8 @@
 \ndt{} registration~\cite{biber2003ndt,magnusson2009thesis} compresses the reference map into a
 voxel grid of Gaussians: each voxel with sufficiently many points stores the mean and
 (eigenvalue-regularized) covariance of the points inside it. Aligning a scan then maximizes a
-smooth likelihood --- each transformed source point scores against the Gaussian--uniform
-mixture of its nearby voxels --- over the six-degree-of-freedom pose (translation plus Euler
+smooth likelihood, in which each transformed source point scores against the Gaussian--uniform
+mixture of its nearby voxels, over the six-degree-of-freedom pose (translation plus Euler
 angles) by Newton's method. One align call runs up to \texttt{max\_iterations} Newton steps;
 each step transforms all $P$ source points, radius-searches a kd-tree of voxel centroids for
 each point's neighbor leaves (radius equal to the voxel size), accumulates the score, gradient,
@@ -17,8 +17,9 @@ stops when the pose update drops below a threshold $\epsilon$ or the iteration c
 The engine studied here is Autoware's production \emph{multigrid} variant of the multi-threaded
 \texttt{ndt\_omp} implementation~\cite{autoware,ndtomp}: the map is loaded dynamically as
 \emph{tiles} around the vehicle, each tile keeps its own voxel grid, and the kd-tree spans the
-leaf centroids of all loaded tiles --- so overlapping tiles multiply the leaves a radius search
-can return, a fact that matters for the worst case (Sec.~\ref{sec:implementation}). Throughout,
+leaf centroids of all loaded tiles. Overlapping tiles therefore multiply the leaves a radius
+search can return, a fact that matters for the worst case (Sec.~\ref{sec:implementation}).
+Throughout,
 the \emph{engine} is this align kernel with its map structures; the \emph{node} is the ROS
 component that feeds it (preprocessed scans, initial guesses from the localization filter, map
 tiles) and consumes its poses. We analyze the serial engine configuration
@@ -38,7 +39,7 @@ gradient, and Hessian: one initial pass evaluates the guess pose, then each Newt
 performs exactly one more at its trial step. The step-length procedure re-evaluates
 derivatives \emph{only} in its More--Thuente refinement loop (up to 10 further passes per
 iteration), which sits behind a \texttt{use\_line\_search} flag that the shipped
-configuration disables and the port implements as the default (disabled) path --- so
+configuration disables and the port implements as the default (disabled) path. Hence
 $N_{\mathrm{pass}} = N_{\mathrm{iter}}{+}1$ holds structurally, is machine-checked per input
 (Sec.~\ref{sec:methodology}), and holds exactly on every fixture and every real frame of
 Sec.~\ref{sec:eval-realdata}. The bound has exactly four data-dependent freedoms
@@ -47,7 +48,7 @@ and the behavior on violation):
 \begin{itemize}
   \item $N_{\mathrm{iter}} \le$ \texttt{max\_iterations}: the Newton iteration count (static
         loop guard; the shipped default is 30, hence $N_{\mathrm{pass}} \le 31$);
-  \item $P$: the source-cloud size --- a \emph{caller-side} bound (Autoware's shipped pipeline
+  \item $P$: the source-cloud size, a \emph{caller-side} bound (Autoware's shipped pipeline
         random-downsamples the scan to exactly $P \le 1500$ points); we use $P = 2000$ for the
         engine-level fixtures (a margin above the production cap) except in the scaling study
         of Sec.~\ref{sec:eval-psweep}, which validates that the bound is affine in $P$;

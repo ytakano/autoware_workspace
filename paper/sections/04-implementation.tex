@@ -16,12 +16,12 @@ the released per-run manifests).
 \begin{itemize}
   \item \textbf{Zero allocation from the first frame}: all align buffers are pre-reservable
     to their worst-case sizes ($P$, \maxnn, $N_{\mathrm{iter}}{+}1$); a counting global
-    allocator asserts zero allocations \emph{including} the first frame --- a growth event is
-    a WCET spike, so amortized warmup is not a bound.
+    allocator asserts zero allocations \emph{including} the first frame (a growth event is
+    a WCET spike, so amortized warmup is not a bound).
   \item \textbf{Recursion-free kd-tree}: the radius search runs an iterative walk over a fixed
     64-entry stack (depth $\le \lceil \log_2 N \rceil{+}1$ by the median build). The exact
-    near-then-far visit order is preserved --- neighbor order feeds float summation order,
-    i.e.\ bit-exactness --- and is differential-tested against the recursive oracle. The
+    near-then-far visit order is preserved (neighbor order feeds float summation order,
+    i.e.\ bit-exactness) and is differential-tested against the recursive oracle. The
     iterative form measured ${\approx}\oneoffKdIterSpeedup\%$ faster than the recursive one
     (same day, same core).
   \item \textbf{Panic-free, lock-free}: lint-enforced absence of panicking operations on the
@@ -33,31 +33,33 @@ the released per-run manifests).
 
 \paragraph{Sufficiency of the neighbor cap}
 The port caps the radius search at $\maxnn = 64$ where the C++ engine collects an unbounded
-neighbor set --- the cap is what makes the $P \cdot \maxnn \cdot N_{\mathrm{pass}}$
-decomposition exist at all. Its value is justified geometrically. A leaf's centroid lies inside
-its own voxel, and with the search radius equal to the voxel size (a coupling both engines'
-APIs enforce), the search ball has diameter two voxels and thus intersects at most three cells
-per axis: \emph{at most $3^3 = 27$ leaves per tile can ever be in range, regardless of map
-content}. Under the disjoint-tile contract, leaf multiplicity is 1, so 27 bounds the global
-count and $\maxnn = 64$ carries a $2.4\times$ margin --- truncation is unreachable and
-bit-exactness with the uncapped C++ engine is unconditional. (The measured maximum on a real
-map is \realKmaxMax, Sec.~\ref{sec:eval-realdata}: one above the voxel-center heuristic of 8,
-comfortably inside the 27.) Exceeding 64 requires at least three adversarially crowded \emph{overlapping}
-tiles --- inputs that leave the comparison domain $D$ of Sec.~\ref{sec:meth-transfer}. There
-the Rust engine truncates (its cost stays bounded) while the C++ engine's cost
-grows without bound with tile multiplicity: an asymmetry we report as a structural hazard of
-the uncapped implementation, not as something this analysis bounds. The equal-work assertion
-doubles as the runtime membership check for $D$ (truncation breaks equal work):
-\emph{dense-neighbors} sits exactly at the cap ($8 \times 8 = 64$ in-range leaves)
-and passes, certifying that the two engines still saw identical neighbor sets.
+neighbor set; the cap is what makes the $P \cdot \maxnn \cdot N_{\mathrm{pass}}$
+decomposition possible at all. Its value is justified geometrically. A leaf's centroid lies
+inside its own voxel, and with the search radius equal to the voxel size (a coupling both
+engines' APIs enforce), the search ball has diameter two voxels and thus intersects at most
+three cells per axis: \emph{at most $3^3 = 27$ leaves per tile can ever be in range,
+regardless of map content}. Under the disjoint-tile contract, leaf multiplicity is 1, so 27
+bounds the global count and $\maxnn = 64$ carries a $2.4\times$ margin: truncation is
+unreachable and bit-exactness with the uncapped C++ engine is unconditional. (The measured
+maximum on a real map is \realKmaxMax, Sec.~\ref{sec:eval-realdata}: one above the
+voxel-center heuristic of 8, comfortably inside the 27.)
+
+Exceeding 64 requires at least three adversarially crowded \emph{overlapping} tiles, i.e.\
+inputs that leave the comparison domain $D$ of Sec.~\ref{sec:meth-transfer}. There the Rust
+engine truncates (its cost stays bounded) while the C++ engine's cost grows without bound
+with tile multiplicity: an asymmetry we report as a structural hazard of the uncapped
+implementation, not as something this analysis bounds. The equal-work assertion doubles as
+the runtime membership check for $D$ (truncation breaks equal work): \emph{dense-neighbors}
+sits exactly at the cap ($8 \times 8 = 64$ in-range leaves) and passes, certifying that the
+two engines still saw identical neighbor sets.
 
 \subsection{Adversarial fixture construction (engine tier)}
 \label{sec:impl-fixtures}
 Four hand-built generators target one hazard each. \emph{Dense-neighbors} pins $K = \maxnn =
 64$ using 8 overlapping map tiles whose voxel centroids crowd shared block corners: a single
 tile geometrically caps $K$ at the ${\le}8$ voxels sharing a corner when the search radius
-equals the leaf size, so tile overlap --- which production dynamic map loading makes possible
-in principle --- is essential to reach the cap, and this is why the frozen fixture format
+equals the leaf size, so tile overlap, which production dynamic map loading makes possible
+in principle, is essential to reach the cap; this is why the frozen fixture format
 stores its map as tiles. \emph{Max-iterations} is a rough random surface with
 $\epsilon = 10^{-10}$ that never converges. \emph{Cache-hostile} scatters the source across a
 wide map in shuffled order. \emph{Subnormal} places the source on a shell where the kernel's
@@ -68,35 +70,36 @@ then composes and exceeds them.
 \label{sec:impl-legal}
 The fixtures above are \emph{engine-API-legal} but not \emph{preprocessing-reachable}: the
 production pipeline voxel-downsamples the scan (leaf \SI{3.0}{m}; no duplicate points), caps
-it at $P = 1500$ points (random downsample), and crops it to $\pm\SI{60}{m}$ --- and the map
+it at $P = 1500$ points (random downsample), and crops it to $\pm\SI{60}{m}$; the map
 pipeline emits disjoint, voxel-aligned tiles from a downsampled map, which caps leaf
-multiplicity at 1 and hence $K$ at the per-tile geometric ceiling of 27 (Sec.~B); the
+multiplicity at 1 and hence $K$ at the per-tile geometric ceiling of 27 derived above. (The
 voxel-center heuristic suggests the ${\le}8$ voxels sharing a corner, but real centroids sit
-anywhere inside their voxel and Sec.~\ref{sec:eval-realdata} observes $K = \realKmaxMax$
-(the parameter values are
-Autoware's shipped localization defaults). We therefore add a fifth fixture,
-\emph{legal-worst}: the hardest such input we \emph{constructed} --- a single tile
-whose per-voxel points are spaced to survive map downsampling (centroids ${\approx}$ voxel
-centers, $\sqrt{3} < 2.0$ from each lattice corner), and $P = 1500$ duplicate-free source
-points on distinct lattice corners at \SI{4}{m} pitch inside the crop, each collecting exactly
-$K = 8$ --- the voxel-center heuristic's maximum --- with $\epsilon = 10^{-10}$ pinning the
-iteration cap. Its counters certify the construction ($\bar{K} = \legalWorstKbar$ against the
-engine-level 64); it is the tier's \emph{witness} --- a constructed lower bound on the tier's
-worst case --- while the tier's provable ceiling remains $K \le 27$.
+anywhere inside their voxel, and Sec.~\ref{sec:eval-realdata} observes $K = \realKmaxMax$;
+the parameter values are Autoware's shipped localization defaults.) We therefore add a fifth
+fixture, \emph{legal-worst}: the hardest such input we \emph{constructed}. It uses a single
+tile whose per-voxel points are spaced to survive map downsampling (centroids
+${\approx}$ voxel centers, $\sqrt{3} < 2.0$ from each lattice corner), and $P = 1500$
+duplicate-free source points on distinct lattice corners at \SI{4}{m} pitch inside the crop,
+each collecting exactly $K = 8$, the voxel-center heuristic's maximum, with
+$\epsilon = 10^{-10}$ pinning the iteration cap. Its counters certify the construction
+($\bar{K} = \legalWorstKbar$ against the engine-level 64). It is the tier's \emph{witness},
+a constructed lower bound on the tier's worst case, while the tier's provable ceiling
+remains $K \le 27$.
 
 One axis of this fixture is deliberately \emph{not} production-parameterized: with the shipped
 $\epsilon = 0.01$, its smooth lattice geometry converges in \oneoffLegalWorstProdEpsIters{}
-iterations, so the fixture pins
-the iteration cap through $\epsilon$ instead. The cap assumption is nevertheless not
-hypothetical. Re-running the counter-guided search with the \emph{parameters frozen to the
-shipped values} and every candidate checked against the preprocessing contract by an
-independent legality verifier (one point per downsample cell, crop, $P$, and map-spacing
-invariants) found a fully legal rough-surface geometry that oscillates to the full
-\textbf{30 of 30} iterations at $\epsilon = 0.01$, frozen as \emph{legal-osc}. The production
-node also ships an oscillation-count diagnostic over its per-iteration pose array ---
-machinery that exists precisely because non-convergence occurs in the field (feature-poor
-geometry, map mismatch, coarse initialization guesses). Within this search family the two
-worst axes resist combination: reaching $K = 8$ wants a smooth lattice (which converges
-quickly), while oscillation wants roughness (which scatters centroids to $\bar{K} =
-\legalOscKbar$); \emph{legal-worst} ($\epsilon$-pinned, higher total cost) therefore remains
-the tier's hardest measured witness and \emph{legal-osc} its iteration-axis witness.
+iterations, so the fixture pins the iteration cap through $\epsilon$ instead. The cap
+assumption is nevertheless not hypothetical. Re-running the counter-guided search with the
+\emph{parameters frozen to the shipped values} and every candidate checked against the
+preprocessing contract by an independent legality verifier (one point per downsample cell,
+crop, $P$, and map-spacing invariants) found a fully legal rough-surface geometry that
+oscillates to the full \textbf{30 of 30} iterations at $\epsilon = 0.01$, frozen as
+\emph{legal-osc}. The production node also ships an oscillation-count diagnostic over its
+per-iteration pose array, machinery that exists precisely because non-convergence occurs in
+the field (feature-poor geometry, map mismatch, coarse initialization guesses).
+
+Within this search family the two worst axes resist combination: reaching $K = 8$ wants a
+smooth lattice (which converges quickly), while oscillation wants roughness (which scatters
+centroids to $\bar{K} = \legalOscKbar$). \emph{Legal-worst} ($\epsilon$-pinned, higher total
+cost) therefore remains the tier's hardest measured witness and \emph{legal-osc} its
+iteration-axis witness.

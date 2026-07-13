@@ -62,40 +62,27 @@ Deterministic Cost Search and Cross-Language Validation}
 \begin{abstract}
 Iterative scan-matching kernels such as the Normal Distributions Transform (\ndt) sit on the
 critical path of autonomous-vehicle localization, yet their execution time is strongly
-data-dependent, which makes worst-case execution time (WCET) analysis with classical static
-methods impractical. We present a hybrid WCET analysis of the align kernel of the Autoware
-\ndt{} scan matcher (map construction, preprocessing, and ROS scheduling are out of scope),
-built around a Rust port of the production C++ engine that is bit-exact on the tested domain.
-We establish a parametric bound on the algorithmic \emph{work} and empirically characterize
-the \emph{time per unit of work}; we do not claim a certified hard time bound on the
-evaluated platform. Deterministic algorithmic
-cost counters --- compiled to zero overhead when disabled --- serve both as machine-checked
-evidence for a structural work bound and as a platform-independent fitness function for a
-worst-input search; because the two implementations are bit-exact over the bounded-neighbor
-input domain (a runtime-checked condition), a worst input found on the
-instrumented Rust engine transfers verbatim to the uninstrumented C++ engine within that
-domain, with equal work
-certified per input by an iteration-count assertion; the same counter transfer is validated
-on a bare-metal AArch64 target, exactly, on all \raspiTotal{} frozen fixtures.
-The search saturates the
-analytic kernel-evaluation bound ($P \cdot \maxnn \cdot (N_{\mathrm{iter}}{+}1)$) exactly,
-and a
-controlled sweep shows the bound is affine in the scan size $P$. A two-tier formulation
-separates the engine-API worst case (unvalidated inputs) from the preprocessing-reachable one
+data-dependent, which makes classical static worst-case execution time (WCET) analysis
+impractical. We present a hybrid WCET analysis of the align kernel of the Autoware \ndt{}
+scan matcher (map construction, preprocessing, and ROS scheduling are out of scope), built
+around a Rust port of the production C++ engine that is bit-exact on a bounded-neighbor
+input domain. We establish a parametric bound on the algorithmic \emph{work} and empirically
+characterize the \emph{time per unit of work}; we do not claim a certified hard time bound
+on the evaluated platform. Deterministic algorithmic cost counters, compiled to zero
+overhead when disabled, serve both as machine-checked evidence for the work bound and as a
+platform-independent fitness function for a worst-input search. Bit-exactness carries each
+discovered worst input verbatim to the uninstrumented C++ engine, with equal work certified
+per input. The search saturates the analytic kernel-evaluation bound
+($P \cdot \maxnn \cdot (N_{\mathrm{iter}}{+}1)$) exactly, and a controlled sweep shows the
+bound is affine in the scan size $P$. A two-tier formulation separates the engine-API worst
+case from the preprocessing-reachable one
 ($\legalWorstRatioRust\times$--$\legalWorstRatioCpp\times$ apart on measured fixtures),
-quantifying the value of
-validating input contracts at the component boundary, and a
-57-minute real urban drive (\num{22416} aligns, \realOnMap{} of them exercising the map)
-provides one-drive evidence consistent with the contracts and margins --- its per-input
-certification also exposed, and led us to fix, two port-fidelity gaps invisible to synthetic
-fixtures, leaving a characterized residual of \realDivergences{} frames
-(\realOnMapDivPct\% of on-map aligns). Measurements show the Rust
-port meets or beats the C++ engine's observed maximum on every fixture (max-latency ratios
-\tailsRatioMin--\tailsRatioMax), while the C++ engine performs ${\approx}\allocPerPtPass$
-heap allocations per point per derivative pass (\allocWorstPerAlign{} per align on the worst
-fixture) against zero for Rust, verified by a counting allocator under a declared capacity
-contract; a unit-cost regression ties median latency to the
-counters with $R^2 \ge \regRsqRust$ on both engines.
+quantifying the value of input-contract validation at the component boundary. On a
+57-minute real urban drive, the per-input certification exposed, and led us to fix, two
+port-fidelity gaps invisible to synthetic fixtures (\realDivergences{} residual divergent
+frames). The Rust port meets or beats the C++ engine's observed maximum on every fixture,
+while eliminating the C++ engine's ${\approx}\allocPerPtPass$ heap allocations per point
+per derivative pass.
 \end{abstract}
 
 \begin{IEEEkeywords}

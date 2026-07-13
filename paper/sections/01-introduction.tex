@@ -4,10 +4,10 @@
 % Para 1: the deadline problem. LiDAR localization at 10 Hz; NDT align on the critical path;
 % a missed/late pose estimate degrades downstream planning and control.
 An autonomous vehicle localizes by registering each incoming LiDAR scan against a pre-built
-point-cloud map; in Autoware~\cite{autoware}, an open-source production driving stack, the
+point-cloud map. In Autoware~\cite{autoware}, an open-source production driving stack, the
 primary matcher is the Normal Distributions Transform (\ndt)~\cite{biber2003ndt}: a
 Newton-optimized alignment of the downsampled scan against a voxelized Gaussian map, executed
-once per scan at the sensor rate --- typically 10\,Hz, i.e.\ a \SI{100}{ms} period. The
+once per scan at the sensor rate (typically 10\,Hz, i.e.\ a \SI{100}{ms} period). The
 resulting pose feeds the extended Kalman filter (EKF), planner, and controller on the critical
 path, and a \emph{late} pose is operationally as bad as a wrong one: consumers fall back to
 dead-reckoning extrapolation whose error grows with vehicle speed, and sustained overruns
@@ -16,8 +16,8 @@ not the average align time but its worst case: does one \ndt{} align \emph{alway
 period?
 
 % Para 1b: the spread we actually observe motivates the question empirically.
-The question has teeth because the align time is violently input-dependent. On the engines
-studied here, adversarially constructed --- yet parameter-legal --- map/scan geometries stretch
+The question is acute because the align time is strongly input-dependent. On the engines
+studied here, adversarially constructed yet parameter-legal map/scan geometries stretch
 one serial align from under \SI{10}{ms} to nearly a second on the same desktop-class core
 (Sec.~\ref{sec:evaluation}): two orders of magnitude, and well past a 10\,Hz budget. Whether
 production configurations can approach such inputs, and with what margin, cannot be answered by
@@ -27,19 +27,19 @@ observing nominal traffic; it requires a worst-case analysis.
 % (bounded but input-dependent), per-point neighbor counts, kd-tree traversal shape all depend
 % on the map/scan geometry. Static WCET tools need loop bounds that are input properties.
 Data-dependent, iterative optimization kernels resist classical static worst-case
-execution-time (WCET) analysis: the dominant loop bounds --- Newton iteration count, per-point
-neighbor multiplicity, kd-tree traversal length --- are properties of the input geometry, not
-of the program text. Exhaustive input enumeration is hopeless; naive fuzzing with wall-clock
-fitness is noisy, machine-specific, and unreproducible.
+execution-time (WCET) analysis: the dominant loop bounds (Newton iteration count, per-point
+neighbor multiplicity, kd-tree traversal length) are properties of the input geometry, not
+of the program text. Exhaustive input enumeration is infeasible, and naive fuzzing with
+wall-clock fitness is noisy, machine-specific, and unreproducible.
 
 % Para 3: the opportunity. A bit-exact Rust port of the C++ engine exists (motivated by a
 % no_std kernel deployment). Bit-exactness = identical FP operand streams = identical
 % iteration counts and neighbor sets for the same input.
 This work exploits an unusual asset: a \emph{bit-exact} Rust port of the production C++ engine,
 originally motivated by deployment on a bare-metal real-time kernel (a \texttt{no\_std}
-environment, i.e.\ Rust without its standard library). Bit-exactness means both implementations
-perform the \emph{same algorithmic work} --- same iteration count, same neighbor
-sets, same floating-point operand streams --- on any input in a bounded-neighbor domain made
+environment, i.e.\ Rust without its standard library). Bit-exactness means that both
+implementations perform the same algorithmic work (same iteration count, same neighbor
+sets, same floating-point operand streams) on any input in a bounded-neighbor domain made
 precise in Sec.~\ref{sec:methodology}, so within that domain any statement about one engine's
 work transfers to the other.
 
@@ -48,36 +48,30 @@ Our contributions:
 \begin{enumerate}
   \item A \textbf{three-layer hybrid WCET methodology} for data-dependent kernels: (i)~a
     structural work bound whose terms are enforced by construction and machine-checked by
-    property-based tests; (ii)~a worst-input search guided by \emph{deterministic algorithmic
-    cost counters} (platform-independent, zero-overhead when disabled); (iii)~controlled
-    measurement on the frozen worst inputs, with a diagnostics-gated extreme-value analysis
-    in the style of measurement-based probabilistic timing analysis (MBPTA) --- the
-    diagnostics, not the fits, decide what may be extrapolated.
+    property-based tests; (ii)~a worst-input search guided by deterministic algorithmic
+    cost counters, which are platform-independent and zero-overhead when disabled;
+    (iii)~controlled measurement on the frozen worst inputs, with a diagnostics-gated
+    extreme-value analysis in the style of measurement-based probabilistic timing analysis
+    (MBPTA), where the diagnostics, not the fits, decide what may be extrapolated.
   \item A \textbf{cross-language transfer argument}: instrumenting only the Rust port suffices,
     because bit-exactness over the bounded-neighbor domain $D$ (Sec.~\ref{sec:meth-transfer})
-    carries the discovered worst inputs to the unmodified C++ engine;
-    equal work is certified \emph{per input} by an iteration-count assertion that doubles as
-    the runtime membership check for $D$. The
-    certification earns its keep: on real map data it exposed --- and led us to fix --- two
-    port-fidelity gaps that translation-only synthetic fixtures are structurally blind to,
-    leaving a characterized residual of \realDivergences{} frames (\realOnMapDivPct\% of the
-    on-map aligns; Sec.~\ref{sec:threats}).
+    carries the discovered worst inputs to the unmodified C++ engine, with equal work
+    certified \emph{per input} by an iteration-count assertion that doubles as the runtime
+    membership check for $D$. On real map data this certification exposed, and led us to
+    fix, two port-fidelity gaps that synthetic fixtures are structurally blind to
+    (Sec.~\ref{sec:threats}).
   \item \textbf{Evidence that the search is effective}: it saturates the analytic
     kernel-evaluation maximum $P \cdot \maxnn \cdot (N_{\mathrm{iter}}{+}1)$ exactly, then
     grows the remaining free term (kd-tree traversal) by a further \searchKdGrowthPct\%.
-  \item An \textbf{industrial case study}: on every adversarial fixture the Rust port's
-    observed maximum is at or below C++'s (ratios \tailsRatioMin--\tailsRatioMax); the C++
-    engine makes ${\approx}\allocPerPtPass$ heap allocations per point per derivative pass
-    (up to \allocWorstPerAlign{} per
-    align), a structural unbounded-latency hazard the Rust port eliminates by construction
-    (zero-allocation under a declared capacity contract, recursion-free, panic-free ---
-    enforced by construction and lint, verified dynamically). A \textbf{two-tier bound}
-    separates
+  \item An \textbf{industrial case study}. On every adversarial fixture the Rust port's
+    observed maximum is at or below C++'s (ratios \tailsRatioMin--\tailsRatioMax), and the
+    port eliminates by construction the C++ engine's ${\approx}\allocPerPtPass$ heap
+    allocations per point per derivative pass (up to \allocWorstPerAlign{} per align), a
+    structural unbounded-latency hazard (the port is zero-allocation under a declared
+    capacity contract, recursion-free, and panic-free). A \textbf{two-tier bound} separates
     the engine-API worst case (unvalidated inputs over $D$) from the preprocessing-reachable
-    one ---
-    each axis of the deployment tier backed by a legal witness input --- quantifying what
-    enforcing input contracts at the component boundary buys (a measured
-    $\legalWorstRatioRust\times$ here, provably ${\ge}2.4\times$ on the kernel term). A
-    57-minute real drive provides one-drive evidence
-    consistent with the contracts and the margins.
+    one, each axis of the deployment tier backed by a legal witness input; the gap (a
+    measured $\legalWorstRatioRust\times$, provably ${\ge}2.4\times$ on the kernel term)
+    quantifies what enforcing input contracts at the component boundary buys. A 57-minute
+    real drive provides one-drive evidence consistent with the contracts and the margins.
 \end{enumerate}

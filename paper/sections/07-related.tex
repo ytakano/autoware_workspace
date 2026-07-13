@@ -5,8 +5,8 @@
 Static analyzers in the aiT tradition compute certified bounds from abstract cache and pipeline
 models~\cite{ferdinand2001ait}; Wilhelm et al.~\cite{wilhelm2008wcet} survey the field. These
 methods excel on control-dominated code whose loop bounds are program constants or annotatable
-invariants. In our kernel the dominant bounds --- Newton iteration count, per-point neighbor
-multiplicity, kd-tree traversal length --- are properties of the \emph{input geometry}: static
+invariants. In our kernel the dominant bounds (Newton iteration count, per-point neighbor
+multiplicity, kd-tree traversal length) are properties of the \emph{input geometry}: static
 analysis alone can only return the product of the individual maxima
 (Eq.~\eqref{eq:decomp}), with no evidence that any input realizes it. Our Layer~1 keeps the
 spirit of the static bound but enforces each term by construction and discharges it by
@@ -22,7 +22,7 @@ procedures~\cite{hansen2009statistical}, and reusable tooling~\cite{reghenzani20
 We attack representativity from the input side: instead of sampling ``representative'' inputs,
 we \emph{search} for adversarial ones with a deterministic, platform-independent fitness, and
 certify for the dominant term that the search reached the analytic maximum. On the frozen
-worst inputs we then run the POT/MLE machinery with its diagnostic checklist --- and report
+worst inputs we then run the POT/MLE machinery with its diagnostic checklist, and we report
 that the diagnostics, not the fits, decide what may be extrapolated
 (Sec.~\ref{sec:eval-evt}).
 
@@ -33,7 +33,7 @@ execution time} as fitness and note the complementarity with static analysis. Wa
 fitness is noisy, machine-specific, and unreproducible across platforms. Our fitness is a
 vector of deterministic algorithmic cost counters: the search result is a property of the
 algorithm rather than of the measurement machine, runs are exactly reproducible from a seed,
-and the outcome can be checked against the analytic bound --- the saturation certificate of
+and the outcome can be checked against the analytic bound: the saturation certificate of
 Sec.~\ref{sec:eval-search} has no analogue under time-based fitness. The counters also enable
 the cross-language transfer: a worst input found on the instrumented port stresses the
 uninstrumented production engine equally, certified per input over the bounded-neighbor
@@ -51,8 +51,8 @@ Rust's ownership model underpins systems such as the Tock embedded
 OS~\cite{levy2017tock}, and RustBelt~\cite{jung2018rustbelt} gives machine-checked foundations
 for its safety claims. That line of work targets \emph{memory} safety; WCET requires more:
 panic-freedom, allocation-freedom, recursion-freedom, and bounded loops on the hot path. We
-show these can be made lint- and test-enforced properties of a production kernel, and --- the
-step we believe is new --- that a \emph{bit-exact} port is not just a migration artifact but an
+show these can be made lint- and test-enforced properties of a production kernel, and, in a
+step we believe is new, that a \emph{bit-exact} port is not just a migration artifact but an
 analysis instrument: it lets the memory-safe implementation carry the instrumentation burden
 for both languages.
 
