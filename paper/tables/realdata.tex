@@ -16,7 +16,9 @@ max $K$ (per point) & 0 & 8 & 9 \\
 kd nodes / pt & 61.8 & 108.8 & 111.6 \\
 C++ align (\si{ms}) & 106.47 & 128.98 & 133.33 \\
 Rust align (\si{ms}) & 20.94 & 49.48 & 57.21 \\
+C++ align, certified$^{\dagger}$ (\si{ms}) & 106.65 & 128.98 & 133.33 \\
+Rust align, certified$^{\dagger}$ (\si{ms}) & 20.59 & 49.48 & 57.21 \\
 \bottomrule
 \end{tabular}
-\par\smallskip\footnotesize $P$ and max $K$ over all \num{22416} frames; other rows over the \num{501} on-map frames (frames whose radius searches return any neighbor; the drive leaves the benchmark's cropped map after frame \num{539}). Equal work: \num{22388}/\num{22416} overall, on-map \num{473}/\num{501} (94.4\%) --- all 28 divergences are on-map.
+\par\smallskip\footnotesize $P$ and max $K$ over all \num{22416} frames; other rows over the \num{501} on-map frames (frames whose radius searches return any neighbor; the drive leaves the benchmark's cropped map after frame \num{539}). Equal work: \num{22388}/\num{22416} overall, on-map \num{473}/\num{501} (94.4\%) --- all 28 divergences are on-map. $^{\dagger}$certified = the 473 on-map frames whose equal-work certificate passed (strict implementation comparison); the plain align rows include the 28 divergent frames and are a system-level reading.
 \end{table}

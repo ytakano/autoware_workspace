@@ -155,41 +155,58 @@ is what its kd-dominated cost structure predicts.
 
 \subsection{Unit-cost regression}
 \label{sec:eval-regression}
-Regressing median latency on the (shared) counters over the fixtures pooled with the
-$P$-sweep points ($n = \regN$ per engine) yields $R^2 \ge \regRsqRust$ for both engines
-(Table~\ref{tab:regression}), and the model predicts held-out points with a median
-leave-one-out error of \regLooMedCpp\% (C++) / \regLooMedRust\% (Rust).
+We estimate the unit costs of the counter-form bound (Sec.~\ref{sec:decomposition}) by
+regressing median latency on the counters over the fixtures pooled with the $P$-sweep
+points ($n = \regN$ per engine), fitting two nested models per engine: the two-term model
+$T \approx a\cdot\sumnbr + b\cdot\kdnodes + c$ and the four-term model that adds the
+per-point fixed cost $c_{\mathrm{pt}} \cdot N_{\mathrm{pts}}$ (Table~\ref{tab:regression}).
+The added axis matters for exactly one engine. For C++ it is resolved and physical:
+$c_{\mathrm{pt}} = \SI{\regPtUsCpp}{\micro\second}$ per point
+[\regPtUsCppLo,\,\regPtUsCppHi], independently corroborating the
+${\approx}\subnormalPtPassCppUs$\,\si{\micro\second} per-point overhead measured on the
+neighbor-sparse fixtures in Sec.~\ref{sec:eval-tails}, and adding it collapses the worst
+leave-one-out miss from \regLooMaxCppTwoTerm\% to \regLooMaxCppFourTerm\% (median
+\regLooMedCpp\%). For Rust the same term is degenerate: the fitted $c_{\mathrm{pt}}$ is
+\emph{negative} (\SI{\regPtUsRustFour}{\micro\second}, CI
+[\regPtUsRustFourLo,\,\regPtUsRustFourHi] --- nonphysical, the sign inverted by the
+collinear design), and the worst leave-one-out miss \emph{grows} from
+\regLooMaxRustTwoTerm\% to \regLooMaxRustFourTerm\%, because the port's true per-point
+cost (${\approx}\subnormalPtPassRustUs$\,\si{\micro\second}, measured directly in
+Sec.~\ref{sec:eval-tails}) sits below this design's resolution. We therefore adopt the
+four-term model for C++ and the two-term model for Rust ($\star$ in
+Table~\ref{tab:regression}): the axis the two-term model was missing is a \emph{C++}
+phenomenon (the allocator and per-query search machinery of
+Secs.~\ref{sec:eval-tails}--\ref{sec:eval-alloc}), and its absence from the Rust fit is
+consistent with the port removing exactly that machinery.
 
-Three diagnostics scope the fit. First, the regressors are nearly collinear over this
-design (correlation \regCorr): costly geometries grow both counters together, so the
-individual coefficients share variance and carry the wide bootstrap CIs shown in the table;
-the combined prediction is far better identified than either coefficient alone. Second, the
-worst leave-one-out miss is \regLooWorstRust{} (\regLooMaxCpp\%/\regLooMaxRust\%): the
-neighbor-sparse fixture whose cost the two-term model cannot see because it is dominated by
-the per-point constant overhead identified in Sec.~\ref{sec:eval-tails}, corroborating that
-analysis. Third, the negative Rust intercept is a fitting artifact whose bootstrap CI
-covers zero.
+Three diagnostics scope the fits. First, the regressors are nearly collinear over this
+design (worst pairwise correlation \regCorr; on the $P$-sweep subset $N_{\mathrm{pts}}$
+and \sumnbr{} are exactly proportional), so the individual coefficients share variance and
+carry the wide bootstrap CIs shown in the table; the combined prediction is far better
+identified than any single coefficient. Second, the adopted models' remaining worst
+leave-one-out misses are \regLooWorstCpp{} (\regLooMaxCpp\%, C++) and \regLooWorstRust{}
+(\regLooMaxRust\%, Rust): the Rust two-term model still cannot see the (small) per-point
+constant on the neighbor-sparse fixtures. Third, the negative Rust intercept is a fitting
+artifact whose bootstrap CI covers zero.
 
-What survives these diagnostics: the model is predictive \emph{on the dense-neighbor and
-$P$-sweep regime that dominates this design} (median leave-one-out error
-\regLooMedCpp\%/\regLooMedRust\%) but inadequate for neighbor-sparse inputs dominated by
-the per-point constant overhead (worst miss \regLooMaxCpp\%/\regLooMaxRust\%), and the
-individual coefficients are not statistically resolved on this design. The point estimates
-suggest a per-kernel-evaluation cost of \SI{\regKernelNsCpp}{ns} (C++) vs.\
-\SI{\regKernelNsRust}{ns} (Rust), yet their 95\% CIs overlap, so we treat the
-coefficient-level gap as indicative only. The kd coefficient carries a further caveat:
-\kdnodes{} is counted on the Rust engine's traversal (Sec.~\ref{sec:decomposition}), so for
-C++ the coefficient prices a \emph{Rust-reference} node count, a geometry-correlated proxy
-rather than a physical per-node cost of the uninstrumented pcl/FLANN traversal. The
-\emph{resolved} engine comparison is the direct per-fixture one
-(Table~\ref{tab:tails}: max-latency ratios \tailsRatioMin--\tailsRatioMax, stable to
-$\pm\sessRatioSpreadWorst$ across sessions), which needs no decomposition. The kd term is
-second-order on the engine-tier worst set, though it dominates the deployment tier
-(Sec.~\ref{sec:eval-twotier}). The apparent per-kernel-evaluation gap is consistent with
-the same overhead structure as above (each C++ evaluation reaches its leaf through a
-pointer indirection with the per-query machinery amortized over few neighbors, where the
-Rust engine reads a flat leaf array), though without hardware counters we present this
-attribution as arithmetic-plausible rather than counter-proven.
+What survives these diagnostics: within the adopted models, prediction is accurate on the
+dense-neighbor and $P$-sweep regime that dominates the design (median leave-one-out error
+\regLooMedCpp\%/\regLooMedRust\%), and the C++ four-term fit now also covers the
+neighbor-sparse regime. Coefficient-level \emph{cross-engine} comparisons remain
+indicative only: the adopted models differ in form, and even under a common two-term model
+the kernel-cost CIs overlap. The apparent kernel-cost gap (\SI{\regKernelNsCpp}{ns} vs.\
+\SI{\regKernelNsRust}{ns} under the adopted models) is consistent with the overhead
+structure of Sec.~\ref{sec:eval-tails} (each C++ evaluation reaches its leaf through a
+pointer indirection, where the Rust engine reads a flat leaf array), though without
+hardware counters we present this attribution as arithmetic-plausible rather than
+counter-proven. The kd coefficient carries the further caveat of
+Sec.~\ref{sec:decomposition}: \kdnodes{} is counted on the Rust engine's traversal, so for
+C++ $b$ prices a \emph{Rust-reference} node count, a geometry-correlated proxy rather than
+a physical per-node cost of the uninstrumented pcl/FLANN traversal. The \emph{resolved}
+engine comparison is the direct per-fixture one (Table~\ref{tab:tails}: max-latency ratios
+\tailsRatioMin--\tailsRatioMax, stable to $\pm\sessRatioSpreadWorst$ across sessions),
+which needs no decomposition. The kd term is second-order on the engine-tier worst set,
+though it dominates the deployment tier (Sec.~\ref{sec:eval-twotier}).
 
 \input{tables/regression}
 
@@ -207,9 +224,9 @@ Table~\ref{tab:psweep} and Fig.~\ref{fig:psweep} show the result: both engines a
 $P$ with $R^2 = \psweepRsqCpp{}$ (C++) and $\psweepRsqRust{}$ (Rust) on the \emph{max} series;
 no cache knee is visible over the tested range. The fitted worst-case cost is
 \SI{\psweepSlopeCpp}{\micro\second} (C++) vs.\ \SI{\psweepSlopeRust}{\micro\second} (Rust)
-per source point, consistent with the per-kernel-evaluation costs of
+per source point, consistent with the unit costs of
 Sec.~\ref{sec:eval-regression} (${\approx}64$ kernel evaluations $\times$ 31 passes per
-point).
+point, plus the per-point and traversal terms).
 
 The affine envelope makes the result \emph{parametric in the caller's contract}: inverting it
 against the \SI{100}{ms} (10\,Hz) budget gives a maximum admissible downsampled-scan size of
@@ -279,7 +296,10 @@ its radius searches returns a neighbor ($\sumnbr > 0$); on the remaining \realOf
 (iteration count p50 $= \realOffMapIterMed$, C++ p50
 ${\approx}\SI{\realOffMapCppMed}{ms}$). The per-frame envelope rows of
 Table~\ref{tab:realdata} therefore use the on-map subset, while the $P$ and max-$K$
-contract checks, which do not depend on map coverage, use all frames.
+contract checks, which do not depend on map coverage, use all frames. The align-time rows
+are additionally reported over the \emph{certified} subset (the \realOnMapMatch{} on-map
+frames whose equal-work certificate passed): the all-on-map rows are the system-level
+envelope, the certified rows the strict equal-work implementation comparison.
 
 Table~\ref{tab:realdata} shows the distributions; four observations. First, the observed
 inputs are consistent with the preprocessing contracts: $P \le \realPMax = 1500$ on all
@@ -315,15 +335,20 @@ on-map frames, so the equal-work rate over the frames doing meaningful matching 
 The initial exceptions exposed two port-fidelity gaps that translation-only synthetic
 fixtures are structurally blind to; fixing both reduced the divergence to the residual of
 \realDivergences{} frames (\realOnMapDivPct\% of on-map frames, \realDivPctAll\% of all
-captured frames) characterized in Sec.~\ref{sec:threats}.
+captured frames) characterized in Sec.~\ref{sec:threats}. (The capture stores one shared
+iteration count plus the match verdict per frame; the signed per-engine iteration deltas
+and pose/score deltas of the divergent frames await an extended re-capture.)
 
 Locating that residual sharpens its reading. The \realOnMap{} on-map frames form
 \realSegments{} contiguous segments (the reconstructed route repeatedly grazes the cropped
 map's edge before leaving it); the \realDivergences{} divergences cluster in
 \realDivSegments{} of them, yet look like ordinary frames: $\bar{K}$ near the on-map
-median, iteration counts spanning \realDivIterMin--\realDivIterMax{} with only
-\realDivAtCap{} at the cap, and none is the worst frame (divergent-frame C++ maximum
-\SI{\realDivCppMax}{ms} against the overall \SI{\realCppMax}{ms}). This is the signature of
+median ($\bar{K}$ \realDivKbarMin--\realDivKbarMax), iteration counts spanning
+\realDivIterMin--\realDivIterMax{} with only
+\realDivAtCap{} at the cap, and none is the worst frame (divergent frames: C++
+\SI{\realDivCppMed}{ms}/\SI{\realDivCppMax}{ms} p50/max, Rust
+\SI{\realDivRustMed}{ms}/\SI{\realDivRustMax}{ms}, against the overall C++ maximum
+\SI{\realCppMax}{ms}). This is the signature of
 the knife-edge $\pm 1$-iteration mechanism of Sec.~\ref{sec:threats}, not of a systematic
 regime the certificate would be blind to.
 

@@ -29,8 +29,8 @@ tiles) and consumes its poses. We analyze the serial engine configuration
 \label{sec:decomposition}
 For one align call:
 \begin{equation}
-  T \;\le\; N_{\mathrm{pass}} \cdot \Bigl[\; \sum_{p=1}^{P} \bigl( T_{\mathrm{search}}(p) +
-      K(p)\, T_{\mathrm{kernel}} \bigr) + T_{\mathrm{solve}} \Bigr],
+  T \;\le\; N_{\mathrm{pass}} \cdot \sum_{p=1}^{P} \bigl( T_{\mathrm{search}}(p) +
+      K(p)\, T_{\mathrm{kernel}} \bigr) \;+\; N_{\mathrm{iter}} \cdot T_{\mathrm{solve}},
   \label{eq:decomp}
 \end{equation}
 with $N_{\mathrm{pass}} = N_{\mathrm{iter}} + 1$,
@@ -57,8 +57,8 @@ and the behavior on violation):
   \item the kd-tree traversal length per query (worst case $O(N_{\mathrm{leaves}})$,
         geometry-dependent).
 \end{itemize}
-$T_{\mathrm{solve}}$ (a fixed-size $6{\times}6$ solve) and the per-point transform are
-input-independent. We write \sumnbr{} for the total number of (point, leaf) kernel evaluations
+$T_{\mathrm{solve}}$ (a fixed-size $6{\times}6$ solve, performed once per Newton iteration;
+the initial pass has none) and the per-point transform are input-independent. We write \sumnbr{} for the total number of (point, leaf) kernel evaluations
 in an align call, \kdnodes{} for the total number of kd-tree nodes visited, and $\bar{K} =
 \sumnbr / (\text{points processed})$ for the mean neighbor count per point; these are the
 \emph{work counters} that Sec.~\ref{sec:methodology} turns into instrumentation. \sumnbr{}
@@ -67,6 +67,13 @@ neighbor sets), whereas \kdnodes{} is counted on the Rust engine's traversal: th
 engine walks its own pcl/FLANN structures, which are not instrumented, so for C++ the
 counter serves as a geometry-correlated traversal proxy
 (Sec.~\ref{sec:eval-regression}).
+In counter form the bound reads
+$T \le c_0 + c_{\mathrm{pt}}\, N_{\mathrm{pts}} + c_{\mathrm{nbr}}\, \sumnbr +
+c_{\mathrm{kd}}\, \kdnodes + c_{\mathrm{solve}}\, N_{\mathrm{iter}}$, where
+$N_{\mathrm{pts}} = P \cdot N_{\mathrm{pass}}$ is the total number of points processed and
+$c_{\mathrm{pt}}$ prices the per-point fixed work (transform, query setup) that is
+independent of the neighbor count; Sec.~\ref{sec:eval-regression} estimates the unit
+costs.
 Equation~\eqref{eq:decomp} is a \emph{work} bound; converting work to time is
 platform-specific and is where measurement enters.
 
