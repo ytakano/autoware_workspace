@@ -4,3 +4,4 @@ log/
 install/
 autoware/
 awkernel/
+paper/scripts/__pycache__/
