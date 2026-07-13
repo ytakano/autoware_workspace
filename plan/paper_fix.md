@@ -311,13 +311,30 @@ concentrates far below the 27 ceiling.
 - Acceptance: the deployment tier has a frozen witness with K ≥ 9, or a documented negative
   search result strengthening the empirical case that legal K stays far below 27.
 
-### B4 (#9) Pareto archive + cheap ablations — deferred (run with C1)
+### B4 (#9) Pareto archive + cheap ablations — **DONE (2026-07-13)**
 
-Assessed 2026-07-12: needs a search-driver restructure (non-dominated archive) plus *timing*
-of every frontier candidate — timing that would come from the deprecated powersave setup and
-be re-measured in C1 anyway. Decision: implement the Pareto archive + hill-climb-vs-random /
-multi-seed ablations together with the C1 campaign so the frontier candidates are measured
-once, under the final protocol.
+Executed right after the C1 Profile-B campaign (environment still green, before the
+Profile-A GRUB switch). `wcet_search.rs` gained env-gated `WCET_SEARCH_MODE=hill|random`,
+`WCET_SEARCH_FITNESS=counters|time`, `WCET_SEARCH_JSON`, `WCET_SEARCH_PARETO_DIR` (default
+behavior byte-identical; regression reproduced search-00/01 exactly). Results (frozen in
+`paper/data/search_ablation.json`; emitted as `tab:ablation` + `\ablation*` macros): hill
+saturates Σnbr at the analytic max on all 4 seeds — the domain-informed seed attains it at
+eval 1, the climb grows kd (8.88→12.01 M); budget-matched random (126 evals) never saturates
+(85.9–97.1%); two same-seed wall-clock-fitness runs return different champions
+(irreproducibility demonstrated). Global counter-Pareto frontier = 3 points (search-00 + two
+kd-heavier/nbr-lighter candidates); both timed under Profile B against a same-series
+search-00 anchor: C++ ×0.936/×0.910 (champion stays time-worst), but on **Rust the
+kd-heaviest member exceeds the champion ×1.011 (consistent at p50)** — the port's cheaper
+kernel evaluation shifts time-weight toward traversal, so the engines' time-worst inputs
+need not coincide. Reported as a finding (§V-B; the §VI kd-hedge now cites it); search-00
+kept as the cross-language union-worst; no re-baselining. Fixtures in
+`bench/fixtures/pareto/` (gitignored), runs in `bench/campaign_runs/pareto/`.
+
+Original assessment (2026-07-12): needs a search-driver restructure (non-dominated archive)
+plus *timing* of every frontier candidate — timing that would come from the deprecated
+powersave setup and be re-measured in C1 anyway. Decision: implement the Pareto archive +
+hill-climb-vs-random / multi-seed ablations together with the C1 campaign so the frontier
+candidates are measured once, under the final protocol.
 
 - Modify the search driver to archive the counter-space **Pareto frontier** (N_iter, Σnbr, Σkd)
   instead of only the lexicographic best; measure every frontier candidate on the host; report
@@ -531,7 +548,7 @@ extra drives are declared future work unless time permits.
 
 - #1 → A3 ✓ + B3 ✓ - #2 → A4 ✓ - #3 → B1 ✓ (+ A6 ✓ wording)
 - #4 → A5 ✓ - #5 → A6 ✓ - #6 → C1 + C3 (✓ counters on hardware; timing rides C1)
-- #7 → A2 ✓ + A6 ✓ + C2 - #8 → A2 ✓ + C4 - #9 → B4 (rides C1)
+- #7 → A2 ✓ + A6 ✓ + C2 ✓ - #8 → A2 ✓ + C4 - #9 → B4 ✓
 - #10 → A1 ✓ + B5 ✓ - #11 → B2 ✓
 - Review's title/abstract suggestions → A6 ✓.
 
@@ -694,6 +711,18 @@ extra drives are declared future work unless time permits.
   strength: the statistics were done right, and done right they refuse the extrapolation
   the old n=10 fit pretended to make. Remaining M4: Profile A + bridge (frame freezer), B4,
   C3 target timing.
+- 2026-07-13: **B4 done (review #9 closed)** — search driver extended (Pareto archive +
+  mode/fitness ablation switches, env-gated, default byte-identical); 9 ablation runs +
+  Profile-B frontier timing with a same-series search-00 anchor. Headline: hill saturates
+  Σnbr on every seed (seed construction attains it at eval 1; climb grows kd), random never
+  saturates in the same budget, same-seed time-fitness runs diverge; the 3-point
+  counter-Pareto frontier keeps search-00 as the C++ time-worst (×0.936/×0.910) but on Rust
+  the kd-heaviest member exceeds it ×1.011 — language-dependent time-weighting, reported as
+  a finding in §V-B with the §VI kd-hedge citing it; no re-baselining. New:
+  `data/search_ablation.json`, `tab:ablation` + `\ablation*` macros (guards: saturation,
+  frontier-vs-baseline counters, iter_match, time-fitness irreproducibility), §III-B Pareto/
+  ablation protocol paragraph, §V-B results, scoped the "dominates every percentile" claim.
+  Remaining M4: Profile A + bridge (frame freezer), C3 target timing; then M5.
 
 ## Cross-references
 

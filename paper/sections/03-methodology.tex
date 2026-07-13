@@ -30,6 +30,13 @@ $(N_{\mathrm{iter}}, \sumnbr, \kdnodes)$. Because the fitness is a pure function
 the search is reproducible, and its result is a property of the \emph{algorithm}, not of the
 measurement machine. $P$ is deliberately \emph{not} a search freedom: it is a caller-side cap,
 and searching it would saturate trivially while masking the interesting terms.
+A lexicographic scalarization need not rank the \emph{time}-worst input first --- an input
+with fewer kernel evaluations but heavier traversal could be slower --- so the search
+additionally archives the non-dominated (Pareto) frontier over the counter vector across
+\emph{all} evaluations, and every frontier member is frozen and timed under the same
+controlled protocol as the champion; the search protocol itself is ablated (hill-climb vs.\
+budget-matched random sampling, counter vs.\ wall-clock fitness, across seeds) in
+Sec.~\ref{sec:eval-search}.
 
 \subsection{Cross-language transfer via bit-exactness}
 \label{sec:meth-transfer}

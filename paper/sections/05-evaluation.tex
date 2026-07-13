@@ -27,10 +27,38 @@ kernel-count-optimal --- and then grows the remaining free term \kdnodes{} by a 
 \searchKdGrowthPct\% (\oneoffKdGenZeroM\,M $\rightarrow$ \searchZeroKdM\,M, map extent 6
 $\rightarrow$ 9 blocks; the generation-0 value is from the recorded search log, the final
 value from the frozen fixture's counters).
-The frozen union-worst fixture (\emph{search-00}) dominates every measured engine on every
-percentile. Table~\ref{tab:counters} lists the frozen set.
+The frozen union-worst fixture (\emph{search-00}) dominates every other frozen fixture on
+every engine and percentile (Table~\ref{tab:tails}); the frontier ablation below sharpens
+the scope of that statement. Table~\ref{tab:counters} lists the frozen set.
 
 \input{tables/counters}
+
+\emph{Ablations} (Table~\ref{tab:ablation}): across \ablationSeeds{} seeds the hill-climb
+saturates \sumnbr{} at the analytic maximum every time --- the domain-informed seed genome
+already attains it at evaluation~1, so the construction, not the climb, closes the
+kernel-count axis, and the climb's contribution is the free traversal term \kdnodes{}.
+Budget-matched random sampling over the same generator family (\ablationBudget{} evaluations)
+never reaches the maximum (\ablationRandomWorstPct--\ablationRandomBestPct\% across seeds).
+Two wall-clock-fitness runs with an identical seed return \emph{different} champions
+(\kdnodes{} \ablationTimeKdA{} vs.\ \ablationTimeKdB) --- demonstrating on this very search
+the irreproducibility that motivated counter fitness.
+
+\input{tables/ablation}
+
+\emph{Counter-Pareto frontier.} A lexicographic order can in principle mis-rank the
+\emph{time}-worst input: a candidate trading kernel evaluations for heavier traversal could
+be slower. The union of all counter-based evaluations leaves exactly
+\ablationFrontierSize{} non-dominated points --- \emph{search-00} plus two candidates with
+fewer kernel evaluations but more \kdnodes{}, precisely that trade. Timing both under the
+protocol of Sec.~\ref{sec:eval-tails} against a same-series re-measurement of
+\emph{search-00}: on C++ neither approaches the champion (max ratio
+$\ablationFrontierCppRatio\times$), but on Rust the kd-heaviest candidate marginally
+\emph{exceeds} it ($\ablationFrontierRustRatio\times$ at the maximum, consistent at p50) ---
+the port's cheaper kernel evaluation shifts time-weight toward traversal, so the two
+engines' time-worst inputs need not coincide. We keep \emph{search-00} as the cross-language
+union-worst fixture --- it remains the C++ time-worst, and cross-language comparisons
+require a shared input --- and read the engine-tier Rust maxima of
+Table~\ref{tab:tails} with this ${+}\ablationFrontierRustExcessPct\%$ frontier margin.
 
 \subsection{Engine-tier frame times: C++ vs.\ Rust}
 \label{sec:eval-tails}

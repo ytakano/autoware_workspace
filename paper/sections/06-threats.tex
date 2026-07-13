@@ -110,7 +110,9 @@ by construction, with the enforcement dynamically verified over randomized input
 the kernel-evaluation term a frozen input demonstrably \emph{achieves} the maximum (the
 saturation certificate, an exact counter identity; the kd-traversal term
 has no matching certificate, so a worse traversal geometry may exist within its structural
-cap). Every \emph{time} figure, by contrast, is an observation: one machine, one protocol
+cap --- and the frontier ablation of Sec.~\ref{sec:eval-search} shows this caveat binds:
+on Rust a kd-heavier frontier member runs $\ablationFrontierRustExcessPct\%$ past the
+lexicographic champion). Every \emph{time} figure, by contrast, is an observation: one machine, one protocol
 (controlled and interference-probed, but still measured), and a microarchitecture
 (out-of-order x86) for which no sound static timing
 model exists --- on this hardware class a true WCET is practically unobtainable by any
