@@ -404,6 +404,21 @@ the knife-edge fork mechanism of Sec.~\ref{sec:threats} (a late derivative pass 
 differently and the engines then take different convergence paths), not of a systematic
 regime the certificate would be blind to.
 
+A system-level reading of these pose deltas, offered as interpretation rather than
+measurement: in production only one engine runs, so the deltas quantify
+\emph{substitutability}, not an error either system observes. On the work-certified frames
+the engines agree to a median of \traceRealTransDeltaMed\,\si{m}, orders of magnitude below
+the NDT measurement's own noise; the \SI{\traceRealTransDeltaMax}{m}--%
+\SI{\traceRealDivTransDeltaMax}{m} tails arise precisely on the ill-conditioned frames
+(oscillating, degraded-prior, map-edge) where the measurement is low-quality for
+\emph{either} engine, the forks carry no systematic sign, and these are the frames the
+production pipeline is built to attenuate --- the transform-probability/NVTL publish gates,
+the oscillation diagnostic (Sec.~\ref{sec:impl-legal}), the estimated pose covariance, and
+the downstream filter's innovation gating. Whether that attenuation fully absorbs an engine
+swap is a \emph{closed-loop} question our open-loop replay cannot answer; verifying that
+the divergent frames fall behind the quality gates (an offline re-analysis of this capture)
+or a closed-loop A/B remains future work.
+
 \input{tables/realdata}
 
 \subsection{Bridge experiment: controlled vs.\ production profiles}

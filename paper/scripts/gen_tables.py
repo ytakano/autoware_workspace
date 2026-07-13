@@ -1621,6 +1621,7 @@ def trace_cert():
             rf"\newcommand{{\traceRealDivFirstMax}}{{{fd[-1]}}}",
             rf"\newcommand{{\traceRealDivIterDeltaMax}}{{{iter_delta[-1]}}}",
             rf"\newcommand{{\traceRealDivTransDeltaMax}}{{{td_mism[-1]:.2f}}}",
+            rf"\newcommand{{\traceRealTransDeltaMed}}{{\num{{{td[len(td) // 2]:.1e}}}}}",
             rf"\newcommand{{\traceRealTransDeltaMax}}{{{td[-1]:.2f}}}",
         ]
     else:
