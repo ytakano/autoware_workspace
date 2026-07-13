@@ -253,7 +253,7 @@ sentence against our own tables), then A1 (core reframing), then the rest.
 
 ## Phase C — new experiments (priority order)
 
-### C1 (#1, #2 — top priority) Instrumented C++ analysis build + per-input trace certificate
+### C1 (#1, #2 — top priority) Instrumented C++ analysis build + per-input trace certificate — **DONE (2026-07-13, autoware_core ce4ac83a+96e35b85, paper 414605b)**
 
 - Rationale: this is the review's single blocking item. The byte-identical constraint governs
   the shipped sources; a local analysis build is explicitly legitimate (the paper already says
@@ -290,7 +290,7 @@ sentence against our own tables), then A1 (core reframing), then the rest.
   every cross-language table cites which certificate level (C0 iteration/pose/score, C1 full
   trace) each input passed.
 
-### C2 (#8) Re-capture the real-data replay with per-engine iteration counts
+### C2 (#8) Re-capture the real-data replay with per-engine iteration counts — **DONE (rode along with C1: trace_real.json carries per-engine iterations, pose deltas, and per-frame trace verdicts; realdata.json schema unchanged)**
 
 - Extend `bench/wcet_realdata.py` + the replay to persist, per frame: both engines'
   `iteration_num`, pose delta, both scores (and, with C1, the trace-cert verdict + first
@@ -390,7 +390,7 @@ sentence against our own tables), then A1 (core reframing), then the rest.
 | M1 — referee-checkable errors | ~~A5, A6~~ (done, 58251c7) | **COMPLETE.** Nothing in the paper contradicts our own published tables/data. |
 | M2 — claims re-scoped | ~~A1, A2, A3, A4, A7, A8~~ (done, 58251c7) | **COMPLETE.** The paper no longer claims what the current certificate cannot support; rebuttal letter draftable. |
 | M3 — existing-data strengthening | ~~B1, B2~~ (done, 80ebde9) | **COMPLETE.** Real-data table split; work model has the per-point term. |
-| M4 — trace certificate | C1, then C2 | The review's blocking item closed: transfer claim backed by a measured per-input C++/Rust trace certificate incl. Σkd^C++. |
+| M4 — trace certificate | ~~C1, C2~~ (done, 2026-07-13) | **COMPLETE.** Transfer claim backed by a measured per-input C++/Rust trace certificate incl. Σkd^C++; C2's per-engine iteration/pose data rode along in trace_real.json. |
 | M5 — measurement cleanups | C3, C5, C8 (+ optional C4, C6, C7; C8 shares C4's reboot campaign) | Bridge same-n; no pre-protocol numbers left; parallel feasibility measured. |
 | M6 — resubmission package | re-run this audit table against the final PDF; rebuttal letter (include the three push-back notes above) | Submit. |
 
@@ -432,3 +432,16 @@ lands).
   divergent-28 summary macros; per-engine iteration deltas deferred to C2. Note for the
   optional B1 verifier run: not done (contracts sentence stays at "consistent with").
   Page count 14 -> 15.
+- 2026-07-13 (night): **M4 done — C1 executed** (autoware_core ce4ac83a + 96e35b85; paper
+  414605b). Traced analysis build (bench/traced/, NDT_BUILD_TRACED) + Rust `wcet-trace`
+  mirror + per-leg replay comparison. Headline findings: structural legs exact on all 18
+  fixtures; on real data 172/473 equal-iteration on-map frames do equal-iteration-but-
+  unequal-work (<= 3.61% kernel-work delta) -- equal iteration measured as necessary-but-
+  not-sufficient, E_trace = 22,216/22,416; f64 streams differ by design (FLANN distance
+  sort vs kd-visit order; score <= 12 ULP on well-conditioned fixtures, ~1e12 on knife-edge);
+  regression kd regressor now engine-own (C++ 2-term worst LOO 75% -> 42%; c_pt no longer
+  separately identified, CI covers zero -- prose re-scoped). C2 rode along: per-engine
+  iterations, pose deltas (divergent frames fork late, +-13 iters, <= 0.40 m), per-frame
+  verdicts in trace_real.json. Open-loop guess rewrite now scripted
+  (bench/rewrite_guesses.py). Remaining in phase C: C3 (bridge same-n), C5 (subnormal A/B
+  re-measure), C8 (parallel feasibility), optional C4/C6/C7.
