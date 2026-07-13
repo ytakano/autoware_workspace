@@ -63,7 +63,7 @@ Where the review slightly overstates (usable in the rebuttal letter):
 Ordering inside A: **A5/A6 first** (a referee can check the bridge numbers and the stale
 sentence against our own tables), then A1 (core reframing), then the rest.
 
-### A1 (#1) Retire "bit-exact over D"; re-scope the transfer to certified inputs
+### A1 (#1) Retire "bit-exact over D"; re-scope the transfer to certified inputs — **DONE (2026-07-13, commit 58251c7)**
 
 - Rationale: D (bounded-neighbor, truncation-free) is a *necessary* condition for equal work,
   not a sufficient one — the 28 in-D divergent frames prove it. The transfer argument must not
@@ -87,7 +87,7 @@ sentence against our own tables), then A1 (core reframing), then the rest.
 - Acceptance: no unscoped "bit-exact" remains (`grep -in 'bit-exact' sections/ main.tex` — every
   hit either scoped-and-literal or replaced); the transfer claim quantifies over E, never D_K.
 
-### A2 (#2) Re-label the kd counter as a Rust-reference proxy
+### A2 (#2) Re-label the kd counter as a Rust-reference proxy — **DONE (2026-07-13, commit 58251c7)**
 
 - Until C1 provides a C++-native counter: rename Σkd in the regression context to
   "Rust-reference kd-node count (a geometry-correlated traversal proxy)"; retract the
@@ -100,7 +100,7 @@ sentence against our own tables), then A1 (core reframing), then the rest.
   `paper/scripts/gen_tables.py` (regression table header), `sections/03-methodology.tex` §D.
 - Acceptance: no sentence interprets the C++ kd coefficient as a physical per-node cost.
 
-### A3 (#4) Scope "enforced by construction"; rename the engine tier
+### A3 (#4) Scope "enforced by construction"; rename the engine tier — **DONE (2026-07-13, commit 58251c7)**
 
 - Layer 1 sentence → "For fixed external parameters P and N_leaves, the internal multiplicative
   terms (N_iter, K) are enforced by construction; P and N_leaves are caller-side contracts
@@ -113,7 +113,7 @@ sentence against our own tables), then A1 (core reframing), then the rest.
   `sections/05-evaluation.tex` §G, `sections/06-threats.tex` §D.
 - Acceptance: Layer 1 and Table preconditions no longer contradict; tier naming consistent.
 
-### A4 (#5) Re-scope the ablation conclusions; "counter-extremal" naming
+### A4 (#5) Re-scope the ablation conclusions; "counter-extremal" naming — **DONE (2026-07-13, commit 58251c7)**
 
 - Rewrite §V-B ablation paragraph to claim exactly what the design supports: (i) the analytic
   construction attains the Σnbr maximum (the seed, not the climb); (ii) the climb's
@@ -130,7 +130,7 @@ sentence against our own tables), then A1 (core reframing), then the rest.
   `sections/01-introduction.tex` contribution 3, `main.tex` abstract.
 - Acceptance: the three supported claims are the only ablation claims; champion Δ quantified.
 
-### A5 (#6) Bridge: fix the direction error, weaken causality, disclose sample imbalance
+### A5 (#6) Bridge: fix the direction error, weaken causality, disclose sample imbalance — **DONE (2026-07-13, commit 58251c7)**
 
 - **Direction fix (referee-checkable):** "every cross-engine conclusion … survives under
   Profile A with wider margins" → "… survives under Profile A, although the relative gap
@@ -147,7 +147,7 @@ sentence against our own tables), then A1 (core reframing), then the rest.
   `paper/scripts/assemble_bridge.py` + `gen_tables.py` (caption/macros).
 - Acceptance: no direction-inverted sentence; no unqualified causal claim; n disclosed.
 
-### A6 (#7) Kill the stale sentence; decode the sample accounting
+### A6 (#7) Kill the stale sentence; decode the sample accounting — **DONE (2026-07-13, commit 58251c7)**
 
 - Delete/replace `06-threats.tex:18` "(Profile-A re-capture pending)" — the Profile-A replay
   exists (`data/realdata.json` meta, 2026-07-13). Replace with the actual remaining limit:
@@ -159,7 +159,7 @@ sentence against our own tables), then A1 (core reframing), then the rest.
   `sections/05-evaluation.tex` §A.
 - Acceptance: `grep -n 'pending' sections/` clean; a reader can derive 3300 samples/fixture.
 
-### A7 (#9) Pi 4: state the feasibility result; fix the ISA wording
+### A7 (#9) Pi 4: state the feasibility result; fix the ISA wording — **DONE (2026-07-13, commit 58251c7)**
 
 - **Scope note (2026-07-13, from the author):** the production system will use a CPU
   substantially faster than the Pi 4; the Pi 4 is the *evaluation platform* for the
@@ -187,7 +187,7 @@ sentence against our own tables), then A1 (core reframing), then the rest.
 - Acceptance: the infeasibility sentence exists verbatim-equivalent; no "by construction" claim
   about ISA independence without the verified qualifier.
 
-### A8 (#stats, #edit) Statistics scoping + editorial sweep
+### A8 (#stats, #edit) Statistics scoping + editorial sweep — **DONE (2026-07-13, commit 58251c7)**
 
 - EVT: add to §V-K and the Table `evt` caption that bootstrap CIs computed on serially
   dependent data are themselves not valid CIs — the q_10⁻⁹ column is retained only as
@@ -387,8 +387,8 @@ sentence against our own tables), then A1 (core reframing), then the rest.
 
 | Milestone | Items | Gate |
 |---|---|---|
-| M1 — referee-checkable errors | A5, A6 | Nothing in the paper contradicts our own published tables/data. |
-| M2 — claims re-scoped | A1, A2, A3, A4, A7, A8 | The paper no longer claims what the current certificate cannot support; rebuttal letter draftable. |
+| M1 — referee-checkable errors | ~~A5, A6~~ (done, 58251c7) | **COMPLETE.** Nothing in the paper contradicts our own published tables/data. |
+| M2 — claims re-scoped | ~~A1, A2, A3, A4, A7, A8~~ (done, 58251c7) | **COMPLETE.** The paper no longer claims what the current certificate cannot support; rebuttal letter draftable. |
 | M3 — existing-data strengthening | B1, B2 | Real-data table split; work model has the per-point term. |
 | M4 — trace certificate | C1, then C2 | The review's blocking item closed: transfer claim backed by a measured per-input C++/Rust trace certificate incl. Σkd^C++. |
 | M5 — measurement cleanups | C3, C5, C8 (+ optional C4, C6, C7; C8 shares C4's reboot campaign) | Bridge same-n; no pre-protocol numbers left; parallel feasibility measured. |
@@ -416,3 +416,10 @@ lands).
   C8 added (author proposal): x86 parallel feasibility of the deployment tier at 2/4 threads;
   in-tree support verified (Rust `parallel` feature is bit-identical-by-design, C++ has
   OpenMP `num_threads`).
+- 2026-07-13 (later still): **M1+M2 done** (commit 58251c7) — A5/A6 and A1--A4/A7/A8
+  executed as one batch (same files). New generated macros: bridge gap pair (0.50/0.60,
+  guarded both directions), \ablationTimeKdDeltaPct (0.004%), per-session sample decode
+  (100 warm + 1000 tail), \raspiLegalWorstBudgetX (15), \raspiHostFactorMin/Max (12--18),
+  \legalWorstBudgetXRust (1.2). "bit-exact" survives only as literal, measured
+  "bit-identical" statements + the RustBelt citation's "machine-checked". Page count
+  13 -> 14 (references spill); appendix decision deferred to the C1 layout pass.
