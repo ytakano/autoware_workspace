@@ -676,6 +676,24 @@ extra drives are declared future work unless time permits.
   ONEOFF/realdata timing era-tagged (realdata margins marked era-mixed, Profile-A re-capture
   pending). Remaining M4: C2 (PoT/MLE EVT on the 1000-sample tails), Profile A + bridge
   (frame freezer), B4, C3 target timing.
+- 2026-07-13: **C2 DONE — the EVT analysis was run in full and its diagnostics rejected
+  extrapolation; the paper now says so.** New `scripts/evt.py` (stdlib-only): per-session
+  POT/GPD MLE (pooling would mix the documented session level shifts; the per-session split
+  is guarded against `per_session_median`), threshold sweep, 1000 bootstrap draws, policy
+  diagnostic checklist. Verdict: lag-1..10 |ACF| up to **0.97** (i.i.d. ⇒ ~0.03) — on the
+  isolated pinned core the residual variability is a slowly wandering ~0.1–0.5% band, so
+  exceedances cluster and the bootstrapped per-align q(1e-9) upper CI ends diverge (worst:
+  **126 s** on legal-osc C++). Per the policy's own rule, **no extrapolated exceedance
+  probability is claimed**; the deliverable is the empirical maxima + cross-session
+  stability + the qualitative bounded-tail lean (ξ<0 where fits are stable). §V-H rewritten
+  as "Extreme-value analysis: what the diagnostics permit" with the new `tab:evt`
+  (diagnostics table); the old Gumbel table/macros deleted from the build; the instructive
+  contrast kept: a naive block-maxima fit would have looked publishable (q(1e-9)≈992 ms,
+  block-size-insensitive) — the diagnostics, not the fit quality, must decide. §III-D,
+  §VI-A, §VI-E, §VII, intro contribution (iii) updated. This answers reviewer #7 at full
+  strength: the statistics were done right, and done right they refuse the extrapolation
+  the old n=10 fit pretended to make. Remaining M4: Profile A + bridge (frame freezer), B4,
+  C3 target timing.
 
 ## Cross-references
 
