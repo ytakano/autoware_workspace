@@ -9,14 +9,17 @@ policy. Host: \envCpu{}, \envKernel{}; the benchmark core is isolated
 SMT sibling offline, and its frequency \emph{pinned} at \SI{3.2}{GHz} under the
 \envGovernor{} governor; \envCppCompiler{} (C++, \texttt{-O2}); \envRustCompiler{}
 (release). \envSessions{} sessions (\envDate, one across a reboot cycle) with randomized
-fixture and engine order; \envIters{} per fixture per engine after \envWarmup{} warmups
-(warm series; the cold and co-runner series appear in
+fixture and engine order; per fixture and engine, \envItersWarmPerSession{} warm
+${+}$ \envItersTailPerSession{} tail samples per session after \envWarmup{} warmups, pooled
+across the sessions (warm series; the cold and co-runner series appear in
 Sec.~\ref{sec:eval-interference}); \texttt{steady\_clock}, align loop only (map and kd-tree
 built once per engine per fixture). A fixed-work calibration guard aborts any series whose
 sustained speed shifts by more than 10\%; it fired twice on transient firmware-level
 clamps, which were excluded by re-running the affected series. Engines were measured at
 autoware\_core commit \texttt{\envCommit}; per-run manifests (environment, compiler flags,
 commits, fixture and binary hashes) are embedded in the released data files.
+% TODO(artifact): add the archive DOI/URL for the data files, fixtures, generators/seeds,
+% and scripts before submission.
 
 \subsection{Search effectiveness}
 \label{sec:eval-search}
@@ -27,21 +30,26 @@ kernel-count-optimal. It then grows the remaining free term \kdnodes{} by a furt
 \searchKdGrowthPct\% (\oneoffKdGenZeroM\,M $\rightarrow$ \searchZeroKdM\,M, map extent 6
 $\rightarrow$ 9 blocks; the generation-0 value is from the recorded search log, the final
 value from the frozen fixture's counters).
-The frozen union-worst fixture (\emph{search-00}) dominates every other frozen fixture on
+The frozen union-worst fixture (\emph{search-00}; ``union-worst'' throughout means worst in
+the \emph{counter} order, i.e.\ counter-extremal) dominates every other frozen fixture on
 every engine and percentile (Table~\ref{tab:tails}); the frontier ablation below sharpens
 the scope of that statement. Table~\ref{tab:counters} lists the frozen set.
 
 \input{tables/counters}
 
-\emph{Ablations} (Table~\ref{tab:ablation}): across \ablationSeeds{} seeds the hill-climb
-saturates \sumnbr{} at the analytic maximum every time. The domain-informed seed genome
-already attains it at evaluation~1, so the construction, not the climb, closes the
-kernel-count axis; the climb's contribution is the free traversal term \kdnodes{}.
-Budget-matched random sampling over the same generator family (\ablationBudget{} evaluations)
-never reaches the maximum (\ablationRandomWorstPct--\ablationRandomBestPct\% across seeds).
-Two wall-clock-fitness runs with an identical seed return \emph{different} champions
-(\kdnodes{} \ablationTimeKdA{} vs.\ \ablationTimeKdB), demonstrating on this very search
-the irreproducibility that motivated counter fitness.
+\emph{Ablations} (Table~\ref{tab:ablation}). The design supports three claims. First, the
+analytic construction, not the climb, closes the kernel-count axis: across \ablationSeeds{}
+seeds the domain-informed seed genome attains the \sumnbr{} maximum already at
+evaluation~1. Second, the climb's contribution is the free traversal term \kdnodes{} (the
+${+}$\searchKdGrowthPct\% above). Third, counter fitness is reproducible where wall-clock
+fitness is not: two wall-clock-fitness runs with an identical seed return \emph{different}
+champions whose \kdnodes{} differ by only \ablationTimeKdDeltaPct\% (\ablationTimeKdA{}
+vs.\ \ablationTimeKdB), two near-identical maxima ranked apart by timing noise.
+Budget-matched random sampling over the same generator family (\ablationBudget{}
+evaluations) never reaches the \sumnbr{} maximum
+(\ablationRandomWorstPct--\ablationRandomBestPct\% across seeds); note, however, that the
+random arms start from \emph{random} genomes, so this comparison bundles seed quality with
+search strategy rather than isolating the climb.
 
 \input{tables/ablation}
 
@@ -55,7 +63,8 @@ under the protocol of Sec.~\ref{sec:eval-tails} against a same-series re-measure
 $\ablationFrontierCppRatio\times$), but on Rust the kd-heaviest candidate marginally
 \emph{exceeds} it ($\ablationFrontierRustRatio\times$ at the maximum, consistent at p50):
 the port's cheaper kernel evaluation shifts time-weight toward traversal, so the two
-engines' time-worst inputs need not coincide. We keep \emph{search-00} as the
+engines' time-worst inputs need not coincide (consistent with \kdnodes{} being a
+Rust-traversal count; Sec.~\ref{sec:eval-regression}). We keep \emph{search-00} as the
 cross-language union-worst fixture, since it remains the C++ time-worst and cross-language
 comparisons require a shared input, and we read the engine-tier Rust maxima of
 Table~\ref{tab:tails} with this ${+}\ablationFrontierRustExcessPct\%$ frontier margin.
@@ -161,11 +170,18 @@ the per-point constant overhead identified in Sec.~\ref{sec:eval-tails}, corrobo
 analysis. Third, the negative Rust intercept is a fitting artifact whose bootstrap CI
 covers zero.
 
-What survives these diagnostics: the \emph{model} is predictive, but the individual
-coefficients are not statistically resolved on this design. The point estimates suggest a
-per-kernel-evaluation cost of \SI{\regKernelNsCpp}{ns} (C++) vs.\ \SI{\regKernelNsRust}{ns}
-(Rust), yet their 95\% CIs overlap, so we treat the coefficient-level gap as indicative
-only. The \emph{resolved} engine comparison is the direct per-fixture one
+What survives these diagnostics: the model is predictive \emph{on the dense-neighbor and
+$P$-sweep regime that dominates this design} (median leave-one-out error
+\regLooMedCpp\%/\regLooMedRust\%) but inadequate for neighbor-sparse inputs dominated by
+the per-point constant overhead (worst miss \regLooMaxCpp\%/\regLooMaxRust\%), and the
+individual coefficients are not statistically resolved on this design. The point estimates
+suggest a per-kernel-evaluation cost of \SI{\regKernelNsCpp}{ns} (C++) vs.\
+\SI{\regKernelNsRust}{ns} (Rust), yet their 95\% CIs overlap, so we treat the
+coefficient-level gap as indicative only. The kd coefficient carries a further caveat:
+\kdnodes{} is counted on the Rust engine's traversal (Sec.~\ref{sec:decomposition}), so for
+C++ the coefficient prices a \emph{Rust-reference} node count, a geometry-correlated proxy
+rather than a physical per-node cost of the uninstrumented pcl/FLANN traversal. The
+\emph{resolved} engine comparison is the direct per-fixture one
 (Table~\ref{tab:tails}: max-latency ratios \tailsRatioMin--\tailsRatioMax, stable to
 $\pm\sessRatioSpreadWorst$ across sessions), which needs no decomposition. The kd term is
 second-order on the engine-tier worst set, though it dominates the deployment tier
@@ -181,7 +197,8 @@ attribution as arithmetic-plausible rather than counter-proven.
 \label{sec:eval-psweep}
 In the decomposition~\eqref{eq:decomp}, $P$ is the only multiplicative freedom: it scales the
 per-iteration sum while leaving $N_{\mathrm{iter}}$, $K$, and $T_{\mathrm{solve}}$ untouched,
-predicting an \emph{affine} law $\mathrm{WCET}(P) = \mathrm{slope}\cdot P + \mathrm{const}$.
+predicting an \emph{affine} observed envelope $T_{\mathrm{obs,max}}(P) =
+\mathrm{slope}\cdot P + \mathrm{const}$ (a fit to observed maxima, not a hard bound).
 We validate this with a controlled sweep: the union-worst geometry regenerated at $P \in
 [\psweepPmin{}, \psweepPmax{}]$ (six points, $\times 2$ steps), where the counters certify
 that per-point work is exactly invariant ($N_{\mathrm{iter}} = 30$ and $\sumnbr = P \cdot
@@ -194,7 +211,7 @@ per source point, consistent with the per-kernel-evaluation costs of
 Sec.~\ref{sec:eval-regression} (${\approx}64$ kernel evaluations $\times$ 31 passes per
 point).
 
-The affine law makes the bound \emph{parametric in the caller's contract}: inverting it
+The affine envelope makes the result \emph{parametric in the caller's contract}: inverting it
 against the \SI{100}{ms} (10\,Hz) budget gives a maximum admissible downsampled-scan size of
 $P \approx \psweepPmaxRust{}$ points for the Rust engine (\psweepPmaxCpp{} for C++)
 \emph{under the union-worst geometry on this host}, a number the localization node's
@@ -206,9 +223,9 @@ hardware the same protocol yields the slope that matters there.)
 
 \subsection{Two-tier bound: engine tier vs.\ deployment tier}
 \label{sec:eval-twotier}
-The adversarial fixtures bound the engine at its API over the domain $D$
-(Sec.~\ref{sec:meth-transfer}): the right contract for the \texttt{no\_std} kernel
-deployment, where inputs cross a trust boundary unvalidated. When the production
+The adversarial fixtures bound the engine at its API over the bounded-neighbor domain $D$
+(the bounded-neighbor engine tier; Sec.~\ref{sec:meth-transfer}): the right contract for
+the \texttt{no\_std} kernel deployment, where inputs cross a trust boundary unvalidated. When the production
 preprocessing contracts hold (Sec.~\ref{sec:impl-legal}), the reachable input space
 shrinks, and with it the observed worst case: on \emph{legal-worst}, the hardest
 preprocessing-reachable input we constructed, the observed maximum drops to
@@ -264,9 +281,9 @@ ${\approx}\SI{\realOffMapCppMed}{ms}$). The per-frame envelope rows of
 Table~\ref{tab:realdata} therefore use the on-map subset, while the $P$ and max-$K$
 contract checks, which do not depend on map coverage, use all frames.
 
-Table~\ref{tab:realdata} shows the distributions; four observations. First, the
-preprocessing contracts hold empirically: $P \le \realPMax = 1500$ on all \realFrames{}
-frames. Second, the per-point neighbor count reaches at most $\realKmaxMax$: within the
+Table~\ref{tab:realdata} shows the distributions; four observations. First, the observed
+inputs are consistent with the preprocessing contracts: $P \le \realPMax = 1500$ on all
+\realFrames{} frames. Second, the per-point neighbor count reaches at most $\realKmaxMax$: within the
 per-tile geometric bound of 27, but \emph{one above} the voxel-center heuristic of 8. Real
 centroids deviate from voxel centers and pull a ninth leaf into range; the operative bound
 is the 27, not the 8. Third, under degraded priors the iteration cap is \emph{routinely}
@@ -319,7 +336,10 @@ same five frozen inputs (the union-worst, both deployment-legal witnesses, and t
 slowest and median-cost real frames, frozen from the drive capture) replayed under both
 profiles at the same \SI{3.2}{GHz} reference clock, same harness, differing only in the
 environment. Table~\ref{tab:bridge} reports medians, maxima, and the descriptive
-interference-inflation ratio (production over controlled).
+interference-inflation ratio (production over controlled). One design caveat: the
+synthetic legs compare maxima over unequal sample counts (A: $n{=}100$ per cell; B: pooled
+$n{=}3000$), which biases the B maxima upward; the medians are robust to $n$ and agree
+with the max-based reading.
 
 \input{tables/bridge}
 
@@ -330,28 +350,30 @@ host; co-resident load is a separate axis, probed in Sec.~\ref{sec:eval-interfer
 
 For the \textbf{C++} engine the ratio is \emph{uniformly below one}
 ($\bridgeCppInflMin$--$\bridgeCppInflMax\times$): the controlled environment is not
-engine-neutral. A same-boot control isolates the cause. Pinned to the isolated core the C++
+engine-neutral. A same-boot control narrows the cause. Pinned to the isolated core the C++
 align costs \SI{194.9}{ms} (\emph{legal-osc}) against \SI{165.8}{ms} on a non-isolated core
-of the same boot, same pin, while Rust, in the same binary, is unchanged; the per-core
-isolation flags themselves (\texttt{isolcpus}/\texttt{nohz\_full}/\texttt{rcu\_nocbs})
-therefore tax the C++ engine's per-align constant by
-\SI{\bridgeCppTaxMinMs}{}--\SI{\bridgeCppTaxMaxMs}{ms} on the measured inputs (sub-flag
-attribution not pursued; the zero-allocation engine's immunity points at the
-allocator/per-query machinery). Frequency, core choice, SMT-sibling state, transparent
-hugepages, and fault counts were ruled out by direct A/B tests; a fixed-work calibration
-spin runs marginally \emph{faster} on the isolated core. Consequently the Profile-B C++
-maxima are \emph{conservative} for this production configuration, and every cross-engine
-conclusion of Table~\ref{tab:tails} survives under Profile A with wider margins. The
-policy's caution that scheduler and interference costs must not be assumed additive or
-constant is confirmed: for one engine the ``interference inflation'' is not even
-${\ge}1$.
+of the same boot, same pin, while Rust, in the same binary, is unchanged. Profile B is thus
+\emph{associated} with a \SI{\bridgeCppTaxMinMs}{}--\SI{\bridgeCppTaxMaxMs}{ms} higher C++
+per-align constant on the measured inputs; because this control varies the physical core
+and the per-core isolation flags
+(\texttt{isolcpus}/\texttt{nohz\_full}/\texttt{rcu\_nocbs}) together, the responsible
+mechanism remains unresolved (the zero-allocation engine's immunity points at the
+allocator/per-query machinery; a same-core two-boot experiment would settle it). Frequency,
+SMT-sibling state, transparent hugepages, and fault counts were ruled out by direct A/B
+tests; a fixed-work calibration spin runs marginally \emph{faster} on the isolated core.
+Consequently the Profile-B C++ maxima are \emph{conservative} for this production
+configuration, and every cross-engine conclusion of Table~\ref{tab:tails} survives under
+Profile A, although the relative gap narrows (legal-worst max ratio
+\bridgeGapBLegalWorst{} under B vs.\ \bridgeGapALegalWorst{} under A). The policy's caution
+that scheduler and interference costs must not be assumed additive or constant is
+confirmed: for one engine the ``interference inflation'' is not even ${\ge}1$.
 
 \subsection{On-target counter transfer (AArch64)}
 \label{sec:eval-raspi4}
 \input{tables/raspi4}
 
 To validate the cross-ISA leg of the methodology (Sec.~\ref{sec:meth-crossisa}) on the
-actual deployment class of hardware, we ran the same frozen fixtures through the engine on a
+deployment-class evaluation target, we ran the same frozen fixtures through the engine on a
 Raspberry Pi~4 (Cortex-A72) under the bare-metal \texttt{no\_std} kernel: an async task
 parses the embedded fixture bytes, performs one counted align each, and asserts the counters
 against the host values (Table~\ref{tab:raspi4}). The result: every counter of every fixture
@@ -390,10 +412,20 @@ firmware-fixed clock. This is the platform class where the factorization of
 Sec.~\ref{sec:threats} pays off: the work bound transfers exactly (the counters), the
 per-unit cost is nearly deterministic (sub-percent spread), so
 $\text{work bound} \times \text{unit-cost bound}$ approaches an analytical WCET. In
-absolute terms the engine-tier worst costs \SI{\raspiSearchWarmMaxS}{s} on the Cortex-A72
-($\raspiHostFactor\times$ the x86 host's Profile-B maximum), far past any 10\,Hz budget,
-quantifying how much headroom the deployment tier's input contracts must buy on
-embedded-class silicon (per-fixture values in Table~\ref{tab:raspi4}).
+absolute terms the serial configuration is not schedulable at 10\,Hz on this target: the
+engine-tier worst costs \SI{\raspiSearchWarmMaxS}{s} ($\raspiHostFactor\times$ the x86
+host's Profile-B maximum), and even the deployment-tier witness \emph{legal-worst} costs
+$\raspiLegalWorstBudgetX\times$ the \SI{100}{ms} budget (per-fixture values in
+Table~\ref{tab:raspi4}). The Pi~4 is the evaluation target rather than the production ECU,
+so we read this as a requirement on the production platform: roughly
+$\raspiLegalWorstBudgetX\times$ the A72's per-unit-work speed is needed on the deployment
+witness alone, and the measured x86 desktop host, at
+$\raspiHostFactorMin$--$\raspiHostFactorMax\times$ the A72 per unit work on these fixtures,
+still misses that witness by $\legalWorstBudgetXRust\times$
+(Sec.~\ref{sec:eval-twotier}). The affine $T_{\mathrm{obs,max}}(P)$ envelope of
+Sec.~\ref{sec:eval-psweep} lets any candidate platform be audited with a single on-target
+$P$-sweep; the remaining levers are $P$ reduction, parallelization, SIMD, and algorithmic
+change.
 
 \subsection{Extreme-value analysis: what the diagnostics permit}
 \label{sec:eval-evt}
@@ -412,7 +444,10 @@ violated independence assumption surfaces exactly where theory predicts: the boo
 $10^{-9}$ per-align quantiles have upper CI ends diverging to as much as
 \SI{\evtCiExplodeS}{s} on the tightest fixtures. Following our measurement policy (which
 forbids mechanical EVT on data that fails its assumptions), \textbf{we therefore claim no
-extrapolated exceedance probabilities}.
+extrapolated exceedance probabilities}. For the same reason the bootstrapped intervals are
+themselves not valid confidence intervals (the bootstrap resamples serially dependent
+exceedances); Table~\ref{tab:evt} retains the $q_{10^{-9}}$ column only as diagnostic
+evidence for why extrapolation is withheld.
 
 What the data does support: the empirical maxima of Table~\ref{tab:tails} with their
 cross-session stability (Sec.~\ref{sec:threats}), tails so tight that max/p50 $\le 1.01$ on

@@ -40,8 +40,8 @@ performs exactly one more at its trial step. The step-length procedure re-evalua
 derivatives \emph{only} in its More--Thuente refinement loop (up to 10 further passes per
 iteration), which sits behind a \texttt{use\_line\_search} flag that the shipped
 configuration disables and the port implements as the default (disabled) path. Hence
-$N_{\mathrm{pass}} = N_{\mathrm{iter}}{+}1$ holds structurally, is machine-checked per input
-(Sec.~\ref{sec:methodology}), and holds exactly on every fixture and every real frame of
+$N_{\mathrm{pass}} = N_{\mathrm{iter}}{+}1$ holds structurally, is checked at runtime per
+input (Sec.~\ref{sec:methodology}), and holds exactly on every fixture and every real frame of
 Sec.~\ref{sec:eval-realdata}. The bound has exactly four data-dependent freedoms
 (Table~\ref{tab:preconditions} in Sec.~\ref{sec:threats} collects each limit, its enforcer,
 and the behavior on violation):
@@ -61,7 +61,12 @@ $T_{\mathrm{solve}}$ (a fixed-size $6{\times}6$ solve) and the per-point transfo
 input-independent. We write \sumnbr{} for the total number of (point, leaf) kernel evaluations
 in an align call, \kdnodes{} for the total number of kd-tree nodes visited, and $\bar{K} =
 \sumnbr / (\text{points processed})$ for the mean neighbor count per point; these are the
-\emph{work counters} that Sec.~\ref{sec:methodology} turns into instrumentation.
+\emph{work counters} that Sec.~\ref{sec:methodology} turns into instrumentation. \sumnbr{}
+is implementation-independent (both engines evaluate the same (point, leaf) pairs on equal
+neighbor sets), whereas \kdnodes{} is counted on the Rust engine's traversal: the C++
+engine walks its own pcl/FLANN structures, which are not instrumented, so for C++ the
+counter serves as a geometry-correlated traversal proxy
+(Sec.~\ref{sec:eval-regression}).
 Equation~\eqref{eq:decomp} is a \emph{work} bound; converting work to time is
 platform-specific and is where measurement enters.
 

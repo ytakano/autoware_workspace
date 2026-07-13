@@ -32,37 +32,38 @@ neighbor multiplicity, kd-tree traversal length) are properties of the input geo
 of the program text. Exhaustive input enumeration is infeasible, and naive fuzzing with
 wall-clock fitness is noisy, machine-specific, and unreproducible.
 
-% Para 3: the opportunity. A bit-exact Rust port of the C++ engine exists (motivated by a
-% no_std kernel deployment). Bit-exactness = identical FP operand streams = identical
-% iteration counts and neighbor sets for the same input.
-This work exploits an unusual asset: a \emph{bit-exact} Rust port of the production C++ engine,
+% Para 3: the opportunity. A high-fidelity Rust port of the C++ engine exists (motivated by
+% a no_std kernel deployment), designed to reproduce the FP operand stream; equal work is
+% certified per input, not assumed (review2 #1).
+This work exploits an unusual asset: a high-fidelity Rust port of the production C++ engine,
 originally motivated by deployment on a bare-metal real-time kernel (a \texttt{no\_std}
 environment, i.e.\ Rust without its standard library). Where the C++ engine collects an
 unbounded per-point neighbor set, the port caps the number of neighbors a radius search may
 return; we call the set of inputs on which this cap never truncates (so both engines see
 identical neighbor sets) the \emph{bounded-neighbor domain} $D$, made precise in
-Sec.~\ref{sec:methodology}. On any input in $D$, bit-exactness means that both
-implementations perform the same algorithmic work: same iteration count, same neighbor
-sets, same floating-point operand streams. Within $D$, any statement about one engine's
-work therefore transfers to the other.
+Sec.~\ref{sec:methodology}. The port is designed to reproduce the C++ engine's
+floating-point operand stream on $D$ (same iteration count, same neighbor sets, same
+work), and a per-input certificate \emph{checks} this rather than assuming it: on
+certified inputs, any statement about one engine's work transfers to the other.
 
 % Para 4: contributions.
 Our contributions:
 \begin{enumerate}
   \item A \textbf{three-layer hybrid WCET methodology} for data-dependent kernels: (i)~a
-    structural work bound whose terms are enforced by construction and machine-checked by
-    property-based tests; (ii)~a worst-input search guided by deterministic algorithmic
-    cost counters, which are platform-independent and zero-overhead when disabled;
-    (iii)~controlled measurement on the frozen worst inputs, with a diagnostics-gated
-    extreme-value analysis in the style of measurement-based probabilistic timing analysis
-    (MBPTA), where the diagnostics, not the fits, decide what may be extrapolated.
-  \item A \textbf{cross-language transfer argument}: instrumenting only the Rust port suffices,
-    because bit-exactness over $D$ (Sec.~\ref{sec:meth-transfer})
-    carries the discovered worst inputs to the unmodified C++ engine, with equal work
+    structural work bound whose terms are enforced by construction and automatically
+    checked by property-based tests; (ii)~a search for counter-extremal inputs guided by
+    deterministic algorithmic cost counters, which are platform-independent and
+    zero-overhead when disabled; (iii)~controlled measurement on the frozen extreme inputs,
+    with a diagnostics-gated extreme-value analysis in the style of measurement-based
+    probabilistic timing analysis (MBPTA), where the diagnostics, not the fits, decide what
+    may be extrapolated.
+  \item A \textbf{cross-language transfer argument}: instrumenting only the Rust port
+    suffices. Discovered inputs are carried to the unmodified C++ engine, and equal work is
     certified \emph{per input} by an iteration-count assertion that doubles as the runtime
-    membership check for $D$. On real map data this certification exposed, and led us to
-    fix, two port-fidelity gaps that synthetic fixtures are structurally blind to
-    (Sec.~\ref{sec:threats}).
+    membership check for $D$; the transfer is claimed over the certified subset
+    $E \subseteq D$ (Sec.~\ref{sec:meth-transfer}). On real map data this certification
+    exposed, and led us to fix, two port-fidelity gaps that synthetic fixtures are
+    structurally blind to (Sec.~\ref{sec:threats}).
   \item \textbf{Evidence that the search is effective}: it exactly saturates the analytic
     maximum on the number of kernel evaluations per align,
     $P \cdot \maxnn \cdot (N_{\mathrm{iter}}{+}1)$, where $P$ is the scan size, \maxnn{}
@@ -75,9 +76,10 @@ Our contributions:
     allocations per point per derivative pass (up to \allocWorstPerAlign{} per align), a
     structural unbounded-latency hazard (the port is zero-allocation under a declared
     capacity contract, recursion-free, and panic-free). A \textbf{two-tier bound} separates
-    the engine-API worst case (unvalidated inputs over $D$) from the preprocessing-reachable
-    one, each axis of the deployment tier backed by a legal witness input; the gap (a
-    measured $\legalWorstRatioRust\times$, provably ${\ge}2.4\times$ on the kernel term)
-    quantifies what enforcing input contracts at the component boundary buys. A 57-minute
-    real drive provides one-drive evidence consistent with the contracts and the margins.
+    the bounded-neighbor engine tier (unvalidated inputs over $D$) from the
+    preprocessing-reachable one, each axis of the deployment tier backed by a legal witness
+    input; the gap (a measured $\legalWorstRatioRust\times$, provably ${\ge}2.4\times$ on
+    the kernel term) quantifies what enforcing input contracts at the component boundary
+    buys. A 57-minute real drive provides one-drive evidence consistent with the contracts
+    and the margins.
 \end{enumerate}

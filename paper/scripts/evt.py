@@ -331,8 +331,9 @@ def main():
         r" sessions of the largest lag-1..10 autocorrelation magnitude (i.i.d.\ would give"
         r" ${\sim}0.03$ at $n{=}1000$). $\xi$ range: per-session MLE shapes at the working"
         r" threshold. Last column: the worst upper end of the bootstrapped per-align"
-        r" $q_{10^{-9}}$ CIs --- divergence caused by serial dependence, reported as the"
-        r" reason extrapolation is withheld.",
+        r" $q_{10^{-9}}$ CIs --- since the bootstrap resamples serially dependent"
+        r" exceedances, these are not valid confidence intervals; the column is retained"
+        r" only as diagnostic evidence for why extrapolation is withheld.",
         r"\end{table}",
     ]
     (OUT / "evt.tex").write_text("\n".join(lines) + "\n", encoding="utf-8")

@@ -22,7 +22,7 @@ procedures~\cite{hansen2009statistical}, and reusable tooling~\cite{reghenzani20
 We attack representativity from the input side: instead of sampling ``representative'' inputs,
 we \emph{search} for adversarial ones with a deterministic, platform-independent fitness, and
 certify for the dominant term that the search reached the analytic maximum. On the frozen
-worst inputs we then run the POT/MLE machinery with its diagnostic checklist, and we report
+extreme inputs we then run the POT/MLE machinery with its diagnostic checklist, and we report
 that the diagnostics, not the fits, decide what may be extrapolated
 (Sec.~\ref{sec:eval-evt}).
 
@@ -35,9 +35,9 @@ vector of deterministic algorithmic cost counters: the search result is a proper
 algorithm rather than of the measurement machine, runs are exactly reproducible from a seed,
 and the outcome can be checked against the analytic bound: the saturation certificate of
 Sec.~\ref{sec:eval-search} has no analogue under time-based fitness. The counters also enable
-the cross-language transfer: a worst input found on the instrumented port stresses the
-uninstrumented production engine equally, certified per input over the bounded-neighbor
-domain (Sec.~\ref{sec:meth-transfer}).
+the cross-language transfer: a counter-extremal input found on the instrumented port
+stresses the uninstrumented production engine equally, with equal work certified per input
+(Sec.~\ref{sec:meth-transfer}).
 
 \paragraph{Timing analysis of ROS-based systems}
 Casini et al.~\cite{casini2019ros2} bound end-to-end response times of ROS~2 processing chains
@@ -52,9 +52,9 @@ OS~\cite{levy2017tock}, and RustBelt~\cite{jung2018rustbelt} gives machine-check
 for its safety claims. That line of work targets \emph{memory} safety; WCET requires more:
 panic-freedom, allocation-freedom, recursion-freedom, and bounded loops on the hot path. We
 show these can be made lint- and test-enforced properties of a production kernel, and, in a
-step we believe is new, that a \emph{bit-exact} port is not just a migration artifact but an
-analysis instrument: it lets the memory-safe implementation carry the instrumentation burden
-for both languages.
+step we believe is new, that a high-fidelity, per-input-certified port is not just a
+migration artifact but an analysis instrument: it lets the memory-safe implementation carry
+the instrumentation burden for both languages.
 
 \paragraph{NDT scan matching}
 \ndt{} registration originates with Biber and Stra{\ss}er~\cite{biber2003ndt} and was extended

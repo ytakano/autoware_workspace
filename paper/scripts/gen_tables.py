@@ -168,6 +168,19 @@ def env_macros(manifest, meta):
         rf"\newcommand{{\envIters}}{{{meta['iters']}}}",
         rf"\newcommand{{\envWarmup}}{{{meta['warmup']}}}",
         rf"\newcommand{{\envSessions}}{{{len(manifest.get('sessions', [1]))}}}",
+    ]
+    # Decode the pooled sample accounting (review2 #7): "<warm>+<tail> pooled across
+    # sessions" with the session count -- emitted as per-session macros so the prose and
+    # captions can spell out 3 x (100 warm + 1000 tail) without hand-typing it.
+    import re as _re
+    n_sessions = len(manifest.get("sessions", [1]))
+    m = _re.match(r"(\d+)\+(\d+) pooled", str(meta["iters"]))
+    if not m or int(m.group(1)) % n_sessions or int(m.group(2)) % n_sessions:
+        raise SystemExit(f"env: cannot decode iters {meta['iters']!r} over "
+                         f"{n_sessions} sessions -- update the decode or the prose")
+    macros += [
+        rf"\newcommand{{\envItersWarmPerSession}}{{{int(m.group(1)) // n_sessions}}}",
+        rf"\newcommand{{\envItersTailPerSession}}{{{int(m.group(2)) // n_sessions}}}",
         rf"\newcommand{{\envIsolated}}{{{manifest.get('isolated_cpus') or 'none'}}}",
         rf"\newcommand{{\envCommit}}{{{(manifest.get('cpp_commit') or '?')[:8]}}}",
     ]
@@ -255,8 +268,10 @@ def ablation():
         rows,
         note=r"Hill-climb saturates \sumnbr{} at the analytic maximum on every seed (the "
         r"domain-informed seed genome already attains it; the search then grows \kdnodes); "
-        r"random sampling never reaches it. The two wall-clock-fitness runs share a seed "
-        r"yet return different champions --- counter fitness is bit-reproducible.",
+        r"random sampling never reaches it. The random arms start from \emph{random} "
+        r"genomes, so the comparison bundles seed quality with search strategy. The two "
+        r"wall-clock-fitness runs share a seed yet return different champions --- counter "
+        r"fitness is bit-reproducible.",
     )
 
     # Frontier timing macros, anchored on the same-series search_00 cells.
@@ -287,6 +302,7 @@ def ablation():
         rf"\newcommand{{\ablationFrontierRustExcessPct}}{{{(ratios['rust'] - 1) * 100:.1f}}}",
         rf"\newcommand{{\ablationTimeKdA}}{{{num(t1)}}}",
         rf"\newcommand{{\ablationTimeKdB}}{{{num(t2)}}}",
+        rf"\newcommand{{\ablationTimeKdDeltaPct}}{{{100.0 * abs(t1 - t2) / max(t1, t2):.3f}}}",
     ]
     (OUT / "ablation_macros.tex").write_text("\n".join(macros) + "\n", encoding="utf-8")
     print("wrote tables/ablation.tex + ablation_macros.tex")
@@ -487,6 +503,19 @@ def raspi4_timing():
     ]
     if factor is not None:
         macros.append(rf"\newcommand{{\raspiHostFactor}}{{{factor:.1f}}}")
+    # Review2 #9 / A7 framing: the 10 Hz budget multiple of the deployment-tier witness on
+    # this target, and the per-fixture host-vs-A72 per-unit-work factor range (Rust max
+    # over Rust max on the same frozen inputs).
+    if "legal_worst" in counters:
+        lw_budget = (stats[("legal_worst", "warm")]["max"] / 1000.0) / 100.0
+        macros.append(rf"\newcommand{{\raspiLegalWorstBudgetX}}{{{lw_budget:.0f}}}")
+    host_factors = [
+        (stats[(n, "warm")]["max"] / 1000.0) / max(wb[n]["rust"]["samples_ms"])
+        for n in counters if n in wb
+    ]
+    if host_factors:
+        macros.append(rf"\newcommand{{\raspiHostFactorMin}}{{{min(host_factors):.0f}}}")
+        macros.append(rf"\newcommand{{\raspiHostFactorMax}}{{{max(host_factors):.0f}}}")
     (OUT / "raspi4_timing_macros.tex").write_text("\n".join(macros) + "\n", encoding="utf-8")
     print("wrote tables/raspi4.tex + raspi4_timing_macros.tex")
 
@@ -638,9 +667,10 @@ def main():
         )
     write(
         "tails.tex",
-        rf"Frame time per engine (\si{{ms}}; {meta['iters']} samples/fixture, serial, "
-        r"isolated pinned core). Equal work certified per fixture (identical "
-        r"\texttt{iteration\_num}).",
+        r"Frame time per engine (\si{ms}; \envSessions{} sessions $\times$ "
+        r"(\envItersWarmPerSession{} warm ${+}$ \envItersTailPerSession{} tail) samples "
+        r"per fixture per engine, pooled; serial, isolated pinned core). Equal work "
+        r"certified per fixture (identical \texttt{iteration\_num}).",
         "tab:tails",
         "lrrrrr",
         r"fixture & \multicolumn{2}{c}{C++ (p50 / max)} "
@@ -905,10 +935,12 @@ def main():
         "regression.tex",
         rf"Unit-cost regression $T_{{p50}} \approx a\cdot\sumnbr + b\cdot\kdnodes + c$ "
         rf"over the fixtures pooled with the $P$-sweep points ($n={reg_n}$; brackets: "
-        rf"95\% bootstrap CIs; regressor correlation {corr:.2f}).",
+        rf"95\% bootstrap CIs; regressor correlation {corr:.2f}). \kdnodes{{}} is counted "
+        r"on the Rust engine's traversal: for C++ it is a geometry-correlated proxy, not "
+        r"a count of nodes the C++ engine visits (Sec.~\ref{sec:eval-regression}).",
         "tab:regression",
         "lrrrr",
-        r"engine & $a$ (\si{ns}/kernel eval) & $b$ (\si{ns}/kd node) & $c$ (\si{ms}) & $R^2$",
+        r"engine & $a$ (\si{ns}/kernel eval) & $b$ (\si{ns}/kd node, Rust-ref.) & $c$ (\si{ms}) & $R^2$",
         rows,
         note=prov,
     )
@@ -934,6 +966,8 @@ def legal_macros(timing, rust):
         rf"\newcommand{{\legalWorstKbar}}{{{kbar:.1f}}}",
         rf"\newcommand{{\legalWorstRatioRust}}{{{max(un['rust']['samples_ms']) / lw_rust:.1f}}}",
         rf"\newcommand{{\legalWorstRatioCpp}}{{{max(un['cpp']['samples_ms']) / lw_cpp:.1f}}}",
+        # Budget multiple of the 100 ms (10 Hz) period on the host (review2 #9 framing).
+        rf"\newcommand{{\legalWorstBudgetXRust}}{{{lw_rust / 100.0:.1f}}}",
     ]
     if "legal_osc" in timing:
         lo = timing["legal_osc"]
@@ -1139,6 +1173,21 @@ def bridge():
     if not all(r < 1.0 for r in infl["cpp"]):
         raise SystemExit(f"bridge: C++ inflation not uniformly < 1 ({infl['cpp']}) -- "
                          "the controlled-environment-tax story is stale; update the prose")
+    # Cross-engine gap per profile (Rust max / C++ max). The Sec. V prose (review2 #6)
+    # claims the conclusions survive under Profile A while the relative gap narrows:
+    # regenerate-or-break on both directions.
+    gaps = {}
+    for fx in order:
+        e = inputs[fx]
+        gb = e["rust"]["profile_b"]["max_ms"] / e["cpp"]["profile_b"]["max_ms"]
+        ga = e["rust"]["profile_a"]["max_ms"] / e["cpp"]["profile_a"]["max_ms"]
+        if ga >= 1.0:
+            raise SystemExit(f"bridge: Rust max >= C++ max under Profile A on {fx} -- "
+                             "the cross-engine conclusion does not survive; update the prose")
+        if ga <= gb:
+            raise SystemExit(f"bridge: gap does not narrow under Profile A on {fx} "
+                             f"({gb:.3f} -> {ga:.3f}) -- the narrowing sentence is stale")
+        gaps[fx] = (gb, ga)
     write(
         "bridge.tex",
         r"Bridge experiment: the same frozen inputs under \textbf{Profile B} (controlled: "
@@ -1151,8 +1200,11 @@ def bridge():
         r"& \multicolumn{2}{c}{A p50 / max (ms)} & infl.",
         rows,
         note=r"Iteration counts identical across profiles on every input (equal work). "
-        r"Synthetic Profile-B legs: pooled 3-session campaign; real-frame legs: dedicated "
-        r"controlled session; Profile A: one session, 100 samples per cell.",
+        r"Synthetic Profile-B legs: pooled 3-session campaign ($n{=}3000$); real-frame "
+        r"legs: dedicated controlled session ($n{=}100$); Profile A: one session, "
+        r"$n{=}100$ per cell. The synthetic max-based ratios therefore compare maxima "
+        r"over unequal $n$ (a larger pool biases the B maximum upward); the medians are "
+        r"robust to $n$ and agree.",
     )
     # C++ per-align controlled-environment tax on the three P=2000/31-pass synthetics.
     syn = ["search_00", "legal_worst", "legal_osc"]
@@ -1166,6 +1218,8 @@ def bridge():
         rf"\newcommand{{\bridgeRustInflMax}}{{{max(infl['rust']):.2f}}}",
         rf"\newcommand{{\bridgeCppTaxMinMs}}{{{min(taxes):.0f}}}",
         rf"\newcommand{{\bridgeCppTaxMaxMs}}{{{max(taxes):.0f}}}",
+        rf"\newcommand{{\bridgeGapBLegalWorst}}{{{gaps['legal_worst'][0]:.2f}}}",
+        rf"\newcommand{{\bridgeGapALegalWorst}}{{{gaps['legal_worst'][1]:.2f}}}",
     ]
     (OUT / "bridge_macros.tex").write_text("\n".join(macros) + "\n", encoding="utf-8")
     print("wrote tables/bridge.tex + bridge_macros.tex")

@@ -1,12 +1,14 @@
 \section{Conclusion}
 \label{sec:conclusion}
 
-We showed that a bit-exact port turns WCET analysis of a data-dependent industrial kernel into
-a tractable, largely automated pipeline: a structural work bound enforced and machine-checked
-in the port, worst inputs found by a deterministic counter-guided search (with an exact
-saturation certificate for the dominant term), and cross-language equal-work measurement
+We showed that a high-fidelity, per-input-certified port turns WCET analysis of a
+data-dependent industrial kernel into
+a tractable, largely automated pipeline: a structural work bound enforced and
+property-tested in the port, counter-extremal inputs found by a deterministic
+counter-guided search (with an exact saturation certificate for the dominant term), and
+cross-language equal-work measurement
 requiring no instrumentation of the production C++ sources. The resulting bound is
-\emph{layered}: enforced by construction and machine-checked on the work axis, parametric in
+\emph{layered}: enforced by construction and property-tested on the work axis, parametric in
 the caller's contract ($P$-affine,
 two tiers), and empirical only in the time-per-operation factor. On every adversarial fixture
 the Rust port meets or beats the C++ engine's observed maximum while eliminating its per-point
@@ -14,11 +16,15 @@ heap-allocation hazard, and the per-input equal-work certification proved sharp 
 find, and fix, port-fidelity gaps that conventional differential testing missed.
 
 \paragraph{Future work}
-On the bare-metal AArch64 target both legs are now demonstrated: the counters transfer
-exactly and the Profile-C timing series shows sub-percent spread
+On the bare-metal AArch64 evaluation target both legs are now demonstrated: the counters
+transfer exactly and the Profile-C timing series shows sub-percent spread
 (Sec.~\ref{sec:eval-raspi4}); what remains there is the multi-core interference analog
 (kernel tasks as co-runners) and a certified per-operation cost bound that would promote
 $\text{work} \times \text{unit cost}$ to an analytical WCET (Sec.~\ref{sec:threats}).
+Since the serial engine is not schedulable at 10\,Hz on that target
+(Sec.~\ref{sec:eval-raspi4}), the production ECU should be audited with the same on-target
+$P$-sweep protocol, and parallelizing the derivative passes (the port already ships an
+order-preserving, numerically identical parallel backend) is the next lever to measure.
 The full POT/MLE EVT machinery was run and rejected by its own diagnostics
 (Sec.~\ref{sec:eval-evt}); reviving extrapolation needs an independence-preserving
 measurement protocol, not a better fit. Finally, the counter-guided transfer methodology

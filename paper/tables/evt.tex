@@ -17,5 +17,5 @@ fixture & engine & max & $|\mathrm{ACF}|_{\max}$ & $\xi$ range & $q_{10^{-9}}$ C
  & Rust & 64.9 & 0.32--0.54 & -0.17..0.07 & 120 \\
 \bottomrule
 \end{tabular}
-\par\smallskip\footnotesize $|\mathrm{ACF}|_{\max}$: range over the three sessions of the largest lag-1..10 autocorrelation magnitude (i.i.d.\ would give ${\sim}0.03$ at $n{=}1000$). $\xi$ range: per-session MLE shapes at the working threshold. Last column: the worst upper end of the bootstrapped per-align $q_{10^{-9}}$ CIs --- divergence caused by serial dependence, reported as the reason extrapolation is withheld.
+\par\smallskip\footnotesize $|\mathrm{ACF}|_{\max}$: range over the three sessions of the largest lag-1..10 autocorrelation magnitude (i.i.d.\ would give ${\sim}0.03$ at $n{=}1000$). $\xi$ range: per-session MLE shapes at the working threshold. Last column: the worst upper end of the bootstrapped per-align $q_{10^{-9}}$ CIs --- since the bootstrap resamples serially dependent exceedances, these are not valid confidence intervals; the column is retained only as diagnostic evidence for why extrapolation is withheld.
 \end{table}

@@ -14,8 +14,9 @@ environment sensitivity: per-session medians agree within \sessMedSpreadWorstPct
 fixture; a per-session memory-layout effect that persists with or without a reboot), and
 the Rust/C++ max ratios are stable to $\pm\sessRatioSpreadWorst$.
 
-Remaining limits: one machine; the real-data replay of Sec.~\ref{sec:eval-realdata} still
-carries pre-protocol timing (Profile-A re-capture pending); and the full POT/MLE
+Remaining limits: one machine; the real-data replay of Sec.~\ref{sec:eval-realdata} is
+single-shot (one align per frame per engine under Profile A), so its per-frame times carry
+no repetition statistics; and the full POT/MLE
 extreme-value treatment was run and its \emph{diagnostics rejected extrapolation}. The
 per-session sample series carry serial dependence up to $|\mathrm{ACF}| = \evtAcfWorst$, so
 no extrapolated exceedance probability is claimed, and the tail deliverable is the
@@ -47,19 +48,23 @@ meaningful matching work.
 The residual is irreducible without matching glibc's eigensolver and \texttt{f64}
 transcendentals bit-for-bit: sub-f32-ULP differences in the internal \texttt{f64} trajectory
 (eigensolver ${\le}\oneoffEigensolverBound$ on the inverse covariances;
-\texttt{libm}-vs-glibc \texttt{exp}) surface only on knife-edge frames. ``Bit-exact''
-therefore means bit-exact on the tested domain: equal work is \emph{certified per frame} by
-the replay assertion, and the residual is flagged rather than silently compared.
+\texttt{libm}-vs-glibc \texttt{exp}) surface only on knife-edge frames. This residual is
+why the paper claims work equivalence only over the certified subset $E$
+(Sec.~\ref{sec:meth-transfer}): all \realDivergences{} divergent frames lie \emph{inside}
+the bounded-neighbor domain $D$, so membership in $D$ alone does not guarantee equal work;
+equal work is \emph{certified per frame} by the replay assertion, and the residual is
+flagged rather than silently compared.
 
-Relatedly, ISA-independence of the Rust floating-point stream is by construction
-(pure-software \texttt{libm}) and \emph{measured} on the deployment hardware
+Relatedly, the Rust floating-point stream is \emph{designed} for ISA-stable execution
+(pure-software \texttt{libm}, no FMA contraction in the kernel image) and \emph{verified}
+on the deployment-class evaluation target
 (Sec.~\ref{sec:eval-raspi4}): exact on all \raspiTotal{} fixtures. The one flag the
 on-target certificate initially raised was root-caused to a stale expected-value snapshot
 predating one of the port-fidelity fixes above, a reminder that the counters are sensitive
 to the engine \emph{version} at parts-per-million resolution: cross-version baselines must
-be commit-pinned, and cross-ISA bit-exactness remains a per-fixture \emph{certified}
-property rather than an assumed one. The C++ comparison itself is inherently x86/Linux-bound
-(pcl/ROS dependency).
+be commit-pinned, and cross-ISA equality (bit-identical counters) remains a per-fixture
+\emph{certified} property rather than an assumed one. The C++ comparison itself is
+inherently x86/Linux-bound (pcl/ROS dependency).
 
 \subsection{Contract preconditions}
 \input{tables/preconditions}
@@ -68,7 +73,7 @@ bound~\eqref{eq:decomp}: its limit, who enforces it, and what happens on violati
 distinguishing limits the engine enforces at runtime from contracts that are merely
 \emph{assumed}. The engine-tier fixtures are API-legal but not reachable through the
 production preprocessing (duplicate source points, sub-downsample map clusters, overlapping
-tiles); the bound they support is the engine-API tier over the bounded-neighbor domain $D$
+tiles); the bound they support is the bounded-neighbor engine tier over $D$
 (Sec.~\ref{sec:meth-transfer}), deliberately conservative.
 
 The deployment tier's contracts (tile disjointness and alignment, map/scan downsampling,
@@ -96,8 +101,9 @@ not a proof.
 
 Two further preconditions: the \maxnn{} sufficiency derivation
 (Sec.~\ref{sec:implementation}) assumes the search radius stays coupled to the voxel size
-(decoupling them would require re-deriving the cap), and the affine $\mathrm{WCET}(P)$ law
-is validated over $P \in [\psweepPmin{}, \psweepPmax{}]$ on the host
+(decoupling them would require re-deriving the cap), and the affine
+$T_{\mathrm{obs,max}}(P)$ envelope is validated over $P \in [\psweepPmin{}, \psweepPmax{}]$
+on the host
 (Sec.~\ref{sec:eval-psweep}); beyond that range, working sets exceeding the last-level
 cache could bend the slope upward, and the zero-allocation guarantee is tied to the
 pre-reserved capacity (exceeding it costs a one-time buffer growth).
@@ -128,9 +134,9 @@ Every \emph{time} figure, by contrast, is an observation: one machine, one proto
 (out-of-order x86) for which no sound static timing model exists. On this hardware class a
 true WCET is practically unobtainable by any method, and extreme-value extrapolation failed
 its own diagnostics here (Sec.~\ref{sec:eval-evt}). The bridge experiment adds a sharper
-warning about the measured part: the \emph{controlled configuration itself} shifted one
-engine's per-align constant (the isolation flags tax C++ by
-\SI{\bridgeCppTaxMinMs}{}--\SI{\bridgeCppTaxMaxMs}{ms}; Sec.~\ref{sec:eval-bridge}), so
+warning about the measured part: the \emph{controlled configuration itself} is associated
+with a \SI{\bridgeCppTaxMinMs}{}--\SI{\bridgeCppTaxMaxMs}{ms} shift in one engine's
+per-align constant (mechanism unresolved; Sec.~\ref{sec:eval-bridge}), so
 controlled numbers are configuration-specific observations, not platform-free truths.
 
 The counter decomposition thus \emph{factorizes} WCET into a structurally-enforced part
@@ -140,7 +146,8 @@ deployment of Sec.~\ref{sec:intro}, a defensible per-operation cost bound would 
 $\text{work bound} \times \text{unit-cost bound}$ to an analytical WCET. Separately, the
 structural-hazard removals (allocation-, recursion-, panic-freedom) are constructive
 properties, not measurements: they are what make a finite bound \emph{possible} at all,
-since an engine that calls the allocator inside its align loop forfeits the premise of a
-finite WCET under fragmentation. The deliverable is therefore ``the port does not regress
-WCET on any adversarial fixture, removes the structural hazards, and carries a work
-envelope enforced by construction and machine-checked,'' not a proven absolute time bound.
+since an engine that calls the allocator inside its align loop cannot be given a defensible
+finite bound under this allocator/system model. The deliverable is therefore ``the port
+does not regress WCET on any adversarial fixture, removes the structural hazards, and
+carries a work envelope enforced by construction and checked by property tests,'' not a
+proven absolute time bound.

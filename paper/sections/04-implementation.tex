@@ -21,7 +21,8 @@ the released per-run manifests).
   \item \textbf{Recursion-free kd-tree}: the radius search runs an iterative walk over a fixed
     64-entry stack (depth $\le \lceil \log_2 N \rceil{+}1$ by the median build). The exact
     near-then-far visit order is preserved (neighbor order feeds float summation order,
-    i.e.\ bit-exactness) and is differential-tested against the recursive oracle. The
+    which the port must reproduce exactly) and is differential-tested against the recursive
+    oracle. The
     iterative form measured ${\approx}\oneoffKdIterSpeedup\%$ faster than the recursive one
     (same day, same core).
   \item \textbf{Panic-free, lock-free}: lint-enforced absence of panicking operations on the
@@ -40,7 +41,8 @@ engines' APIs enforce), the search ball has diameter two voxels and thus interse
 three cells per axis: \emph{at most $3^3 = 27$ leaves per tile can ever be in range,
 regardless of map content}. Under the disjoint-tile contract, leaf multiplicity is 1, so 27
 bounds the global count and $\maxnn = 64$ carries a $2.4\times$ margin: truncation is
-unreachable and bit-exactness with the uncapped C++ engine is unconditional. (The measured
+unreachable, so the equal-work precondition against the uncapped C++ engine holds for
+every such input. (The measured
 maximum on a real map is \realKmaxMax, Sec.~\ref{sec:eval-realdata}: one above the
 voxel-center heuristic of 8, comfortably inside the 27.)
 
