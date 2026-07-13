@@ -9,9 +9,9 @@
 \toprule
 engine & $a$ (\si{ns}/kernel eval) & $b$ (\si{ns}/kd node) & $c$ (\si{ms}) & $R^2$ \\
 \midrule
-C++ & 142.7 [118,\,155] & 25.0 [20,\,33] & 12.7 [3,\,28] & 0.9998 \\
-Rust & 66.5 [22,\,105] & 28.3 [15,\,44] & -3.0 [-22,\,6] & 0.9988 \\
+C++ & 128.0 [77,\,148] & 36.6 [29,\,54] & 30.4 [9,\,63] & 0.9993 \\
+Rust & 65.8 [28,\,105] & 27.8 [15,\,41] & -2.7 [-20,\,6] & 0.9990 \\
 \bottomrule
 \end{tabular}
-\par\smallskip\footnotesize Run: captured 2026-07-10 (UTC), powersave governor (container), 100 aligns/fixture after 10 warmups, \texttt{taskset -c 2}.
+\par\smallskip\footnotesize Profile B (\texttt{plan/ndt\_timing\_measurement\_policy.md}): 3 session(s), 2026-07-12/2026-07-13, isolated pinned core (\texttt{taskset -c 2}), 300+3000 pooled across sessions aligns/fixture.
 \end{table}

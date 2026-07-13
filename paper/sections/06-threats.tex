@@ -4,13 +4,21 @@
 % Be brutally honest here; it is what makes the rest credible.
 
 \subsection{Measurement and statistical rigor}
-Current host numbers come from a development container with the \texttt{powersave} CPU
-governor and warm caches; they support \emph{relative} (cross-engine, same-machine) claims
-only. \todo{replace with performance-governor / isolated-core / cold-cache / co-runner data.}
-The tail statistics are similarly comparison-grade: \envIters{} samples per fixture, block
-maxima of 10, a moment-fit Gumbel, no exponentiality test, no confidence intervals, one
-machine.
-\todo{1000+ samples, PoT/MLE fit, CIs, repeated runs.}
+Engine-tier timing now follows the controlled Profile-B protocol
+(Sec.~\ref{sec:eval-setup}): isolated pinned core, \envSessions{} sessions spanning a
+reboot cycle with randomized orders, warm/cold/co-runner series separated, and a
+calibration guard that aborted --- and thereby excluded --- two transient firmware-level
+frequency clamps it caught mid-campaign (on \texttt{nohz\_full} cores the kernel's frequency
+reporting is stale, so measured sustained speed is the only reliable throttling detector).
+Cross-session stability bounds the residual environment sensitivity: per-session medians
+agree within \sessMedSpreadWorstPct\% (worst fixture; a per-session memory-layout effect
+that persists with or without a reboot), and the Rust/C++ max ratios are stable to
+$\pm\sessRatioSpreadWorst$. Remaining limits: one machine; the real-data replay of
+Sec.~\ref{sec:eval-realdata} still carries pre-protocol timing (Profile-A re-capture
+pending); and the tail fit remains comparison-grade --- a moment-fit Gumbel over block
+maxima without exponentiality tests or confidence intervals, now over 300 blocks for the
+tail-claim fixtures but still awaiting a peaks-over-threshold/MLE treatment before any
+non-comparative reading.
 
 \subsection{Input-space coverage}
 The hill-climb explores a parameterized generator, not the full input space. The saturation

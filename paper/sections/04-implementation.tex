@@ -8,8 +8,9 @@ measured serial, \texttt{num\_threads}=1). The Rust engine is a port of it that 
 without the standard library (\texttt{no\_std}) for the bare-metal kernel deployment; behind
 the C ABI it is a drop-in replacement, and the differential test suite (voxel-grid
 construction, align, engine and end-to-end node paths) passes with the Rust engine substituted.
-Compiler versions appear in Sec.~\ref{sec:evaluation}. \todo{pin the exact autoware\_core /
-port commits at camera-ready.}
+Compiler versions and the measurement environment appear in Sec.~\ref{sec:eval-setup};
+both engines were measured at autoware\_core commit \texttt{\envCommit} (binary hashes in
+the released per-run manifests).
 
 \subsection{WCET-relevant hardening of the Rust real-time path}
 \begin{itemize}

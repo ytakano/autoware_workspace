@@ -9,13 +9,13 @@
   grid=major, tick label style={font=\footnotesize}, label style={font=\footnotesize},
   legend style={font=\footnotesize},
 ]
-\addplot[only marks, mark=square*, color=blue] coordinates { (250,113.69) (500,224.12) (1000,442.64) (2000,891.24) (4000,1769.13) (8000,3490.92) };
+\addplot[only marks, mark=square*, color=blue] coordinates { (250,122.95) (500,245.99) (1000,501.52) (2000,974.35) (4000,1944.20) (8000,3875.21) };
 \addlegendentry{C++ (measured max)}
-\addplot[no marks, color=blue, dashed] coordinates { (250,119.61) (8000,3499.19) };
+\addplot[no marks, color=blue, dashed] coordinates { (250,128.79) (8000,3876.79) };
 \addlegendentry{C++ fit ($R^2=1.0000$)}
-\addplot[only marks, mark=*, color=red] coordinates { (250,76.71) (500,153.19) (1000,305.22) (2000,608.63) (4000,1205.12) (8000,2410.25) };
+\addplot[only marks, mark=*, color=red] coordinates { (250,75.58) (500,150.08) (1000,310.30) (2000,592.38) (4000,1188.99) (8000,2371.16) };
 \addlegendentry{Rust (measured max)}
-\addplot[no marks, color=red, dashed] coordinates { (250,78.67) (8000,2410.26) };
+\addplot[no marks, color=red, dashed] coordinates { (250,78.84) (8000,2371.46) };
 \addlegendentry{Rust fit ($R^2=1.0000$)}
 \end{axis}
 \end{tikzpicture}
