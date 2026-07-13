@@ -72,9 +72,8 @@ on the evaluated platform. Deterministic algorithmic cost counters, compiled to 
 overhead when disabled, serve both as machine-checked evidence for the work bound and as a
 platform-independent fitness function for a worst-input search. Bit-exactness carries each
 discovered worst input verbatim to the uninstrumented C++ engine, with equal work certified
-per input. The search saturates the analytic kernel-evaluation bound
-($P \cdot \maxnn \cdot (N_{\mathrm{iter}}{+}1)$) exactly, and a controlled sweep shows the
-bound is affine in the scan size $P$. A two-tier formulation separates the engine-API worst
+per input. The search exactly saturates the analytic bound on the number of kernel
+evaluations per align, and a controlled sweep shows the bound is affine in the scan size. A two-tier formulation separates the engine-API worst
 case from the preprocessing-reachable one
 ($\legalWorstRatioRust\times$--$\legalWorstRatioCpp\times$ apart on measured fixtures),
 quantifying the value of input-contract validation at the component boundary. On a
