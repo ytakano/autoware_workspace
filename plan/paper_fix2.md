@@ -161,11 +161,23 @@ sentence against our own tables), then A1 (core reframing), then the rest.
 
 ### A7 (#9) Pi 4: state the feasibility result; fix the ISA wording
 
-- Add to §V-J and the conclusion: "The current serial configuration is **not schedulable at
-  10 Hz on the evaluated Cortex-A72 target** — even the deployment-tier witness costs ~15× the
-  budget — so on embedded-class silicon the input contracts alone cannot close the gap; the
-  remaining levers are P reduction, parallelization, SIMD, algorithmic change, or faster
-  hardware." Extend future work accordingly.
+- **Scope note (2026-07-13, from the author):** the production system will use a CPU
+  substantially faster than the Pi 4; the Pi 4 is the *evaluation platform* for the
+  \texttt{no\_std} kernel deployment class, not the production ECU. The feasibility statement
+  must therefore not read as a product-infeasibility claim.
+- Add to §V-J and the conclusion, scoped accordingly: "On the evaluated Cortex-A72 target the
+  serial configuration is **not schedulable at 10 Hz** — the deployment-tier witness costs
+  ~15× the budget — which we read as a quantification of the per-unit-work speedup the
+  production platform must provide over this reference silicon (≈15× on the deployment
+  witness; for calibration, the measured x86 desktop host is 12–16× the A72 per unit work and
+  still misses the same witness by 1.2×). The affine $T(P)$ law lets any candidate platform be
+  audited with a single on-target P-sweep." Levers if the platform alone does not close the
+  gap: P reduction, parallelization (4 A72-class cores), SIMD, algorithmic change.
+- Audit the paper's framing of the Pi 4 itself: §III-E currently calls it "the deployment
+  hardware" — change to "deployment-class evaluation target" (or equivalent) in §III-E, §V-J,
+  and anywhere "deployment hardware/target" implies the production ECU is a Pi 4.
+- Extend future work accordingly (on-target P-sweep for the production ECU; multi-core
+  interference analog already listed).
 - ISA wording: "ISA-independent by construction" → "designed for ISA-stable execution
   (pure-software libm, no FMA contraction in the kernel image) and **verified on all frozen
   fixtures**"; keep the per-fixture certification framing. (C7 optionally adds pose/score/hash
@@ -332,6 +344,45 @@ sentence against our own tables), then A1 (core reframing), then the rest.
 - Acceptance: on-target table gains a pose/score column; A7's "verified" claim covers values,
   not only counters.
 
+### C8 (#9 — recommended, proposed by the author 2026-07-13) Parallel feasibility on x86: legal-worst at 2 and 4 threads
+
+- Rationale: on the x86 host the deployment-tier witness misses 10 Hz by 1.2× (legal-worst
+  Rust 120.8 ms serial). A7 lists parallelization as a lever; this experiment turns the lever
+  from speculation into a measured result — "the contracts buy 4.9×, and the remaining 1.2×
+  closes at 2 threads (measured s(k))" is a much stronger ending for the two-tier story.
+- Feasibility (verified in-tree): the Rust crate already ships a `parallel` feature
+  (rayon-backed `compute_derivatives`, `realtime_ndt_scan_matcher/src/ndt.rs`) whose
+  order-preserving `collect_into_vec` reduction is **bit-identical to serial by design**
+  ("a pure performance option, never a numeric change"; `align` selects it when
+  `params.num_threads > 1`, pool size via `init_thread_pool`/`RAYON_NUM_THREADS`). The C++
+  engine natively supports `num_threads` (OpenMP) — the production configuration is
+  multi-threaded anyway, so this also adds production relevance.
+- Design: threads k ∈ {1, 2, 4}, both engines, on \emph{legal-worst} and \emph{legal-osc}
+  (deployment tier — the 10 Hz question) plus \emph{search-00} (engine-tier context). Profile-B
+  protocol extended to a multi-core variant: k isolated physical cores, SMT siblings off,
+  same warm-series/calibration-guard discipline. Requires enlarging the `isolcpus` set →
+  kernel-cmdline change + reboot; **schedule in the same reboot campaign as C4**.
+- Certificates: Rust — assert counters, pose, and score bit-identical between serial and
+  parallel runs per input (the crate's design claim, now measured); C++ — check whether the
+  OpenMP reduction order shifts iteration counts/scores vs serial and report it (expected
+  possible; if it diverges, the C++ parallel numbers are a system observation, not an
+  equal-work comparison — label accordingly).
+- Scoping for the paper: this is a **throughput/feasibility measurement**, not an extension of
+  the WCET argument to multi-core — the serial engine remains the deterministic baseline (the
+  crate's own stance), and multi-core WCET needs the interference analysis already listed as
+  future work. Present as: speedup table s(k) + "legal-worst fits the 100 ms budget at k = …
+  on this host"; note load-imbalance sensitivity (skewed per-point K) as the expected
+  sub-linearity mechanism.
+- Pi-4 note: **not** portable to the bare-metal target as-is — `parallel` implies `std`
+  (rayon), and the `mt` no_std build provides engine sharing, not a data-parallel align; an
+  on-target parallel align is future work, so C8 is x86-only.
+- Files: `bench/wcet_campaign.py` (thread-count axis), `bench/ndt_bench_replay.cpp`
+  (`num_threads` plumbing + serial-vs-parallel cert), `paper/scripts/integrate_campaign.py`,
+  new generated table/macros; paper §V-G/§V-J prose + A7 lever sentence.
+- Acceptance: a measured s(k) table for both engines; the serial-vs-parallel Rust certificate
+  passes bit-exactly; the two-tier section states at which k the deployment witness fits
+  10 Hz on this host.
+
 ## Milestones / ordering
 
 | Milestone | Items | Gate |
@@ -340,7 +391,7 @@ sentence against our own tables), then A1 (core reframing), then the rest.
 | M2 — claims re-scoped | A1, A2, A3, A4, A7, A8 | The paper no longer claims what the current certificate cannot support; rebuttal letter draftable. |
 | M3 — existing-data strengthening | B1, B2 | Real-data table split; work model has the per-point term. |
 | M4 — trace certificate | C1, then C2 | The review's blocking item closed: transfer claim backed by a measured per-input C++/Rust trace certificate incl. Σkd^C++. |
-| M5 — measurement cleanups | C3, C5 (+ optional C4, C6, C7) | Bridge same-n; no pre-protocol numbers left. |
+| M5 — measurement cleanups | C3, C5, C8 (+ optional C4, C6, C7; C8 shares C4's reboot campaign) | Bridge same-n; no pre-protocol numbers left; parallel feasibility measured. |
 | M6 — resubmission package | re-run this audit table against the final PDF; rebuttal letter (include the three push-back notes above) | Submit. |
 
 A before B; C1 can start in parallel with Phase A (different files). B2 lands before C1's
@@ -352,7 +403,7 @@ lands).
 
 - #1 → A1 + C1 - #2 → A2 + C1 (Σkd^C++) - #3 → B2
 - #4 → A3 - #5 → A4 (+ C6 optional) - #6 → A5 + C3 (+ C4 optional)
-- #7 → A6 - #8 → B1 + C2 + A8 (abstract/contracts wording) - #9 → A7 (+ C7 optional)
+- #7 → A6 - #8 → B1 + C2 + A8 (abstract/contracts wording) - #9 → A7 + C8 (+ C7 optional)
 - #stats → A8 (EVT CI, regression scoping) + B2 - #edit → A8 + C5 (+ user: author block)
 - Reviewer's page-budget advice → A8 (appendix decision at layout time).
 
@@ -360,3 +411,8 @@ lands).
 
 - 2026-07-13: roadmap written; review2 validity audit completed (all major points valid; three
   rebuttal-grade nuances recorded above). No paper edits yet.
+- 2026-07-13 (later): A7 re-scoped — the Pi 4 is the evaluation platform, not the production
+  ECU (author input): feasibility statement reframed as a per-unit-work speedup requirement.
+  C8 added (author proposal): x86 parallel feasibility of the deployment tier at 2/4 threads;
+  in-tree support verified (Rust `parallel` feature is bit-identical-by-design, C++ has
+  OpenMP `num_threads`).
