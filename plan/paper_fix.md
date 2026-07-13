@@ -657,6 +657,25 @@ extra drives are declared future work unless time permits.
   (gitignored; enters `paper/data/` via C4). Next: C4 integration (profile-labeled tables
   from campaign data), C2 EVT on the 1000-sample tail fixtures, Profile A run + bridge
   (needs the frame freezer, C1-prep 2/4), per-pass counters (3/4), gen_tables guards (4/4).
+- 2026-07-13: **C4 DONE — the paper's timing base is now the Profile-B campaign.** Data gaps
+  closed first (psweep re-measured under the protocol — one more EC clamp caught/retried,
+  3rd overall, all during heavy memory load; alloc counts re-verified **byte-identical**,
+  confirming environment-invariance). New `scripts/integrate_campaign.py` pools the 3
+  sessions into `wcet.json` (+ new `wcet_cold.json`/`wcet_corunner.json`, psweep replaced)
+  with nested per-session manifests; gen_tables rebuilt around `meta.manifest` (profile
+  labels + provenance in every timing table, mixing guard), new cross-session macros
+  (\sessMedSpreadWorstPct 3.2%, \sessRatioSpreadWorst 0.01) and a new
+  `tab:interference` + §V "Cache and interference sensitivity" (cold ≤ ~1%; membw on
+  legal-worst +8.9% Rust / +4.2% C++, others null — the tier asymmetry in print). Guards
+  surfaced and we fixed honestly: the intro spread claim (Rust max now 596 ms → "nearly a
+  second, two orders of magnitude"); **the regression CI-disjointness claim died on the new
+  data** (C++ a CI [74,147] vs Rust [30,105] overlap; §V-D now defers the engine comparison
+  to the direct Table-II ratios, stable to ±0.01 across sessions); ratios now 0.08–0.73;
+  subnormal ratio 13.0×. §V-A/§VI-A rewritten around the protocol (**both red measurement
+  TODOs deleted** — only author info remains); commit pinned (\envCommit 9cd33c73);
+  ONEOFF/realdata timing era-tagged (realdata margins marked era-mixed, Profile-A re-capture
+  pending). Remaining M4: C2 (PoT/MLE EVT on the 1000-sample tails), Profile A + bridge
+  (frame freezer), B4, C3 target timing.
 
 ## Cross-references
 
