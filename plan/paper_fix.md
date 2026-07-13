@@ -430,7 +430,21 @@ Governed by `plan/ndt_timing_measurement_policy.md`; deltas and priorities:
 - Acceptance: either the full Profile-B protocol or no pWCET table; A6's demotion holds
   meanwhile.
 
-### C3 (#6) AArch64 target evidence — **counter leg DONE on hardware (2026-07-12)**
+### C3 (#6) AArch64 target evidence — **DONE (counters 2026-07-12; Profile-C timing 2026-07-13)**
+
+**Timing leg (2026-07-13):** kernel app extended to the C1-grade protocol (3 warmups incl.
+the certificate align, 100 warm + 20 cold samples with an 8 MiB eviction sweep, fixed-work
+calibration spin bracketing each series as the on-target throttle guard; `ndt_short`
+feature = QEMU-sized protocol test). QEMU raspi3 validated the protocol (8/8 counters,
+COMPLETE marker); the user ran the full image on the Pi 4 → `data/raspi4_timing.txt`
+(~55 min, calibration drift ≤0.04% = no throttling, 8/8 counters again). Distributions:
+worst warm max/p50 +0.30%, cold ≤ +0.38% over warm — tighter than isolated-host Profile B;
+search-00 = 9.85 s on the A72 (16.5× the host Profile-B max). New `raspi4_timing()`
+emitter re-emits `tab:raspi4` (warm p50/max + cold max + counters) with guards (counter
+transfer, completion, ≤1% drift, ≤0.5% spread); §V-I gains the Profile-C paragraph
+(work × unit-cost → analytical WCET on this platform class); conclusion future-work
+updated (multi-core interference analog + certified unit-cost bound remain; also fixed the
+stale "stronger EVT" sentence to the C2 outcome).
 
 **Raspberry Pi 4 result integrated into the paper.** `data/raspi4.txt` (frozen serial log,
 Cortex-A72, bare-metal no_std kernel) shows **7/8 exact counter equality**; *search-01*'s
@@ -547,7 +561,7 @@ extra drives are declared future work unless time permits.
 ## Acceptance checklist (review point → roadmap item)
 
 - #1 → A3 ✓ + B3 ✓ - #2 → A4 ✓ - #3 → B1 ✓ (+ A6 ✓ wording)
-- #4 → A5 ✓ - #5 → A6 ✓ - #6 → C1 + C3 (✓ counters on hardware; timing rides C1)
+- #4 → A5 ✓ - #5 → A6 ✓ - #6 → C1 ✓ (Profiles A/B + bridge) + C3 ✓ (counters + Profile-C timing)
 - #7 → A2 ✓ + A6 ✓ + C2 ✓ - #8 → A2 ✓ + C4 - #9 → B4 ✓
 - #10 → A1 ✓ + B5 ✓ - #11 → B2 ✓
 - Review's title/abstract suggestions → A6 ✓.
@@ -760,6 +774,14 @@ extra drives are declared future work unless time permits.
   tax-<1-C++ stories), §V bridge subsection, §V-G margin justification now cites it, §VI
   configuration-specificity warning. Paper builds clean at 13 pages. Remaining in M4:
   A1 full-ROS stretch (optional), C3 target timing (Pi 4); then M5 rebuttal + final audit.
+
+- 2026-07-13 (C3 timing): **C3 fully closed -- review #6 target leg done.** Kernel app
+  extended to the full Profile-C protocol (see the C3 section above); QEMU raspi3
+  protocol test passed, Pi 4 run frozen as `data/raspi4_timing.txt` (8/8 counters, no
+  throttling, sub-percent spread). `tab:raspi4` re-emitted with timing columns + guards;
+  SecV-I Profile-C paragraph; conclusion future-work updated (also fixed the stale pre-C2
+  "stronger EVT" sentence). M4 complete except the optional A1 full-ROS stretch; next: M5
+  (rebuttal letter + final claim audit).
 
 ## Cross-references
 

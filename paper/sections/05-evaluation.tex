@@ -359,10 +359,26 @@ hardware exactly: the re-captured hardware run (Table~\ref{tab:raspi4}) reports
 hardware runs. No measurable ISA dependence remains, and the flag was the certificate
 doing its job at parts-per-million resolution --- the counters double as a behavioral
 fingerprint of the engine \emph{version}, which is why baselines must be pinned to engine
-commits (the artifact-manifest discipline of Sec.~\ref{sec:threats}). The single-shot
-align times (up to \SI{\raspiAlignWorstS}{s} on the engine-tier worst) are informational
-only; the controlled timing protocol on target is future work
-(Sec.~\ref{sec:conclusion}).
+commits (the artifact-manifest discipline of Sec.~\ref{sec:threats}).
+
+The timing columns of Table~\ref{tab:raspi4} are a \textbf{Profile-C} series (an amendment
+to the measurement policy for OS-less targets): per fixture, \raspiTimingSamples{} warm and
+\raspiTimingCold{} cold samples on the warm map, the series bracketed by a fixed-work
+calibration spin --- the on-target analog of the host campaign's throttle guard, and the
+relevant hazard here, since the Pi~4 throttles under sustained load. Over the
+${\sim}55$-minute run the calibration drifted at most \raspiCalibDriftPct\%: no thermal
+throttling. The distributions are strikingly tight --- worst warm max/p50 across all
+fixtures is ${+}\raspiSpreadWorstPct\%$, and the cold series (an 8\,MiB eviction sweep
+before every sample) sits at most ${+}\raspiColdDeltaWorstPct\%$ above the warm maximum ---
+tighter than the isolated-host Profile-B series, as expected with no OS, one active core,
+and a firmware-fixed clock. This is precisely the platform class where the factorization of
+Sec.~\ref{sec:threats} pays off: the work bound transfers exactly (the counters), the
+per-unit cost is nearly deterministic (sub-percent spread), so
+$\text{work bound} \times \text{unit-cost bound}$ approaches an analytical WCET. In
+absolute terms the engine-tier worst costs \SI{\raspiSearchWarmMaxS}{s} on the Cortex-A72
+($\raspiHostFactor\times$ the x86 host's Profile-B maximum) --- far past any 10\,Hz budget,
+quantifying how much headroom the deployment tier's input contracts must buy on
+embedded-class silicon (per-fixture values in Table~\ref{tab:raspi4}).
 
 \subsection{Extreme-value analysis: what the diagnostics permit}
 \label{sec:eval-evt}

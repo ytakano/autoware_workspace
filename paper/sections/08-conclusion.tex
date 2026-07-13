@@ -14,9 +14,12 @@ heap-allocation hazard --- and the per-input equal-work certification proved sha
 find, and fix, port-fidelity gaps that conventional differential testing missed.
 
 \paragraph{Future work}
-The counter transfer to the bare-metal AArch64 deployment target is demonstrated
-(Sec.~\ref{sec:eval-raspi4}); what remains there is the controlled \emph{timing} protocol
-(repeats, warm/cold series, an interference co-runner) that would promote the work bound
-toward an analytical WCET (Sec.~\ref{sec:threats}). Also: statistically stronger EVT
-(peaks-over-threshold, maximum-likelihood fits, confidence intervals); applying the
-counter-guided transfer methodology to other data-dependent Autoware kernels.
+On the bare-metal AArch64 target both legs are now demonstrated: the counters transfer
+exactly and the Profile-C timing series shows sub-percent spread
+(Sec.~\ref{sec:eval-raspi4}); what remains there is the multi-core interference analog
+(kernel tasks as co-runners) and a certified per-operation cost bound that would promote
+$\text{work} \times \text{unit cost}$ to an analytical WCET (Sec.~\ref{sec:threats}).
+The full POT/MLE EVT machinery was run and refused by its own diagnostics
+(Sec.~\ref{sec:eval-evt}); reviving extrapolation needs an independence-preserving
+measurement protocol, not a better fit. Also: applying the counter-guided transfer
+methodology to other data-dependent Autoware kernels.
