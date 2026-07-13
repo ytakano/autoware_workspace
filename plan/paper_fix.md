@@ -641,6 +641,22 @@ extra drives are declared future work unless time permits.
   under boost than at the pinned 3.2 GHz; heavy fixtures only ~1.1×) — i.e. the old
   unit-cost regression mixed speed regimes across fixtures, further justifying C1.
   Sessions 2–3 pending (different days per the policy).
+- 2026-07-13: **Profile-B campaign COMPLETE — 3 sessions × 44 cells, zero problems,
+  iteration equality everywhere.** Session 2 ran after a reboot (cross-boot independence:
+  isolcpus/irqaffinity persisted via GRUB; governor/SMT/pin re-applied and auto-verified —
+  a frequency-pin check was added to verify-env); session 3 same-boot as 2. Cross-session
+  stability: same-boot worst Δmedian 3.1%, cross-boot worst 1.4%, per-fixture max spread
+  ≤3.3%; **Rust/C++ max ratios stable to ±0.01 across all three sessions** (the headline
+  comparison is extremely robust). Refined interpretation: the ~3% systematic per-fixture
+  shifts appear across sessions with or without a reboot (per-session layout/state, not
+  boot-specific) — single-session statistics underestimate true uncertainty either way,
+  vindicating the multi-session requirement. Two transient EC/firmware clamps (×1.65,
+  ×1.48; below the OS and below the frequency pin) were caught by the calibration guard
+  mid-campaign and excluded by series re-runs — with nohz-stale frequency reporting, the
+  guard is the only detector for these. Raw data in `bench/campaign_runs/session-{1,2,3}/`
+  (gitignored; enters `paper/data/` via C4). Next: C4 integration (profile-labeled tables
+  from campaign data), C2 EVT on the 1000-sample tail fixtures, Profile A run + bridge
+  (needs the frame freezer, C1-prep 2/4), per-pass counters (3/4), gen_tables guards (4/4).
 
 ## Cross-references
 
