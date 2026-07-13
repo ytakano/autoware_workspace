@@ -216,7 +216,7 @@ sentence against our own tables), then A1 (core reframing), then the rest.
 
 ## Phase B — new analysis from existing data (no re-measurement)
 
-### B1 (#8) Split the real-data table: 501 all / 473 certified / 28 divergent
+### B1 (#8) Split the real-data table: 501 all / 473 certified / 28 divergent — **DONE (2026-07-13, commit 80ebde9)**
 
 - Extend `paper/scripts/gen_tables.py` to emit from `data/realdata.json`:
   (i) the existing on-map envelope rows recomputed over **all 501 on-map frames** (system-level
@@ -233,7 +233,7 @@ sentence against our own tables), then A1 (core reframing), then the rest.
 - Acceptance: Table VIII (realdata) no longer mixes divergent frames into an "equal-work"
   comparison; both denominators labeled; gen_tables hard-fails if the subsets drift.
 
-### B2 (#3) Counter-form work model with the per-point term; fix T_solve
+### B2 (#3) Counter-form work model with the per-point term; fix T_solve — **DONE (2026-07-13, commit 80ebde9)**
 
 - Rewrite the bound presentation (add to §II or §V-F) in counter form:
   `T ≤ c0 + c_pt·N_pts + c_nbr·Σnbr + c_kd·Σkd + c_solve·N_iter`, with `N_pts = P·N_pass` —
@@ -389,7 +389,7 @@ sentence against our own tables), then A1 (core reframing), then the rest.
 |---|---|---|
 | M1 — referee-checkable errors | ~~A5, A6~~ (done, 58251c7) | **COMPLETE.** Nothing in the paper contradicts our own published tables/data. |
 | M2 — claims re-scoped | ~~A1, A2, A3, A4, A7, A8~~ (done, 58251c7) | **COMPLETE.** The paper no longer claims what the current certificate cannot support; rebuttal letter draftable. |
-| M3 — existing-data strengthening | B1, B2 | Real-data table split; work model has the per-point term. |
+| M3 — existing-data strengthening | ~~B1, B2~~ (done, 80ebde9) | **COMPLETE.** Real-data table split; work model has the per-point term. |
 | M4 — trace certificate | C1, then C2 | The review's blocking item closed: transfer claim backed by a measured per-input C++/Rust trace certificate incl. Σkd^C++. |
 | M5 — measurement cleanups | C3, C5, C8 (+ optional C4, C6, C7; C8 shares C4's reboot campaign) | Bridge same-n; no pre-protocol numbers left; parallel feasibility measured. |
 | M6 — resubmission package | re-run this audit table against the final PDF; rebuttal letter (include the three push-back notes above) | Submit. |
@@ -423,3 +423,12 @@ lands).
   \legalWorstBudgetXRust (1.2). "bit-exact" survives only as literal, measured
   "bit-identical" statements + the RustBelt citation's "machine-checked". Page count
   13 -> 14 (references spill); appendix decision deferred to the C1 layout pass.
+- 2026-07-13 (later still): **M3 done** (commit 80ebde9). B2's headline finding: the
+  missing per-point axis is real and engine-asymmetric -- C++ c_pt = 2.45 [1.2, 3.2]
+  us/pt (matches the Sec. V-C overhead; worst LOO 75% -> 16%), while for Rust the term is
+  degenerate (negative c_pt, worst LOO 92% -> 228%), consistent with the port removing
+  that machinery. Adopted models: C++ 4-term, Rust 2-term, both shown with guards. B1:
+  realdata table now reports all-on-map (501) and certified (473) align rows plus
+  divergent-28 summary macros; per-engine iteration deltas deferred to C2. Note for the
+  optional B1 verifier run: not done (contracts sentence stays at "consistent with").
+  Page count 14 -> 15.
