@@ -15,10 +15,11 @@ agree within \sessMedSpreadWorstPct\% (worst fixture; a per-session memory-layou
 that persists with or without a reboot), and the Rust/C++ max ratios are stable to
 $\pm\sessRatioSpreadWorst$. Remaining limits: one machine; the real-data replay of
 Sec.~\ref{sec:eval-realdata} still carries pre-protocol timing (Profile-A re-capture
-pending); and the tail fit remains comparison-grade --- a moment-fit Gumbel over block
-maxima without exponentiality tests or confidence intervals, now over 300 blocks for the
-tail-claim fixtures but still awaiting a peaks-over-threshold/MLE treatment before any
-non-comparative reading.
+pending); and the full POT/MLE extreme-value treatment was run and its \emph{diagnostics
+rejected extrapolation} --- the per-session sample series carry serial dependence up to
+$|\mathrm{ACF}| = \evtAcfWorst$, so no extrapolated exceedance probability is claimed and
+the tail deliverable is the empirical maxima with cross-session stability
+(Sec.~\ref{sec:eval-evt}).
 
 \subsection{Input-space coverage}
 The hill-climb explores a parameterized generator, not the full input space. The saturation
@@ -109,10 +110,12 @@ by construction, with the enforcement dynamically verified over randomized input
 the kernel-evaluation term a frozen input demonstrably \emph{achieves} the maximum (the
 saturation certificate, an exact counter identity; the kd-traversal term
 has no matching certificate, so a worse traversal geometry may exist within its structural
-cap). Every \emph{time} figure, by contrast, is an observation: warm caches, one container,
-no interference, and a microarchitecture (out-of-order x86) for which no sound static timing
-model exists --- on this hardware class a true WCET is practically unobtainable by any method,
-and the Gumbel extrapolation inherits MBPTA's representativity caveats. The counter
+cap). Every \emph{time} figure, by contrast, is an observation: one machine, one protocol
+(controlled and interference-probed, but still measured), and a microarchitecture
+(out-of-order x86) for which no sound static timing
+model exists --- on this hardware class a true WCET is practically unobtainable by any
+method, and extreme-value extrapolation failed its own diagnostics here
+(Sec.~\ref{sec:eval-evt}). The counter
 decomposition thus \emph{factorizes} WCET into a structurally-enforced part (work) and an
 empirical part
 (time per unit of work); only the former is load-bearing. On a timing-predictable target ---

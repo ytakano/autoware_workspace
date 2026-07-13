@@ -50,9 +50,9 @@ Our contributions:
     structural work bound whose terms are enforced by construction and machine-checked by
     property-based tests; (ii)~a worst-input search guided by \emph{deterministic algorithmic
     cost counters} (platform-independent, zero-overhead when disabled); (iii)~controlled
-    measurement on the frozen worst inputs, with an exploratory extreme-value tail fit (in
-    the style of measurement-based probabilistic timing analysis, MBPTA) for cross-engine
-    comparison.
+    measurement on the frozen worst inputs, with a diagnostics-gated extreme-value analysis
+    in the style of measurement-based probabilistic timing analysis (MBPTA) --- the
+    diagnostics, not the fits, decide what may be extrapolated.
   \item A \textbf{cross-language transfer argument}: instrumenting only the Rust port suffices,
     because bit-exactness over the bounded-neighbor domain $D$ (Sec.~\ref{sec:meth-transfer})
     carries the discovered worst inputs to the unmodified C++ engine;

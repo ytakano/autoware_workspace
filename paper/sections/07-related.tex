@@ -21,8 +21,10 @@ measurement protocols~\cite{lima2017evt}, statistical estimation and validation
 procedures~\cite{hansen2009statistical}, and reusable tooling~\cite{reghenzani2018chronovise}.
 We attack representativity from the input side: instead of sampling ``representative'' inputs,
 we \emph{search} for adversarial ones with a deterministic, platform-independent fitness, and
-certify for the dominant term that the search reached the analytic maximum. Our Gumbel fit then
-serves as a comparative tail summary on those frozen worst inputs, not as a certified bound.
+certify for the dominant term that the search reached the analytic maximum. On the frozen
+worst inputs we then run the POT/MLE machinery with its diagnostic checklist --- and report
+that the diagnostics, not the fits, decide what may be extrapolated
+(Sec.~\ref{sec:eval-evt}).
 
 \paragraph{Search-based worst-case input generation}
 Evolutionary testing of timing constraints dates to Wegener et

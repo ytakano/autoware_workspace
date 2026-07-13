@@ -295,15 +295,29 @@ align times (up to \SI{\raspiAlignWorstS}{s} on the engine-tier worst) are infor
 only; the controlled timing protocol on target is future work
 (Sec.~\ref{sec:conclusion}).
 
-\subsection{Gumbel tail fit (\pwcet)}
-\label{sec:eval-gumbel}
-\input{tables/gumbel}
+\subsection{Extreme-value analysis: what the diagnostics permit}
+\label{sec:eval-evt}
+\input{tables/evt}
 
-Fitted scale parameters range from \SI{\gumbelBetaMin}{ms} on the light fixed-geometry
-fixtures to \SI{\gumbelBetaMax}{ms} on the heaviest search outputs
-(Table~\ref{tab:gumbel}): the long fixtures accumulate visibly more run-to-run spread under
-the current measurement conditions (container, no core isolation; Sec.~\ref{sec:threats}).
-Consequently, on the union-worst fixture the $10^{-9}$ per-block exceedance quantile
-extrapolates \gumbelExceedPctCpp\% (C++) / \gumbelExceedPctRust\% (Rust) \emph{above} the
-measured maximum --- a wide, low-confidence extrapolation from $n=10$ block maxima. These are
-\emph{comparative} estimates only (Sec.~\ref{sec:threats}).
+With $3{\times}1000$ Profile-B samples per tail-claim fixture, we ran the
+measurement-based-\pwcet{} analysis in full: peaks-over-threshold fits of a generalized
+Pareto distribution by maximum likelihood, per session (pooling would mix the documented
+cross-session level shifts), with a threshold sweep, \evtBoot{} bootstrap draws for CIs,
+and the policy's diagnostic checklist. \emph{The diagnostics gate the conclusion}
+(Table~\ref{tab:evt}): the sample series carry strong serial dependence --- lag-1..10
+autocorrelation magnitudes up to \evtAcfWorst{} where an i.i.d.\ series of this length
+would show ${\sim}0.03$ --- because on an isolated, frequency-pinned core the residual
+variability is a slowly wandering band of ${\sim}0.1$--$0.5\%$, not independent noise. The
+violated independence assumption surfaces exactly where theory predicts: the bootstrapped
+$10^{-9}$ per-align quantiles have upper CI ends diverging to as much as
+\SI{\evtCiExplodeS}{s} on the tightest fixtures. Following our measurement policy (which
+forbids mechanical EVT on data that fails its assumptions), \textbf{we therefore claim no
+extrapolated exceedance probabilities}. What the data does support: the empirical maxima of
+Table~\ref{tab:tails} with their cross-session stability (Sec.~\ref{sec:threats}), tails so
+tight that max/p50 $\le 1.01$ on every fixture, and --- qualitatively --- shape estimates
+that lean negative (bounded-tail direction) where the fits are most stable
+(\emph{search-00}, both engines). A naive block-maxima Gumbel fit on the pooled stream
+would have looked deceptively publishable --- $q_{10^{-9}} \approx \SI{\evtGumbelQNine}{ms}$
+($+\evtGumbelExtraPct\%$ over the maximum, insensitive to block size within
+\SI{\evtGumbelSpread}{ms}) --- which is precisely why the diagnostics, not the fit quality,
+must decide.

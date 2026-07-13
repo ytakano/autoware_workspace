@@ -76,10 +76,11 @@ replay binary drives both engines on identical buffers. Heap allocations are cou
 \texttt{LD\_PRELOAD} interposer whose hooks the replay discovers via \texttt{dlsym}, requiring
 no upstream edits. We then (i)~regress median latency against the counters, $T \approx
 a\cdot\sumnbr + b\cdot\kdnodes + c$, giving directly comparable per-operation costs for the
-two implementations, and (ii)~fit a Gumbel distribution --- the extreme-value-theory (EVT) family used by
-measurement-based probabilistic timing analysis (MBPTA) --- to per-fixture block maxima for
-comparative probabilistic-WCET (\pwcet) exceedance estimates. We use the fit for
-\emph{comparison}, not certification (Sec.~\ref{sec:threats}).
+two implementations, and (ii)~run a peaks-over-threshold extreme-value analysis --- the
+methodology of measurement-based probabilistic timing analysis (MBPTA) --- with maximum
+likelihood, bootstrap CIs, and the full diagnostic checklist of our measurement policy;
+extrapolated exceedance claims are made \emph{only if the diagnostics hold}
+(Sec.~\ref{sec:eval-evt}).
 
 \subsection{Cross-ISA transfer to the deployment target}
 \label{sec:meth-crossisa}
