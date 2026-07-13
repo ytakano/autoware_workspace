@@ -627,6 +627,20 @@ extra drives are declared future work unless time permits.
   host. Remaining host prep: IRQ affinity move (warn-only). Remaining C1 prep:
   frame→`.ndtfix` freezer (2/4), engine per-pass counters + trace hash (3/4), gen_tables
   profile guards (4/4).
+- 2026-07-13: **campaign session 1 COMPLETE** on the fully prepared host (isolcpus +
+  irqaffinity via GRUB, IRQs on cpu2 down to 3, frequency pinned min=max=3.2 GHz by the
+  operator — session-1 calibration 320.2 ms reproduces under the pin, so the whole session
+  is one speed regime). 44 cells, 0 problems, iteration equality everywhere. The calibration
+  guard proved itself mid-campaign: it aborted on a transient ×1.65 platform clamp during
+  the cold series (recovered; affected series re-run cleanly). Early findings: warm
+  max/p50 ≈ 1.003 on the tail fixtures (vs ~1.08 in the old powersave data — the isolation
+  works); co-runner inflation ≈0 on search-00 (kernel-bound) but up to ~+9% max on
+  legal-worst under membw (kd/memory-bound — the deployment tier is the
+  interference-sensitive one, a good paper point); **the old powersave numbers were
+  fixture-dependently inflated by uncontrolled boost** (light fixtures ran ~1.6–1.9× faster
+  under boost than at the pinned 3.2 GHz; heavy fixtures only ~1.1×) — i.e. the old
+  unit-cost regression mixed speed regimes across fixtures, further justifying C1.
+  Sessions 2–3 pending (different days per the policy).
 
 ## Cross-references
 
