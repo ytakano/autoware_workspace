@@ -29,7 +29,10 @@ def stats(samples):
 
 
 def main(b_leg_path):
-    a_doc = json.loads((B / "campaign_runs/profileA/session-1/warm.json").read_text())
+    # C3: the A-leg now uses the matched-n pooled Profile-A campaign (synthetics at n=3000, the
+    # 3 x 1000 pooled run; real-frame legs copied from the original session-1 at n=100, already
+    # matched to their B-leg), so the synthetic A/B max comparison is same-n.
+    a_doc = json.loads((B / "campaign_runs/profileA/c3_pooled/warm.json").read_text())
     b_pool = json.loads((DATA / "wcet.json").read_text())
     b_real = json.loads(pathlib.Path(b_leg_path).read_text())
 
@@ -38,9 +41,10 @@ def main(b_leg_path):
         "profile_b_pooled_manifest": b_pool["meta"]["manifest"],
         "profile_b_real_manifest": b_real["meta"]["manifest"],
         "note": ("interference inflation = production-profile latency / controlled-profile "
-                 "latency (descriptive only, per the measurement policy). Synthetic B-leg = "
-                 "pooled 3-session campaign; real-frame B-leg = dedicated controlled session; "
-                 "A-leg = one Profile-A session, same 3.2 GHz reference clock."),
+                 "latency (descriptive only, per the measurement policy). Synthetic legs are "
+                 "matched-n pooled 3-session campaigns (n=3000) on both profiles (C3); "
+                 "real-frame legs are dedicated controlled sessions (n=100); same 3.2 GHz "
+                 "reference clock."),
     }, "inputs": {}}
 
     for fx in FIXTURES:

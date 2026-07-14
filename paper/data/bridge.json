@@ -1,9 +1,9 @@
 {
  "meta": {
   "profile_a_manifest": {
-   "experiment_id": "session-1/warm/legal_osc__cpp",
+   "experiment_id": "profileA/c3_pooled",
    "measurement_profile": "A",
-   "run_timestamp": "2026-07-13T11:51:29Z",
+   "run_timestamp": "2026-07-14T09:01:15Z",
    "host_name": "3e3c696402ac",
    "cpu_model": "AMD Ryzen 9 5900HX with Radeon Graphics",
    "cpu_microcode": "0xa500012",
@@ -52,7 +52,8 @@
    "target_board": null,
    "firmware": null,
    "qemu_version": null,
-   "notes": "Profile A (production-representative) bridge leg per plan/ndt_timing_measurement_policy.md: normal CFS, no isolation, no pinning, SMT on, performance governor; frequency kept pinned at 3.2 GHz so the A/B bridge ratios isolate scheduling/interference, not speed-regime changes. Offline fixture replay (A2 staging); the full-ROS-node run remains the A1 stretch."
+   "notes": "Profile A (production-representative) bridge leg per plan/ndt_timing_measurement_policy.md: normal CFS, no isolation, no pinning, SMT on, performance governor; frequency kept pinned at 3.2 GHz so the A/B bridge ratios isolate scheduling/interference, not speed-regime changes. Offline fixture replay (A2 staging); the full-ROS-node run remains the A1 stretch.",
+   "note": "C3: synthetic bridge inputs re-measured at matched n=3000 (3 sessions x 1000, CFS/unpinned, SMT on, 3.2 GHz); real-frame legs copied from the original Profile-A session-1 (n=100, already matched to their B-leg)."
   },
   "profile_b_pooled_manifest": {
    "experiment_id": "campaign/pooled",
@@ -324,108 +325,108 @@
    "qemu_version": null,
    "notes": "Profile B leg of the bridge experiment for the two real-drive fixtures (real_slowest=seq15, real_median=seq132, frozen from the archived capture by wcet_frame --freeze); same protocol as the main campaign."
   },
-  "note": "interference inflation = production-profile latency / controlled-profile latency (descriptive only, per the measurement policy). Synthetic B-leg = pooled 3-session campaign; real-frame B-leg = dedicated controlled session; A-leg = one Profile-A session, same 3.2 GHz reference clock."
+  "note": "interference inflation = production-profile latency / controlled-profile latency (descriptive only, per the measurement policy). Synthetic legs are matched-n pooled 3-session campaigns (n=3000) on both profiles (C3); real-frame legs are dedicated controlled sessions (n=100); same 3.2 GHz reference clock."
  },
  "inputs": {
   "search_00": {
    "cpp": {
     "profile_a": {
-     "p50_ms": 926.403,
-     "max_ms": 930.647,
-     "n": 100
+     "p50_ms": 934.884,
+     "max_ms": 959.674,
+     "n": 3000
     },
     "profile_b": {
      "p50_ms": 963.873,
      "max_ms": 969.06,
      "n": 3000
     },
-    "inflation_p50": 0.961,
-    "inflation_max": 0.96,
-    "abs_diff_max_ms": -38.413,
+    "inflation_p50": 0.97,
+    "inflation_max": 0.99,
+    "abs_diff_max_ms": -9.386,
     "overrun_only_in_a": false
    },
    "rust": {
     "profile_a": {
-     "p50_ms": 597.826,
-     "max_ms": 602.871,
-     "n": 100
+     "p50_ms": 601.911,
+     "max_ms": 606.145,
+     "n": 3000
     },
     "profile_b": {
      "p50_ms": 590.933,
      "max_ms": 596.444,
      "n": 3000
     },
-    "inflation_p50": 1.012,
-    "inflation_max": 1.011,
-    "abs_diff_max_ms": 6.427,
+    "inflation_p50": 1.019,
+    "inflation_max": 1.016,
+    "abs_diff_max_ms": 9.701,
     "overrun_only_in_a": false
    }
   },
   "legal_worst": {
    "cpp": {
     "profile_a": {
-     "p50_ms": 200.57,
-     "max_ms": 201.789,
-     "n": 100
+     "p50_ms": 202.611,
+     "max_ms": 213.957,
+     "n": 3000
     },
     "profile_b": {
      "p50_ms": 236.273,
      "max_ms": 243.436,
      "n": 3000
     },
-    "inflation_p50": 0.849,
-    "inflation_max": 0.829,
-    "abs_diff_max_ms": -41.647,
+    "inflation_p50": 0.858,
+    "inflation_max": 0.879,
+    "abs_diff_max_ms": -29.479,
     "overrun_only_in_a": false
    },
    "rust": {
     "profile_a": {
-     "p50_ms": 121.456,
-     "max_ms": 121.658,
-     "n": 100
+     "p50_ms": 120.293,
+     "max_ms": 120.889,
+     "n": 3000
     },
     "profile_b": {
      "p50_ms": 120.098,
      "max_ms": 120.784,
      "n": 3000
     },
-    "inflation_p50": 1.011,
-    "inflation_max": 1.007,
-    "abs_diff_max_ms": 0.874,
+    "inflation_p50": 1.002,
+    "inflation_max": 1.001,
+    "abs_diff_max_ms": 0.105,
     "overrun_only_in_a": false
    }
   },
   "legal_osc": {
    "cpp": {
     "profile_a": {
-     "p50_ms": 156.238,
-     "max_ms": 157.313,
-     "n": 100
+     "p50_ms": 156.882,
+     "max_ms": 158.739,
+     "n": 3000
     },
     "profile_b": {
      "p50_ms": 191.057,
      "max_ms": 194.177,
      "n": 3000
     },
-    "inflation_p50": 0.818,
-    "inflation_max": 0.81,
-    "abs_diff_max_ms": -36.864,
+    "inflation_p50": 0.821,
+    "inflation_max": 0.817,
+    "abs_diff_max_ms": -35.438,
     "overrun_only_in_a": false
    },
    "rust": {
     "profile_a": {
-     "p50_ms": 65.106,
-     "max_ms": 65.301,
-     "n": 100
+     "p50_ms": 64.121,
+     "max_ms": 64.668,
+     "n": 3000
     },
     "profile_b": {
      "p50_ms": 64.529,
      "max_ms": 64.851,
      "n": 3000
     },
-    "inflation_p50": 1.009,
-    "inflation_max": 1.007,
-    "abs_diff_max_ms": 0.45,
+    "inflation_p50": 0.994,
+    "inflation_max": 0.997,
+    "abs_diff_max_ms": -0.183,
     "overrun_only_in_a": false
    }
   },

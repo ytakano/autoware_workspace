@@ -1326,11 +1326,9 @@ def bridge():
         r"& \multicolumn{2}{c}{A p50 / max (ms)} & infl.",
         rows,
         note=r"Iteration counts identical across profiles on every input (equal work). "
-        r"Synthetic Profile-B legs: pooled 3-session campaign ($n{=}3000$); real-frame "
-        r"legs: dedicated controlled session ($n{=}100$); Profile A: one session, "
-        r"$n{=}100$ per cell. The synthetic max-based ratios therefore compare maxima "
-        r"over unequal $n$ (a larger pool biases the B maximum upward); the medians are "
-        r"robust to $n$ and agree.",
+        r"Synthetic legs are matched-$n$ pooled 3-session campaigns ($n{=}3000$) on both "
+        r"profiles (so the max-vs-max ratios are same-$n$); real-frame legs are dedicated "
+        r"controlled sessions ($n{=}100$ each).",
     )
     # C++ per-align controlled-environment tax on the three P=2000/31-pass synthetics.
     syn = ["search_00", "legal_worst", "legal_osc"]
