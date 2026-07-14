@@ -1,13 +1,15 @@
 \section{Methodology}
 \label{sec:methodology}
 
-The analysis has three layers. Layer~1 establishes a structural work bound that is enforced
-and property-tested. Layer~2 deterministically searches for inputs that realize it. Layer~3
-measures the frozen extreme inputs and applies a statistical tail model. A transfer argument connects the
-instrumented Rust engine to the unmodified C++ engine, and a second one connects the host to
-the deployment target.
+Our methodology combines a three-layer analysis with two transfer arguments. Analysis
+layer~1 establishes and tests a structural work bound. Analysis layer~2 deterministically
+searches for inputs that approach the bound. Before measurement, the cross-language
+transfer certifies that the Rust and C++ engines perform equal work on each compared input.
+Analysis layer~3 measures the frozen inputs and evaluates their timing distributions.
+Finally, the cross-ISA transfer checks that the work characterization carries to the
+deployment target.
 
-\subsection{Layer 1: structural bound, property-tested}
+\subsection{Analysis layer 1: Structural bound and property tests}
 The scan size $P$ and the map size $N_{\mathrm{leaves}}$ are caller-side contracts listed
 in Table~\ref{tab:preconditions}. Once they are fixed, static loop guards, the hard
 \maxnn{} search cap, and pre-reserved buffers enforce every internal term of
@@ -21,7 +23,7 @@ as verified by a counting allocator; recursion-free through a fixed-depth explic
 and panic-free through lint enforcement. Section~\ref{sec:threats} explains why these
 properties are necessary for a finite bound.
 
-\subsection{Layer 2: counter-guided extremal-input search}
+\subsection{Analysis layer 2: Counter-guided extremal-input search}
 \label{sec:meth-search}
 We instrument the engine with four \emph{deterministic algorithmic cost counters}: derivative
 passes, points processed, \sumnbr, and \kdnodes, as defined in
@@ -44,7 +46,7 @@ controlled protocol as the champion. Section~\ref{sec:eval-search} ablates the s
 protocol across seeds, comparing hill-climbing with budget-matched random sampling and
 counter fitness with wall-clock fitness.
 
-\subsection{Cross-language transfer via per-input work certification}
+\subsection{Cross-language transfer: Per-input work certification}
 \label{sec:meth-transfer}
 An upstream constraint requires the shipped C++ sources to remain byte-identical, so they cannot
 be instrumented. Instead we rely on the port's fidelity: the Rust engine is \emph{designed}
@@ -101,7 +103,7 @@ reports this result at a resolution that would expose even a single extra deriva
 We prioritize
 certificates obtainable from the production binary itself.
 
-\subsection{Layer 3: measurement and \pwcet}
+\subsection{Analysis layer 3: Measurement and \pwcet}
 The counter-extremal inputs are frozen in a self-contained little-endian binary format
 readable from both languages, so the exact same bytes feed every experiment. The map is
 stored as tiles because, as Sec.~\ref{sec:impl-fixtures} explains, tile overlap is the
@@ -117,7 +119,7 @@ confidence intervals, and the full diagnostic checklist of our measurement polic
 extrapolated exceedance claims are made \emph{only if the diagnostics hold}, as required
 by Sec.~\ref{sec:eval-evt}.
 
-\subsection{Cross-ISA transfer to the deployment target}
+\subsection{Cross-ISA transfer: Deployment-target validation}
 \label{sec:meth-crossisa}
 The Rust engine routes every transcendental, including those inside its linear-algebra
 library, through a pure-Rust \texttt{libm} implementation. It targets floating-point results that are
