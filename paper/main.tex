@@ -68,8 +68,9 @@ Iterative scan-matching kernels such as the Normal Distributions Transform (\ndt
 critical path of autonomous-vehicle localization, yet their execution time is strongly
 data-dependent, which makes classical static worst-case execution time (WCET) analysis
 impractical. We present a hybrid WCET analysis of the align kernel of the Autoware \ndt{}
-scan matcher (map construction, preprocessing, and ROS scheduling are out of scope), built
-around a high-fidelity Rust port of the production C++ engine, work-equivalent to it on
+scan matcher. Map construction, preprocessing, and ROS scheduling are outside the scope of
+the analysis. The method is built around a high-fidelity Rust port of the production C++
+engine that is work-equivalent to it on
 individually certified inputs. Bounded execution is not specific to Rust; an equivalent
 C++ redesign is possible. The port instead reduces the low-level verification surface of
 the safe core, allowing the analysis to focus on algorithmic and timing properties. We
@@ -81,13 +82,13 @@ evidence for the work bound and as a platform-independent fitness function for a
 counter-extremal inputs. Each discovered input is carried verbatim to the uninstrumented
 C++ engine, with equal work certified per input. On the frozen search fixtures, the search
 saturates the analytic bound on the number of kernel evaluations per align, and a controlled
-sweep shows an affine observed envelope in the scan size. A two-tier formulation separates the bounded-neighbor engine
-tier from the preprocessing-reachable one
-($\legalWorstRatioRust\times$--$\legalWorstRatioCpp\times$ apart on measured fixtures),
-quantifying the value of input-contract validation at the component boundary. On a
-57-minute urban capture (\realOnMap{} on-map matching aligns), the per-input certification
-exposed, and led us to fix, two port-fidelity gaps invisible to synthetic fixtures
-(\realDivergences{} residual divergent frames). On these fixtures, the Rust port meets or beats the C++ engine's observed maximum,
+sweep shows an affine observed envelope in the scan size. A two-tier formulation separates
+the bounded-neighbor engine tier from the preprocessing-reachable tier. Their measured
+fixtures differ by $\legalWorstRatioRust\times$--$\legalWorstRatioCpp\times$, quantifying
+the value of input-contract validation at the component boundary. In a 57-minute urban
+capture with \realOnMap{} on-map matching aligns, the per-input certification exposed two
+port-fidelity gaps invisible to synthetic fixtures and led us to fix them. The replay leaves
+\realDivergences{} residual divergent frames. On these fixtures, the Rust port meets or beats the C++ engine's observed maximum,
 while eliminating the C++ engine's ${\approx}\allocPerPtPass$ heap allocations per point
 per derivative pass.
 \end{abstract}

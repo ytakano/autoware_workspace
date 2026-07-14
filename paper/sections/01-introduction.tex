@@ -7,7 +7,8 @@ An autonomous vehicle localizes by registering each incoming LiDAR scan against 
 point-cloud map. In Autoware~\cite{autoware}, an open-source production driving stack, the
 primary matcher is the Normal Distributions Transform (\ndt)~\cite{biber2003ndt}: a
 Newton-optimized alignment of the downsampled scan against a voxelized Gaussian map, executed
-once per scan at the sensor rate (typically 10\,Hz, i.e.\ a \SI{100}{ms} period). The
+once per scan at the sensor rate. The typical rate is 10\,Hz, which gives a
+\SI{100}{ms} period. The
 resulting pose feeds the extended Kalman filter (EKF), planner, and controller on the critical
 path, and a \emph{late} pose is operationally as bad as a wrong one: consumers fall back to
 dead-reckoning extrapolation whose error grows with vehicle speed, and sustained overruns
@@ -18,8 +19,9 @@ not the average align time but the upper tail under the configured input contrac
 % Para 1b: the spread we actually observe motivates the question empirically.
 The question is acute in the configurations studied here because the align time is strongly input-dependent. On the engines
 studied here, adversarially constructed yet parameter-legal map/scan geometries stretch
-one serial align from under \SI{10}{ms} to nearly a second on the same desktop-class core
-(Sec.~\ref{sec:evaluation}): two orders of magnitude, and well past a 10\,Hz budget. Whether
+one serial align from under \SI{10}{ms} to nearly a second on the same desktop-class core.
+Section~\ref{sec:evaluation} reports this two-order-of-magnitude range, which extends well
+past a 10\,Hz budget. Whether
 production configurations can approach such inputs, and with what margin, cannot be answered by
 observing nominal traffic; it requires a worst-case analysis.
 
@@ -42,7 +44,8 @@ Memory safety and data-race freedom of the safe core therefore do not need to be
 re-established by project-specific testing or analysis, allowing validation to focus on
 algorithmic equivalence, numerical behavior, work bounds, and timing predictability. This
 reduction applies only to safe Rust; the FFI boundary, any unsafe code, and trusted
-dependencies remain in the verification surface (Sec.~\ref{sec:threats}).
+dependencies remain in the verification surface, as discussed in
+Sec.~\ref{sec:threats}.
 
 This work exploits a high-fidelity Rust port of the production C++ engine with this narrower
 verification surface. The port also supports deployment in real-time environments where the
@@ -73,24 +76,26 @@ Our contributions:
     Discovered inputs are carried to the unmodified C++ engine, and equal work is certified
     \emph{per input}: a base iteration/pose/score assertion that doubles as the runtime
     membership check for $D$, strengthened to a full per-pass trace comparison; the
-    transfer is claimed over the certified subset $E \subseteq D$
-    (Secs.~\ref{sec:meth-transfer} and~\ref{sec:eval-tracecert}). On real map data this
+    transfer is claimed over the certified subset $E \subseteq D$, as defined in
+    Secs.~\ref{sec:meth-transfer} and~\ref{sec:eval-tracecert}. On real map data this
     certification exposed, and led us to fix, two port-fidelity gaps that synthetic
-    fixtures are structurally blind to, and measured that equal iteration counts alone
-    would \emph{not} have implied equal work (Sec.~\ref{sec:threats}).
+    fixtures are structurally blind to. It also showed that equal iteration counts alone
+    would \emph{not} have implied equal work, as detailed in Sec.~\ref{sec:threats}.
   \item \textbf{Evidence that the search is effective}: on the frozen search fixtures, it saturates the analytic
     maximum on the number of kernel evaluations per align,
     $P \cdot \maxnn \cdot (N_{\mathrm{iter}}{+}1)$, where $P$ is the scan size, \maxnn{}
     the per-point neighbor cap, and $N_{\mathrm{iter}}$ the Newton iteration count
-    (Sec.~\ref{sec:problem}); it then grows the remaining free term (kd-tree traversal) by
-    a further \searchKdGrowthPct\%.
+    defined in Sec.~\ref{sec:problem}. It then grows the remaining free term, kd-tree
+    traversal, by a further \searchKdGrowthPct\%.
   \item An \textbf{industrial case study}. On the adversarial fixtures, the Rust port's
-    observed maximum is at or below C++'s (ratios \tailsRatioMin--\tailsRatioMax), and the
+    observed maximum is at or below C++'s, with ratios of
+    \tailsRatioMin--\tailsRatioMax, and the
     port eliminates by construction the C++ engine's ${\approx}\allocPerPtPass$ heap
-    allocations per point per derivative pass (up to \allocWorstPerAlign{} per align), a
+    allocations per point per derivative pass. The count reaches
+    \allocWorstPerAlign{} per align, a
     structural unbounded-latency hazard (the port is zero-allocation under a declared
     capacity contract, recursion-free, and panic-free). A \textbf{two-tier bound} separates
-    the bounded-neighbor engine tier (unvalidated inputs over $D$) from the
+    the bounded-neighbor engine tier, which admits unvalidated inputs over $D$, from the
     preprocessing-reachable one, with each axis of the deployment tier backed by a legal witness
     input; the measured fixture gap ($\legalWorstRatioRust\times$, with a ${\ge}2.4\times$ reduction on
     the kernel term) quantifies what enforcing input contracts at the component boundary

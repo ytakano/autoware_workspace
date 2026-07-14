@@ -3,14 +3,15 @@
 
 \subsection{The NDT align kernel}
 \ndt{} registration~\cite{biber2003ndt,magnusson2009thesis} compresses the reference map into a
-voxel grid of Gaussians: each voxel with sufficiently many points stores the mean and
-(eigenvalue-regularized) covariance of the points inside it. Aligning a scan then maximizes a
+voxel grid of Gaussians: each voxel with sufficiently many points stores the mean and an
+eigenvalue-regularized covariance of the points inside it. Aligning a scan then maximizes a
 smooth likelihood, in which each transformed source point scores against the Gaussian--uniform
-mixture of its nearby voxels, over the six-degree-of-freedom pose (translation plus Euler
-angles) by Newton's method. One align call runs up to \texttt{max\_iterations} Newton steps;
+mixture of its nearby voxels, over the six-degree-of-freedom pose. The pose comprises
+translation and Euler angles and is optimized by Newton's method. One align call runs up to
+\texttt{max\_iterations} Newton steps;
 each step transforms all $P$ source points, radius-searches a kd-tree of voxel centroids for
-each point's neighbor leaves (radius equal to the voxel size), accumulates the score, gradient,
-and $6{\times}6$ Hessian over every (point, leaf) pair, solves the Newton system, and selects a
+each point's neighbor leaves using a radius equal to the voxel size, accumulates the score,
+gradient, and $6{\times}6$ Hessian over every point--leaf pair, solves the Newton system, and selects a
 step length by a More--Thuente-style procedure bounded by a configured maximum step. Iteration
 stops when the pose update drops below a threshold $\epsilon$ or the iteration cap is hit.
 
@@ -18,12 +19,13 @@ The engine studied here is Autoware's production \emph{multigrid} variant of the
 \texttt{ndt\_omp} implementation~\cite{autoware,ndtomp}: the map is loaded dynamically as
 \emph{tiles} around the vehicle, each tile keeps its own voxel grid, and the kd-tree spans the
 leaf centroids of all loaded tiles. Overlapping tiles therefore multiply the leaves a radius
-search can return, a fact that matters for the worst case (Sec.~\ref{sec:implementation}).
+search can return. Section~\ref{sec:implementation} explains why this property matters for
+the worst case.
 Throughout,
 the \emph{engine} is this align kernel with its map structures; the \emph{node} is the ROS
-component that feeds it (preprocessed scans, initial guesses from the localization filter, map
-tiles) and consumes its poses. We analyze the serial engine configuration
-(\texttt{num\_threads}=1), the deterministic baseline that a worst-case bound must cover.
+component that feeds it preprocessed scans, localization-filter initial guesses, and map
+tiles, and then consumes its poses. We analyze the serial engine configuration with
+\texttt{num\_threads}=1. This is the deterministic baseline that a worst-case bound must cover.
 
 \subsection{Execution-time decomposition and notation}
 \label{sec:decomposition}
@@ -37,41 +39,43 @@ with $N_{\mathrm{pass}} = N_{\mathrm{iter}} + 1$,
 where a \emph{derivative pass} transforms all $P$ source points and accumulates the score,
 gradient, and Hessian: one initial pass evaluates the guess pose, then each Newton iteration
 performs exactly one more at its trial step. The step-length procedure re-evaluates
-derivatives \emph{only} in its More--Thuente refinement loop (up to 10 further passes per
-iteration), which sits behind a \texttt{use\_line\_search} flag that the shipped
-configuration disables and the port implements as the default (disabled) path. Hence
+derivatives \emph{only} in its More--Thuente refinement loop, which permits up to 10 further
+passes per iteration. This loop sits behind a \texttt{use\_line\_search} flag that the
+shipped configuration disables and the port also disables by default. Hence
 $N_{\mathrm{pass}} = N_{\mathrm{iter}}{+}1$ holds structurally, is checked at runtime per
-input (Sec.~\ref{sec:methodology}), and holds exactly on every fixture and every real frame of
-Sec.~\ref{sec:eval-realdata}. The bound has exactly four data-dependent freedoms
-(Table~\ref{tab:preconditions} in Sec.~\ref{sec:threats} collects each limit, its enforcer,
-and the behavior on violation):
+input through the method of Sec.~\ref{sec:methodology}, and holds exactly on every fixture and every real frame of
+Sec.~\ref{sec:eval-realdata}. The bound has exactly four data-dependent freedoms.
+Table~\ref{tab:preconditions} in Sec.~\ref{sec:threats} collects each limit, its enforcer,
+and the behavior on violation:
 \begin{itemize}
-  \item $N_{\mathrm{iter}} \le$ \texttt{max\_iterations}: the Newton iteration count (static
-        loop guard; the shipped default is 30, hence $N_{\mathrm{pass}} \le 31$);
-  \item $P$: the source-cloud size, a \emph{caller-side} bound (Autoware's shipped pipeline
-        random-downsamples the scan to exactly $P \le 1500$ points); we use $P = 2000$ for the
-        engine-level fixtures (a margin above the production cap) except in the scaling study
+  \item $N_{\mathrm{iter}} \le$ \texttt{max\_iterations}: the Newton iteration count,
+        enforced by a static loop guard. The shipped default is 30, hence
+        $N_{\mathrm{pass}} \le 31$;
+  \item $P$: the source-cloud size, a \emph{caller-side} bound. Autoware's shipped pipeline
+        random-downsamples the scan to $P \le 1500$ points. We use $P = 2000$ for the
+        engine-level fixtures to provide margin above the production cap, except in the scaling study
         of Sec.~\ref{sec:eval-psweep}, which checks the predicted affine dependence on $P$;
-  \item $K(p) \le \maxnn = 64$: the number of neighbor leaves each point collects (a search cap
-        the port enforces; Sec.~\ref{sec:implementation} derives why 64 suffices);
-  \item the kd-tree traversal length per query (worst case $O(N_{\mathrm{leaves}})$,
-        geometry-dependent).
+  \item $K(p) \le \maxnn = 64$: the number of neighbor leaves each point collects. The
+        port enforces this search cap, and Sec.~\ref{sec:implementation} derives why 64 suffices;
+  \item the geometry-dependent kd-tree traversal length per query, whose worst case is
+        $O(N_{\mathrm{leaves}})$.
 \end{itemize}
-$T_{\mathrm{solve}}$ (a fixed-size $6{\times}6$ solve, performed once per Newton iteration;
-the initial pass has none) and the per-point transform are input-independent. We write \sumnbr{} for the total number of (point, leaf) kernel evaluations
+$T_{\mathrm{solve}}$ is a fixed-size $6{\times}6$ solve performed once per Newton
+iteration; the initial pass has none. It and the per-point transform are input-independent.
+We write \sumnbr{} for the total number of point--leaf kernel evaluations
 in an align call, \kdnodes{} for the total number of kd-tree nodes visited, and $\bar{K} =
-\sumnbr / (\text{points processed})$ for the mean neighbor count per point; these are the
+\sumnbr / (\text{points processed})$ for the mean neighbor count per point. These are the
 \emph{work counters} that Sec.~\ref{sec:methodology} turns into instrumentation. \sumnbr{}
-is implementation-independent (both engines evaluate the same (point, leaf) pairs on equal
-neighbor sets), whereas kd traversal is engine-specific: \kdnodes{} counts the Rust
-engine's nodes examined, and the C++ engine's own traversal work (FLANN distance and plane
-evaluations) is measured separately by the traced analysis build
-(Sec.~\ref{sec:eval-tracecert}).
+is implementation-independent because both engines evaluate the same point--leaf pairs on
+equal neighbor sets. In contrast, kd traversal is engine-specific: \kdnodes{} counts the
+Rust engine's nodes examined, and the traced analysis build separately measures the C++
+engine's own traversal work as FLANN distance and plane evaluations.
+Section~\ref{sec:eval-tracecert} reports this measurement.
 In counter form the bound reads
 $T \le c_0 + c_{\mathrm{pt}}\, N_{\mathrm{pts}} + c_{\mathrm{nbr}}\, \sumnbr +
 c_{\mathrm{kd}}\, \kdnodes + c_{\mathrm{solve}}\, N_{\mathrm{iter}}$, where
 $N_{\mathrm{pts}} = P \cdot N_{\mathrm{pass}}$ is the total number of points processed and
-$c_{\mathrm{pt}}$ prices the per-point fixed work (transform, query setup) that is
+$c_{\mathrm{pt}}$ prices the per-point fixed work for transform and query setup. This work is
 independent of the neighbor count; Sec.~\ref{sec:eval-regression} estimates the unit
 costs.
 Equation~\eqref{eq:decomp} is a \emph{work} bound; converting work to time is
@@ -83,5 +87,5 @@ be simultaneously achievable; a defensible bound needs \emph{witness inputs} tha
 product. Second, constant factors are timing hazards invisible to the work model: cache
 behavior, allocator latency, and floating-point behavior on extreme operands. Third, the
 production C++ engine calls the heap allocator ${\approx}11$ times per point per derivative
-pass (Sec.~\ref{sec:eval-alloc}), placing a component with unbounded worst-case latency inside
+pass, as measured in Sec.~\ref{sec:eval-alloc}. This places a component with unbounded worst-case latency inside
 the innermost loop.

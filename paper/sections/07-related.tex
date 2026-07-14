@@ -5,10 +5,10 @@
 Static analyzers in the aiT tradition compute certified bounds from abstract cache and pipeline
 models~\cite{ferdinand2001ait}; Wilhelm et al.~\cite{wilhelm2008wcet} survey the field. These
 methods excel on control-dominated code whose loop bounds are program constants or annotatable
-invariants. In our kernel the dominant bounds (Newton iteration count, per-point neighbor
-multiplicity, kd-tree traversal length) are properties of the \emph{input geometry}: static
-analysis alone can only return the product of the individual maxima
-(Eq.~\eqref{eq:decomp}), with no evidence that any input realizes it. Our Layer~1 keeps the
+invariants. In our kernel, the Newton iteration count, per-point neighbor multiplicity, and
+kd-tree traversal length are properties of the \emph{input geometry}. Static analysis alone
+can only return the product of the individual maxima in Eq.~\eqref{eq:decomp}, with no
+evidence that any input realizes it. Our Layer~1 keeps the
 spirit of the static bound but enforces each term by construction and discharges it by
 property-based testing, while Layers~2--3 supply witness inputs and platform timing.
 
@@ -23,8 +23,8 @@ We attack representativity from the input side: instead of sampling ``representa
 we \emph{search} for adversarial ones with a deterministic, platform-independent fitness, and
 certify for the dominant term that the search reached the analytic maximum. On the frozen
 extreme inputs we then run the POT/MLE machinery with its diagnostic checklist, and we report
-that diagnostics determine whether extrapolation is reported
-(Sec.~\ref{sec:eval-evt}).
+that diagnostics determine whether extrapolation is reported, as detailed in
+Sec.~\ref{sec:eval-evt}.
 
 \paragraph{Search-based worst-case input generation}
 Evolutionary testing of timing constraints dates to Wegener et
@@ -37,14 +37,14 @@ and the outcome can be checked against the analytic bound. The saturation certif
 Sec.~\ref{sec:eval-search} has no analogue under time-based fitness. The counters also enable
 the cross-language transfer: a counter-extremal input found on the instrumented port
 stresses the uninstrumented production engine equally, with equal work certified per input
-(Sec.~\ref{sec:meth-transfer}).
+through the method of Sec.~\ref{sec:meth-transfer}.
 
 \paragraph{Timing analysis of ROS-based systems}
 Casini et al.~\cite{casini2019ros2} bound end-to-end response times of ROS~2 processing chains
 under reservation-based scheduling, treating per-callback WCETs as given inputs. Such analyses
-are complementary to ours: we bound the dominant callback kernel (the \ndt{} align) that those
-chain analyses consume, and we additionally remove structural hazards (per-point heap
-allocation) that would otherwise make the per-callback WCET assumption fragile.
+are complementary to ours: we bound the dominant callback kernel, the \ndt{} align, that
+those chain analyses consume. We also remove per-point heap allocation and other structural
+hazards that would otherwise make the per-callback WCET assumption fragile.
 
 \paragraph{Rust in real-time and safety-critical systems}
 Rust's ownership model underpins systems such as the Tock embedded
