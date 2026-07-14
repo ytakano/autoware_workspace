@@ -1,7 +1,6 @@
 \section{Threats to Validity}
 \label{sec:threats}
 
-% Be brutally honest here; it is what makes the rest credible.
 
 \subsection{Measurement and statistical rigor}
 Engine-tier timing follows the controlled Profile-B protocol (Sec.~\ref{sec:eval-setup}):
@@ -32,13 +31,13 @@ analytic maximum, so a worse traversal geometry may exist; the structural
 $O(N_{\mathrm{leaves}})$ bound still caps it. On the empirical side, the real-data reference
 (Sec.~\ref{sec:eval-realdata}) is one route, one vehicle, and a \emph{degraded-prior} guess
 track (offline NDT-odometry, not the production localization filter): its iteration statistics
-over-represent nominal cruising, and its margins are specific to that drive. Moreover, the
+do not represent nominal cruising, and its margins are specific to that drive. Moreover, the
 benchmark map crop limits meaningful matching to the \realOnMap{} on-map frames, a prefix
 window of the 57-minute capture, so the effective real-data evidence base is far smaller
 than the raw \realFrames{}-frame count suggests.
 
 \subsection{Comparison validity: the divergence residual}
-The real-data replay surfaced what the synthetic suites never did: iteration counts initially
+The real-data replay surfaced a case absent from the synthetic suites: iteration counts initially
 diverged by ${\pm}1$ on ${\sim}2\%$ of real frames. Root-causing identified and fixed two
 port-fidelity gaps invisible to translation-only fixtures: the C++ engine transforms its
 \emph{initial} pass by the guess matrix (not the Euler rebuild), and pcl's SSE transform
@@ -68,7 +67,7 @@ trace-certified inputs.
 Relatedly, the Rust floating-point stream is \emph{designed} for ISA-stable execution
 (pure-software \texttt{libm}, no FMA contraction in the kernel image) and \emph{verified}
 on the deployment-class evaluation target
-(Sec.~\ref{sec:eval-raspi4}): exact on all \raspiTotal{} fixtures. The one flag the
+(Sec.~\ref{sec:eval-raspi4}): the counters match exactly on all \raspiTotal{} fixtures. The one flag the
 on-target certificate initially raised was root-caused to a stale expected-value snapshot
 predating one of the port-fidelity fixes above, a reminder that the counters are sensitive
 to the engine \emph{version} at parts-per-million resolution: cross-version baselines must
@@ -106,7 +105,7 @@ fitness set to the per-point maximum $K$ (\legalKSearchSeeds{} seeds through the
 legality verifier) plateaus at $K = \legalKSearchMax$: the legal rough-surface family
 scatters centroids and cannot crowd more into one search ball, so the corner-lattice
 construction ($K = 8$) and the real map ($K = \realKmaxMax$) remain the strongest known
-legal witnesses. This is evidence that legal $K$ concentrates far below the ceiling, though
+legal witnesses. Within these searched families, this is evidence that legal $K$ concentrates far below the ceiling, though
 not a proof.
 
 Two further preconditions: the \maxnn{} sufficiency derivation
@@ -114,7 +113,7 @@ Two further preconditions: the \maxnn{} sufficiency derivation
 (decoupling them would require re-deriving the cap), and the affine
 $T_{\mathrm{obs,max}}(P)$ envelope is validated over $P \in [\psweepPmin{}, \psweepPmax{}]$
 on the host
-(Sec.~\ref{sec:eval-psweep}); beyond that range, working sets exceeding the last-level
+(Sec.~\ref{sec:eval-psweep}); beyond that range or on other platforms, working sets exceeding the last-level
 cache could bend the slope upward, and the zero-allocation guarantee is tied to the
 pre-reserved capacity (exceeding it costs a one-time buffer growth).
 
@@ -149,7 +148,7 @@ with a \SI{\bridgeCppTaxMinMs}{}--\SI{\bridgeCppTaxMaxMs}{ms} shift in one engin
 per-align constant (mechanism unresolved; Sec.~\ref{sec:eval-bridge}), so
 controlled numbers are configuration-specific observations, not platform-free truths.
 
-The counter decomposition thus \emph{factorizes} WCET into a structurally-enforced part
+In this case study, the counter decomposition \emph{factorizes} WCET evidence into a structurally-enforced part
 (work) and an empirical part (time per unit of work); only the former carries the strong
 evidence tier. On a timing-predictable target, precisely the \texttt{no\_std} kernel
 deployment of Sec.~\ref{sec:intro}, a defensible per-operation cost bound would promote

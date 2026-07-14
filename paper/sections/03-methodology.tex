@@ -47,15 +47,15 @@ The shipped C++ sources must remain byte-identical (an upstream constraint), so 
 be instrumented. Instead we rely on the port's fidelity: the Rust engine is \emph{designed}
 to perform the same algorithmic work as the C++ engine (the same iteration counts and the
 same per-point neighbor sets) with near-identical numerics; a differential test suite
-validates this goal by running both engines on identical inputs and requiring exactly equal
+checks this goal by running both engines on identical inputs and requiring exactly equal
 iteration counts and near-exact poses and scores. (Bit-identical f64 streams are
 unattainable by design: pcl/FLANN returns each point's neighbors distance-sorted while the
 port's kd walk returns them in visit order, so the same per-point sums are accumulated in
 different orders; Sec.~\ref{sec:eval-tracecert} measures the resulting ULP-level gap.) Two input sets scope the resulting claims. The \textbf{bounded-neighbor
 domain} $D$ is the set of inputs whose every radius query returns at most \maxnn{} in-range
 leaves, so that the port's hard cap never truncates;
-Sec.~\ref{sec:implementation} shows that all preprocessing-reachable inputs (and everything
-short of three adversarially crowded overlapping tiles) lie in $D$. Membership in $D$ is
+Sec.~\ref{sec:implementation} derives why the preprocessing-reachable inputs considered here
+(and everything short of three adversarially crowded overlapping tiles) lie in $D$. Membership in $D$ is
 \emph{necessary} for equal work but not sufficient: within $D$ the engines can still diverge
 on marginal inputs through sub-ULP library differences, and the real-data replay exhibits
 \realDivergences{} such frames (Sec.~\ref{sec:threats}). We therefore claim work
@@ -79,7 +79,7 @@ instrumented copy of its sources, never shipped, since the byte-identical constr
 the shipped sources only) records a per-pass trace (pass count, per-pass point and neighbor
 counts, and a hash of each point's neighbor-leaf \emph{set}) that the replay compares
 leg by leg against the Rust engine's mirrored trace (Sec.~\ref{sec:eval-tracecert}). On
-every frozen fixture the trace certificate holds exactly; on real data it measures
+every frozen fixture the trace certificate holds exactly; on real data it identifies
 precisely where equal iterations and equal work part ways (\traceRealWorkGapFrames{}
 frames; Sec.~\ref{sec:eval-tracecert}). The certification earned this scrutiny in practice:
 on real map data the base certificate caught two port-fidelity gaps that the synthetic

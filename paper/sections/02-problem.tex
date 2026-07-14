@@ -51,7 +51,7 @@ and the behavior on violation):
   \item $P$: the source-cloud size, a \emph{caller-side} bound (Autoware's shipped pipeline
         random-downsamples the scan to exactly $P \le 1500$ points); we use $P = 2000$ for the
         engine-level fixtures (a margin above the production cap) except in the scaling study
-        of Sec.~\ref{sec:eval-psweep}, which validates that the bound is affine in $P$;
+        of Sec.~\ref{sec:eval-psweep}, which checks the predicted affine dependence on $P$;
   \item $K(p) \le \maxnn = 64$: the number of neighbor leaves each point collects (a search cap
         the port enforces; Sec.~\ref{sec:implementation} derives why 64 suffices);
   \item the kd-tree traversal length per query (worst case $O(N_{\mathrm{leaves}})$,

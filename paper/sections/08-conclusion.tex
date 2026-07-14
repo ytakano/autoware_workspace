@@ -1,22 +1,22 @@
 \section{Conclusion}
 \label{sec:conclusion}
 
-We showed that a high-fidelity, per-input-certified port turns WCET analysis of a
+This case study shows how a high-fidelity, per-input-certified port can turn WCET analysis of a
 data-dependent industrial kernel into
-a tractable, largely automated pipeline: a structural work bound enforced and
+a tractable pipeline: a structural work bound enforced and
 property-tested in the port, counter-extremal inputs found by a deterministic
 counter-guided search (with an exact saturation certificate for the dominant term), and
 cross-language equal-work measurement
-requiring no instrumentation of the production C++ sources. The resulting bound is
+requiring no instrumentation of the production C++ sources. The resulting evidence is
 \emph{layered}: enforced by construction and property-tested on the work axis, parametric in
 the caller's contract ($P$-affine,
 two tiers), and empirical only in the time-per-operation factor. On every adversarial fixture
 the Rust port meets or beats the C++ engine's observed maximum while eliminating its per-point
-heap-allocation hazard, and the per-input equal-work certification proved sharp enough to
-find, and fix, port-fidelity gaps that conventional differential testing missed.
+heap-allocation hazard, and the per-input equal-work certification exposed port-fidelity gaps
+that conventional differential testing had missed.
 
 \paragraph{Future work}
-On the bare-metal AArch64 evaluation target both legs are now demonstrated: the counters
+On the bare-metal AArch64 evaluation target both legs are now exercised: the counters
 transfer exactly and the Profile-C timing series shows sub-percent spread
 (Sec.~\ref{sec:eval-raspi4}); what remains there is the multi-core interference analog
 (kernel tasks as co-runners) and a certified per-operation cost bound that would promote
@@ -29,5 +29,5 @@ ${\approx}\parRustSpeedupFour\times$ at four cores and brings the deployment-tie
 within the \SI{100}{ms} budget at two (Sec.~\ref{sec:eval-parallel}).
 The full POT/MLE EVT machinery was run and rejected by its own diagnostics
 (Sec.~\ref{sec:eval-evt}); reviving extrapolation needs an independence-preserving
-measurement protocol, not a better fit. Finally, the counter-guided transfer methodology
-should apply to other data-dependent Autoware kernels.
+measurement protocol, not a better fit. Finally, the counter-guided transfer methodology is a candidate for other data-dependent
+Autoware kernels with comparable structural counters.

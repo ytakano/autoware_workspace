@@ -76,15 +76,15 @@ a certified hard time bound on the evaluated platform. Deterministic algorithmic
 counters, compiled to zero overhead when disabled, serve both as automatically checked
 evidence for the work bound and as a platform-independent fitness function for a search for
 counter-extremal inputs. Each discovered input is carried verbatim to the uninstrumented
-C++ engine, with equal work certified per input. The search exactly saturates the analytic
-bound on the number of kernel evaluations per align, and a controlled sweep shows the bound
-is affine in the scan size. A two-tier formulation separates the bounded-neighbor engine
+C++ engine, with equal work certified per input. On the frozen search fixtures, the search
+saturates the analytic bound on the number of kernel evaluations per align, and a controlled
+sweep shows an affine observed envelope in the scan size. A two-tier formulation separates the bounded-neighbor engine
 tier from the preprocessing-reachable one
 ($\legalWorstRatioRust\times$--$\legalWorstRatioCpp\times$ apart on measured fixtures),
 quantifying the value of input-contract validation at the component boundary. On a
 57-minute urban capture (\realOnMap{} on-map matching aligns), the per-input certification
 exposed, and led us to fix, two port-fidelity gaps invisible to synthetic fixtures
-(\realDivergences{} residual divergent frames). The Rust port meets or beats the C++ engine's observed maximum on every fixture,
+(\realDivergences{} residual divergent frames). On these fixtures, the Rust port meets or beats the C++ engine's observed maximum,
 while eliminating the C++ engine's ${\approx}\allocPerPtPass$ heap allocations per point
 per derivative pass.
 \end{abstract}

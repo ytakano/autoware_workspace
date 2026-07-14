@@ -6,8 +6,8 @@
 The C++ engine is Autoware's multigrid \ndt{}~\cite{autoware,ndtomp} (pcl-based, OpenMP;
 measured serial, \texttt{num\_threads}=1). The Rust engine is a port of it that can also build
 without the standard library (\texttt{no\_std}) for the bare-metal kernel deployment; behind
-the C ABI it is a drop-in replacement, and the differential test suite (voxel-grid
-construction, align, engine and end-to-end node paths) passes with the Rust engine substituted.
+the C ABI it exposes the same entry points as a drop-in replacement, and the differential test
+suite (voxel-grid construction, align, engine and end-to-end node paths) passes with the Rust engine substituted.
 Compiler versions and the measurement environment appear in Sec.~\ref{sec:eval-setup};
 both engines were measured at autoware\_core commit \texttt{\envCommit} (binary hashes in
 the released per-run manifests).
@@ -21,7 +21,7 @@ the released per-run manifests).
   \item \textbf{Recursion-free kd-tree}: the radius search runs an iterative walk over a fixed
     64-entry stack (depth $\le \lceil \log_2 N \rceil{+}1$ by the median build). The exact
     near-then-far visit order is preserved (neighbor order feeds float summation order,
-    which the port must reproduce exactly) and is differential-tested against the recursive
+    which the port must preserve for fidelity) and is differential-tested against the recursive
     oracle. The
     iterative form measured ${\approx}\oneoffKdIterSpeedup\%$ faster than the recursive one
     (same day, same core).
@@ -63,7 +63,7 @@ tile geometrically caps $K$ at the ${\le}8$ voxels sharing a corner when the sea
 equals the leaf size, so tile overlap, which production dynamic map loading makes possible
 in principle, is essential to reach the cap; this is why the frozen fixture format
 stores its map as tiles. \emph{Max-iterations} is a rough random surface with
-$\epsilon = 10^{-10}$ that never converges. \emph{Cache-hostile} scatters the source across a
+$\epsilon = 10^{-10}$ that does not converge within the configured iteration cap. \emph{Cache-hostile} scatters the source across a
 wide map in shuffled order. \emph{Subnormal} places the source on a shell where the kernel's
 $\exp$ lands in the \texttt{f64} subnormal range. The search of Sec.~\ref{sec:meth-search}
 then composes and exceeds them.
@@ -91,7 +91,7 @@ remains $K \le 27$.
 One axis of this fixture is deliberately \emph{not} production-parameterized: with the shipped
 $\epsilon = 0.01$, its smooth lattice geometry converges in \oneoffLegalWorstProdEpsIters{}
 iterations, so the fixture pins the iteration cap through $\epsilon$ instead. The cap
-assumption is nevertheless not hypothetical. Re-running the counter-guided search with the
+assumption is supported by a production-parameterized witness. Re-running the counter-guided search with the
 \emph{parameters frozen to the shipped values} and every candidate checked against the
 preprocessing contract by an independent legality verifier (one point per downsample cell,
 crop, $P$, and map-spacing invariants) found a fully legal rough-surface geometry that

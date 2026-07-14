@@ -11,12 +11,12 @@ once per scan at the sensor rate (typically 10\,Hz, i.e.\ a \SI{100}{ms} period)
 resulting pose feeds the extended Kalman filter (EKF), planner, and controller on the critical
 path, and a \emph{late} pose is operationally as bad as a wrong one: consumers fall back to
 dead-reckoning extrapolation whose error grows with vehicle speed, and sustained overruns
-trigger degraded operation or a minimum-risk maneuver. The engineering question is therefore
-not the average align time but its worst case: does one \ndt{} align \emph{always} fit the
-period?
+trigger degraded operation or a minimum-risk maneuver. For deadline analysis, the relevant question is therefore
+not the average align time but the upper tail under the configured input contracts: does one
+\ndt{} align fit the period with defensible margin?
 
 % Para 1b: the spread we actually observe motivates the question empirically.
-The question is acute because the align time is strongly input-dependent. On the engines
+The question is acute in the configurations studied here because the align time is strongly input-dependent. On the engines
 studied here, adversarially constructed yet parameter-legal map/scan geometries stretch
 one serial align from under \SI{10}{ms} to nearly a second on the same desktop-class core
 (Sec.~\ref{sec:evaluation}): two orders of magnitude, and well past a 10\,Hz budget. Whether
@@ -67,21 +67,21 @@ Our contributions:
     certification exposed, and led us to fix, two port-fidelity gaps that synthetic
     fixtures are structurally blind to, and measured that equal iteration counts alone
     would \emph{not} have implied equal work (Sec.~\ref{sec:threats}).
-  \item \textbf{Evidence that the search is effective}: it exactly saturates the analytic
+  \item \textbf{Evidence that the search is effective}: on the frozen search fixtures, it saturates the analytic
     maximum on the number of kernel evaluations per align,
     $P \cdot \maxnn \cdot (N_{\mathrm{iter}}{+}1)$, where $P$ is the scan size, \maxnn{}
     the per-point neighbor cap, and $N_{\mathrm{iter}}$ the Newton iteration count
     (Sec.~\ref{sec:problem}); it then grows the remaining free term (kd-tree traversal) by
     a further \searchKdGrowthPct\%.
-  \item An \textbf{industrial case study}. On every adversarial fixture the Rust port's
+  \item An \textbf{industrial case study}. On the adversarial fixtures, the Rust port's
     observed maximum is at or below C++'s (ratios \tailsRatioMin--\tailsRatioMax), and the
     port eliminates by construction the C++ engine's ${\approx}\allocPerPtPass$ heap
     allocations per point per derivative pass (up to \allocWorstPerAlign{} per align), a
     structural unbounded-latency hazard (the port is zero-allocation under a declared
     capacity contract, recursion-free, and panic-free). A \textbf{two-tier bound} separates
     the bounded-neighbor engine tier (unvalidated inputs over $D$) from the
-    preprocessing-reachable one, each axis of the deployment tier backed by a legal witness
-    input; the gap (a measured $\legalWorstRatioRust\times$, provably ${\ge}2.4\times$ on
+    preprocessing-reachable one, with each axis of the deployment tier backed by a legal witness
+    input; the measured fixture gap ($\legalWorstRatioRust\times$, with a ${\ge}2.4\times$ reduction on
     the kernel term) quantifies what enforcing input contracts at the component boundary
     buys. A 57-minute real drive provides one-drive evidence consistent with the contracts
     and the margins.

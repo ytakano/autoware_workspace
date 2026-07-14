@@ -15,15 +15,15 @@ property-based testing, while Layers~2--3 supply witness inputs and platform tim
 \paragraph{Measurement-based and probabilistic timing analysis}
 MBPTA applies extreme value theory to measured execution times to extrapolate
 \pwcet{}~\cite{edgar2001gumbel,cucu2012mbpta}; Cazorla et al.~\cite{cazorla2019mbpta} give a
-comprehensive survey. The Achilles heel is \emph{representativity}: EVT bounds only the
-behaviors the measurement protocol exercised, which has driven work on randomized platforms and
+survey. A central limitation is \emph{representativity}: EVT bounds only the
+behaviors exercised by the measurement protocol, which has driven work on randomized platforms and
 measurement protocols~\cite{lima2017evt}, statistical estimation and validation
 procedures~\cite{hansen2009statistical}, and reusable tooling~\cite{reghenzani2018chronovise}.
 We attack representativity from the input side: instead of sampling ``representative'' inputs,
 we \emph{search} for adversarial ones with a deterministic, platform-independent fitness, and
 certify for the dominant term that the search reached the analytic maximum. On the frozen
 extreme inputs we then run the POT/MLE machinery with its diagnostic checklist, and we report
-that the diagnostics, not the fits, decide what may be extrapolated
+that diagnostics determine whether extrapolation is reported
 (Sec.~\ref{sec:eval-evt}).
 
 \paragraph{Search-based worst-case input generation}
@@ -33,7 +33,7 @@ execution time} as fitness and note the complementarity with static analysis. Wa
 fitness is noisy, machine-specific, and unreproducible across platforms. Our fitness is a
 vector of deterministic algorithmic cost counters: the search result is a property of the
 algorithm rather than of the measurement machine, runs are exactly reproducible from a seed,
-and the outcome can be checked against the analytic bound: the saturation certificate of
+and the outcome can be checked against the analytic bound. The saturation certificate of
 Sec.~\ref{sec:eval-search} has no analogue under time-based fitness. The counters also enable
 the cross-language transfer: a counter-extremal input found on the instrumented port
 stresses the uninstrumented production engine equally, with equal work certified per input
@@ -51,8 +51,8 @@ Rust's ownership model underpins systems such as the Tock embedded
 OS~\cite{levy2017tock}, and RustBelt~\cite{jung2018rustbelt} gives machine-checked foundations
 for its safety claims. That line of work targets \emph{memory} safety; WCET requires more:
 panic-freedom, allocation-freedom, recursion-freedom, and bounded loops on the hot path. We
-show these can be made lint- and test-enforced properties of a production kernel, and, in a
-step we believe is new, that a high-fidelity, per-input-certified port is not just a
+show these can be made lint- and test-enforced properties of a production kernel. In this
+case study, a high-fidelity, per-input-certified port is not just a
 migration artifact but an analysis instrument: it lets the memory-safe implementation carry
 the instrumentation burden for both languages.
 
@@ -61,5 +61,4 @@ the instrumentation burden for both languages.
 to 3D by Magnusson~\cite{magnusson2009thesis}. The engine studied here is Autoware's
 production localization matcher~\cite{autoware}, a multigrid variant of the multi-threaded
 \texttt{ndt\_omp} implementation~\cite{ndtomp}. Prior work on these implementations reports
-average-case throughput; to our knowledge no WCET-oriented analysis of an \ndt{} engine has
-been published.
+average-case throughput. We are not aware of a published WCET-oriented analysis of an \ndt{} engine.
