@@ -1,0 +1,187 @@
+{
+ "meta": {
+  "experiment": "C8 parallel feasibility (plan/paper_fix2.md)",
+  "engine_commit": "96e35b85bcfb30ae3a0cd818bfb830a904df1d6d",
+  "calib_before_ns": 7163454983,
+  "calib_after_ns": 7343794240,
+  "calib_drift_pct": 2.52,
+  "cmdline_isolation": "isolcpus=2-9 nohz_full=2-9 rcu_nocbs=2-9; SMT siblings 3,5,7,9 offline; governor performance, 3.2 GHz",
+  "cores": {
+   "1": "2",
+   "2": "2,4",
+   "4": "2,4,6,8"
+  },
+  "pinning": "C++: OMP_NUM_THREADS + GOMP_CPU_AFFINITY; Rust: RAYON_NUM_THREADS + NDT_PIN_RAYON_WORKERS (init_thread_pool pins worker i to the i-th cpuset CPU)",
+  "note": "Throughput feasibility, NOT a multi-core WCET analysis: the serial engine remains the deterministic baseline. Speedups are within this boot (k=1 baseline); not comparable to the frozen serial Profile-B (a different isolation set). Rust iteration counts are k-invariant (parallel backend bit-identical to serial)."
+ },
+ "inputs": {
+  "search_00": {
+   "1": {
+    "cpp": {
+     "p50_ms": 962.568,
+     "max_ms": 967.091,
+     "n": 100,
+     "iteration_num": 30,
+     "speedup_p50": 1.0,
+     "speedup_max": 1.0
+    },
+    "rust": {
+     "p50_ms": 591.933,
+     "max_ms": 595.664,
+     "n": 100,
+     "iteration_num": 30,
+     "speedup_p50": 1.0,
+     "speedup_max": 1.0
+    }
+   },
+   "2": {
+    "cpp": {
+     "p50_ms": 550.222,
+     "max_ms": 551.368,
+     "n": 100,
+     "iteration_num": 30,
+     "speedup_p50": 1.749,
+     "speedup_max": 1.754
+    },
+    "rust": {
+     "p50_ms": 300.957,
+     "max_ms": 304.554,
+     "n": 100,
+     "iteration_num": 30,
+     "speedup_p50": 1.967,
+     "speedup_max": 1.956
+    }
+   },
+   "4": {
+    "cpp": {
+     "p50_ms": 295.522,
+     "max_ms": 296.764,
+     "n": 100,
+     "iteration_num": 30,
+     "speedup_p50": 3.257,
+     "speedup_max": 3.259
+    },
+    "rust": {
+     "p50_ms": 149.918,
+     "max_ms": 151.048,
+     "n": 100,
+     "iteration_num": 30,
+     "speedup_p50": 3.948,
+     "speedup_max": 3.944
+    }
+   }
+  },
+  "legal_worst": {
+   "1": {
+    "cpp": {
+     "p50_ms": 238.021,
+     "max_ms": 240.785,
+     "n": 100,
+     "iteration_num": 30,
+     "speedup_p50": 1.0,
+     "speedup_max": 1.0
+    },
+    "rust": {
+     "p50_ms": 120.159,
+     "max_ms": 122.929,
+     "n": 100,
+     "iteration_num": 30,
+     "speedup_p50": 1.0,
+     "speedup_max": 1.0
+    }
+   },
+   "2": {
+    "cpp": {
+     "p50_ms": 127.747,
+     "max_ms": 128.105,
+     "n": 100,
+     "iteration_num": 30,
+     "speedup_p50": 1.863,
+     "speedup_max": 1.88
+    },
+    "rust": {
+     "p50_ms": 60.24,
+     "max_ms": 60.964,
+     "n": 100,
+     "iteration_num": 30,
+     "speedup_p50": 1.995,
+     "speedup_max": 2.016
+    }
+   },
+   "4": {
+    "cpp": {
+     "p50_ms": 63.938,
+     "max_ms": 64.204,
+     "n": 100,
+     "iteration_num": 30,
+     "speedup_p50": 3.723,
+     "speedup_max": 3.75
+    },
+    "rust": {
+     "p50_ms": 31.533,
+     "max_ms": 31.726,
+     "n": 100,
+     "iteration_num": 30,
+     "speedup_p50": 3.811,
+     "speedup_max": 3.875
+    }
+   }
+  },
+  "legal_osc": {
+   "1": {
+    "cpp": {
+     "p50_ms": 194.956,
+     "max_ms": 196.627,
+     "n": 100,
+     "iteration_num": 30,
+     "speedup_p50": 1.0,
+     "speedup_max": 1.0
+    },
+    "rust": {
+     "p50_ms": 64.521,
+     "max_ms": 64.698,
+     "n": 100,
+     "iteration_num": 30,
+     "speedup_p50": 1.0,
+     "speedup_max": 1.0
+    }
+   },
+   "2": {
+    "cpp": {
+     "p50_ms": 100.24,
+     "max_ms": 100.435,
+     "n": 100,
+     "iteration_num": 30,
+     "speedup_p50": 1.945,
+     "speedup_max": 1.958
+    },
+    "rust": {
+     "p50_ms": 33.123,
+     "max_ms": 33.455,
+     "n": 100,
+     "iteration_num": 30,
+     "speedup_p50": 1.948,
+     "speedup_max": 1.934
+    }
+   },
+   "4": {
+    "cpp": {
+     "p50_ms": 50.952,
+     "max_ms": 51.112,
+     "n": 100,
+     "iteration_num": 30,
+     "speedup_p50": 3.826,
+     "speedup_max": 3.847
+    },
+    "rust": {
+     "p50_ms": 17.593,
+     "max_ms": 17.724,
+     "n": 100,
+     "iteration_num": 30,
+     "speedup_p50": 3.667,
+     "speedup_max": 3.65
+    }
+   }
+  }
+ }
+}

@@ -322,6 +322,36 @@ the production-parameterized legal search (Sec.~\ref{sec:impl-legal}) reaches th
 \SI{\legalOscMaxCpp}{ms} C++, $\bar{K} = \legalOscKbar$), below \emph{legal-worst}, which
 therefore remains the tier's hardest measured witness.
 
+\subsection{Closing the residual gap with parallelism}
+\label{sec:eval-parallel}
+\input{tables/parallel}
+
+Even under the deployment contracts the serial Rust engine misses the \SI{100}{ms} budget on
+the tier's witness (\emph{legal-worst}, \SI{\parRustLegalSerialMs}{ms}). Both engines,
+however, expose a thread count: the C++ engine through OpenMP, and the Rust port through a
+rayon-backed derivative reduction that is \emph{order-preserving and bit-identical to the
+serial backend} (the per-point contributions are folded in point index order regardless of
+worker count), so parallelism changes only wall time, never the result. We measure it as a
+throughput lever, not as an extension of the WCET argument: the serial engine remains the
+deterministic baseline of this paper, and a multi-core \emph{WCET} analysis (worker
+interference, scheduling) is out of scope.
+
+We ran both engines on $k \in \{1,2,4\}$ isolated physical cores, one worker pinned per core
+(the C++ threads via \texttt{GOMP\_CPU\_AFFINITY}, the rayon workers via a pool that pins
+worker $i$ to the $i$-th core of the process's CPU set --- necessary because
+\texttt{isolcpus} disables the kernel's automatic load balancing, so unpinned workers would
+share one core). Table~\ref{tab:parallel} reports the result: both engines scale nearly
+linearly (Rust ${\approx}\parRustSpeedupFour\times$, C++ ${\approx}\parCppSpeedupFour\times$
+at $k{=}4$), and the Rust engine's iteration counts are identical across $k$ (the
+bit-identical property, now measured, not just asserted). The deployment-tier residual
+closes at $k = \parRustLegalFitK$: the Rust engine brings \emph{legal-worst} to
+\SI{\parRustLegalFitMaxMs}{ms}, inside the \SI{100}{ms} budget. Read against the two tiers,
+the \SI{100}{ms} deadline on this host is met by the composition of enforcing the input
+contracts (a measured $\legalWorstRatioRust\times$; Sec.~\ref{sec:eval-twotier}) and two
+pinned cores. These are host observations at the \SI{3.2}{GHz} reference clock; the same
+$k$-scaling protocol, run on the deployment target, gives the core count that platform
+requires (Sec.~\ref{sec:eval-raspi4}).
+
 \subsection{Real-data replay: contract validation and degraded-prior behavior}
 \label{sec:eval-realdata}
 To place the tiers against real inputs, we captured every NDT input (map tile, per-align
@@ -519,8 +549,9 @@ $\raspiHostFactorMin$--$\raspiHostFactorMax\times$ the A72 per unit work on thes
 still misses that witness by $\legalWorstBudgetXRust\times$
 (Sec.~\ref{sec:eval-twotier}). The affine $T_{\mathrm{obs,max}}(P)$ envelope of
 Sec.~\ref{sec:eval-psweep} lets any candidate platform be audited with a single on-target
-$P$-sweep; the remaining levers are $P$ reduction, parallelization, SIMD, and algorithmic
-change.
+$P$-sweep; the remaining levers are $P$ reduction, parallelization (measured on the host in
+Sec.~\ref{sec:eval-parallel}: ${\approx}\parRustSpeedupFour\times$ at four cores), SIMD, and
+algorithmic change.
 
 \subsection{Extreme-value analysis: what the diagnostics permit}
 \label{sec:eval-evt}

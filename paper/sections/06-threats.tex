@@ -16,7 +16,10 @@ the Rust/C++ max ratios are stable to $\pm\sessRatioSpreadWorst$.
 
 Remaining limits: one machine; the real-data replay of Sec.~\ref{sec:eval-realdata} is
 single-shot (one align per frame per engine under Profile A), so its per-frame times carry
-no repetition statistics; and the full POT/MLE
+no repetition statistics; the parallel-feasibility numbers of
+Sec.~\ref{sec:eval-parallel} are a host throughput observation, not a multi-core WCET result
+(worker interference and scheduling under contention are unmodeled --- the serial engine
+stays the deterministic baseline); and the full POT/MLE
 extreme-value treatment was run and its \emph{diagnostics rejected extrapolation}. The
 per-session sample series carry serial dependence up to $|\mathrm{ACF}| = \evtAcfWorst$, so
 no extrapolated exceedance probability is claimed, and the tail deliverable is the

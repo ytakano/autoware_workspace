@@ -23,8 +23,10 @@ transfer exactly and the Profile-C timing series shows sub-percent spread
 $\text{work} \times \text{unit cost}$ to an analytical WCET (Sec.~\ref{sec:threats}).
 Since the serial engine is not schedulable at 10\,Hz on that target
 (Sec.~\ref{sec:eval-raspi4}), the production ECU should be audited with the same on-target
-$P$-sweep protocol, and parallelizing the derivative passes (the port already ships an
-order-preserving, numerically identical parallel backend) is the next lever to measure.
+$P$-sweep protocol; on the host, parallelizing the derivative passes (the port's
+order-preserving, numerically identical rayon backend) recovers a further
+${\approx}\parRustSpeedupFour\times$ at four cores and brings the deployment-tier witness
+within the \SI{100}{ms} budget at two (Sec.~\ref{sec:eval-parallel}).
 The full POT/MLE EVT machinery was run and rejected by its own diagnostics
 (Sec.~\ref{sec:eval-evt}); reviving extrapolation needs an independence-preserving
 measurement protocol, not a better fit. Finally, the counter-guided transfer methodology
