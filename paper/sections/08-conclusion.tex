@@ -13,9 +13,8 @@ Rust is not necessary for these bounds. Its safe core narrows memory-safety and 
 obligations so validation can focus on equivalence, numerics, work, and timing; FFI, unsafe
 code, and dependencies remain trusted.
 
-\paragraph{Operational validation requirements}
-The component results do not establish production readiness. Deployment requires the
-production ECU, representative maps, scans, initial guesses, and co-resident Autoware loads;
+Operational validation is therefore still required: the component results do not establish
+production readiness. Deployment requires the production ECU, representative maps, scans, initial guesses, and co-resident Autoware loads;
 measurements must cover governor behavior, multi-core interference, end-to-end 10\,Hz
 compliance, and closed-loop quality gates and filter innovations. The host parallel result
 is deadline feasibility, not multi-core WCET. Analytical or probabilistic timing claims

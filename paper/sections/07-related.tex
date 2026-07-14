@@ -1,8 +1,8 @@
 \section{Related Work}
 \label{sec:related}
 
-\paragraph{Static WCET analysis}
-Static analyzers in the aiT tradition compute certified bounds from abstract cache and pipeline
+Static WCET analyzers in the aiT tradition compute certified bounds from abstract cache and
+pipeline
 models~\cite{ferdinand2001ait}; Wilhelm et al.~\cite{wilhelm2008wcet} survey the field. These
 methods excel on control-dominated code whose loop bounds are program constants or annotatable
 invariants. In our kernel, the Newton iteration count, per-point neighbor multiplicity, and
@@ -12,8 +12,8 @@ evidence that any input realizes it. Our Layer~1 keeps the
 spirit of the static bound but enforces each term by construction and discharges it by
 property-based testing, while Layers~2--3 supply witness inputs and platform timing.
 
-\paragraph{Measurement-based and probabilistic timing analysis}
-MBPTA applies extreme value theory to measured execution times to extrapolate
+Measurement-based and probabilistic timing analysis (MBPTA) applies extreme value theory to
+measured execution times to extrapolate
 \pwcet{}~\cite{edgar2001gumbel,cucu2012mbpta}; Cazorla et al.~\cite{cazorla2019mbpta} give a
 survey. A central limitation is \emph{representativity}: EVT bounds only the
 behaviors exercised by the measurement protocol, which has driven work on randomized platforms and
@@ -26,8 +26,7 @@ extreme inputs we then run the POT/MLE machinery with its diagnostic checklist, 
 that diagnostics determine whether extrapolation is reported, as detailed in
 Sec.~\ref{sec:eval-evt}.
 
-\paragraph{Search-based worst-case input generation}
-Evolutionary testing of timing constraints dates to Wegener et
+Search-based generation of worst-case inputs for timing constraints dates to Wegener et
 al.~\cite{wegener1997testing,wegener2001comparison}, who evolve test data with \emph{measured
 execution time} as fitness and note the complementarity with static analysis. Wall-clock
 fitness is noisy, machine-specific, and unreproducible across platforms. Our fitness is a
@@ -40,15 +39,14 @@ replayed on the production engine, with common semantic work trace-certified per
 Engine-specific traversal and timing remain separate, so the shared witness need not
 stress both implementations equally.
 
-\paragraph{Timing analysis of ROS-based systems}
-Casini et al.~\cite{casini2019ros2} bound end-to-end response times of ROS~2 processing chains
+For ROS-based systems, Casini et al.~\cite{casini2019ros2} bound end-to-end response times of ROS~2 processing chains
 under reservation-based scheduling, treating per-callback WCETs as given inputs. Such analyses
 are complementary to ours: we bound the dominant callback kernel, the \ndt{} align, that
 those chain analyses consume. We also remove per-point heap allocation and other structural
 hazards that would otherwise make the per-callback WCET assumption fragile.
 
-\paragraph{Rust in real-time and safety-critical systems}
-Rust's ownership model underpins systems such as the Tock embedded
+In real-time and safety-critical systems, Rust's ownership model underpins systems such as
+the Tock embedded
 OS~\cite{levy2017tock}, and RustBelt~\cite{jung2018rustbelt} gives machine-checked foundations
 for its safety claims. In safe Rust, ownership, lifetime, and aliasing rules discharge
 memory-safety and data-race-freedom obligations that an equivalent C++ implementation would
@@ -60,8 +58,7 @@ per-input-certified port is not just a migration artifact but an analysis instru
 safe core narrows the verification surface while carrying the instrumentation burden for
 both languages.
 
-\paragraph{NDT scan matching}
-\ndt{} registration originates with Biber and Stra{\ss}er~\cite{biber2003ndt} and was extended
+For \ndt{} scan matching, registration originates with Biber and Stra{\ss}er~\cite{biber2003ndt} and was extended
 to 3D by Magnusson~\cite{magnusson2009thesis}. The engine studied here is Autoware's
 production localization matcher~\cite{autoware}, a multigrid variant of the multi-threaded
 \texttt{ndt\_omp} implementation~\cite{ndtomp}. Prior work on these implementations reports
