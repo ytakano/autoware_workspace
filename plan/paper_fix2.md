@@ -300,7 +300,7 @@ sentence against our own tables), then A1 (core reframing), then the rest.
   the reviewer's requested columns.
 - Acceptance: B1's footnote removed; divergent table fully populated from regenerated data.
 
-### C3 (#6) Equalize the bridge sample structure
+### C3 (#6) Equalize the bridge sample structure — **DONE (2026-07-14, autoware_core 7d620d10, paper dfbce06)**
 
 - Re-run the Profile-A leg for the three synthetic inputs at 3 × 1000 samples (mirroring the
   B-leg pooled structure; ~2–3 h of machine time at search-00 rates), or alternatively
@@ -391,7 +391,7 @@ sentence against our own tables), then A1 (core reframing), then the rest.
 | M2 — claims re-scoped | ~~A1, A2, A3, A4, A7, A8~~ (done, 58251c7) | **COMPLETE.** The paper no longer claims what the current certificate cannot support; rebuttal letter draftable. |
 | M3 — existing-data strengthening | ~~B1, B2~~ (done, 80ebde9) | **COMPLETE.** Real-data table split; work model has the per-point term. |
 | M4 — trace certificate | ~~C1, C2~~ (done, 2026-07-13) | **COMPLETE.** Transfer claim backed by a measured per-input C++/Rust trace certificate incl. Σkd^C++; C2's per-engine iteration/pose data rode along in trace_real.json. |
-| M5 — measurement cleanups | ~~C8~~ (done, 323b382); C3, C5 pending (+ optional C4, C6, C7) | Parallel feasibility measured; bridge same-n and subnormal re-measure still open. |
+| M5 — measurement cleanups | ~~C8, C5, C3~~ (done) (+ optional C4, C6, C7) | **COMPLETE.** Parallel feasibility measured; subnormal A/B on-protocol; bridge synthetic legs matched-n. |
 | M6 — resubmission package | re-run this audit table against the final PDF; rebuttal letter (include the three push-back notes above) | Submit. |
 
 A before B; C1 can start in parallel with Phase A (different files). B2 lands before C1's
@@ -462,3 +462,11 @@ lands).
   ONEOFF dropped). Null holds stronger: out-of-band control is marginally SLOWER (C++
   103.8->111.5, Rust 7.2->8.0 ms), guarded. C++ ~2x the pre-protocol era = the isolation tax.
   Remaining Phase C: C3 (bridge same-n; needs a Profile-A reboot, and already softened by A5).
+- 2026-07-14: **C3 done** (autoware_core 7d620d10, paper dfbce06). Rebooted to the no-isolation
+  Profile-A boot (SMT on, 3.2 GHz), re-measured the 3 synthetic bridge inputs at n=3000
+  (3x1000 pooled, unpinned CFS). At matched-n the C++ A-maxima rise (the max n-bias review #6
+  flagged); C++ infl still <1 (0.77-0.99), gap still narrows (0.50->0.57 legal-worst), tax
+  refines to 9-35 ms. run_c3.sh reproduces the pooled A-leg; bridge.json regenerated.
+  **Phase C measurement cleanups complete** (C3/C5/C8). Remaining optional: C4 (isolation
+  causality, 2-boot), C6 (ablation arms), C7 (Pi4 pose/score). M6 (rebuttal + re-audit)
+  is the path to resubmission.
