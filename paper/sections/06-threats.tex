@@ -12,13 +12,16 @@ thereby excluded) two transient firmware-level frequency clamps it caught mid-ca
 speed is the only reliable throttling detector. Cross-session stability bounds the residual
 environment sensitivity. On the worst fixture, per-session medians agree within
 \sessMedSpreadWorstPct\%. The remaining per-session memory-layout effect persists with
-or without a reboot. The
-the Rust/C++ max ratios are stable to $\pm\sessRatioSpreadWorst$.
+or without a reboot. The Rust/C++ max ratios are stable to $\pm\sessRatioSpreadWorst$.
 
-Remaining limits include the use of one machine and a comparison of two complete
-implementations rather than languages in isolation. Allocators, layouts, containers,
-kd-trees, math libraries, and compiler choices all contribute to the measured difference;
-matched flags, a bounded C++ redesign, and component ablations remain future work. The real-data replay of
+Remaining limits include the use of one machine. The campaign compares the complete,
+deployable implementations under their recorded release configurations; it was not designed
+to isolate the causal effect of the implementation language or of individual design choices.
+Compiler options have no exact one-to-one mapping across the two toolchains, while a bounded
+C++ redesign and component ablations would require additional implementation variants.
+Allocators, layouts, containers, kd-trees, math libraries, and compiler choices therefore all
+contribute to the measured difference, which must not be attributed to Rust alone.
+The real-data replay of
 Sec.~\ref{sec:eval-realdata} is single-shot, with one align per frame per engine under
 Replay, so its per-frame times carry
 no repetition statistics; the parallel-feasibility numbers of
@@ -110,10 +113,13 @@ bounded-neighbor engine tier over $D$ from Sec.~\ref{sec:meth-transfer}.
 The deployment tier's contracts cover tile disjointness and alignment, map and scan
 downsampling, and the $P \le 1500$ cap. They are properties of the map and sensing pipelines that the engine does
 \emph{not} verify; a violated contract silently moves the system back to the engine tier.
-The tier is therefore an \emph{assumption}, not a guarantee; converting it into one
-requires a boundary validator that checks the assumed rows of
-Table~\ref{tab:preconditions} at runtime with a defined rejection behavior. This is future
-work, and its overhead must be measured.
+The tier is therefore an \emph{assumption}, not a guarantee. Production deployment
+must convert these contracts into checked integration conditions: static map and tile
+properties must be validated when map data are loaded, and per-scan conditions such as the
+$P$ cap must be checked before invoking the align kernel. A violation must trigger a defined
+rejection or fallback rather than silently changing the applicable tier. The validators must
+have bounded execution time, and their cost must be included in the end-to-end 10\,Hz
+deadline analysis.
 
 On the iteration axis, the tier's \emph{legal-worst} time witness pins
 $N_{\mathrm{iter}} = 30$ via a non-production $\epsilon$. The cap itself is legally

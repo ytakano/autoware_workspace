@@ -405,9 +405,12 @@ values. For Rust, the bridge experiment justifies the comparison with
 Replay-to-Isolated ratios of
 $\bridgeRustInflMin$--$\bridgeRustInflMax\times$, as reported in
 Sec.~\ref{sec:eval-bridge}.
-Two scope notes: a production ECU's governor and boost behavior may differ from the pinned
-reference clock, which was recorded rather than assumed, and no co-resident Autoware workload ran during
-the replay; a full-stack co-residency run remains future work. The counter rows are
+Two scope notes qualify this comparison. First, a production ECU's governor and boost
+behavior may differ from the pinned reference clock, which was recorded rather than assumed.
+Second, the replay intentionally excluded co-resident Autoware workloads to isolate
+align-kernel timing and preserve cross-engine comparability. Consequently, these
+measurements do not establish full-stack deadline compliance; Sec.~\ref{sec:conclusion}
+specifies the operational evaluation required before deployment. The counter rows are
 environment-independent.
 
 Fourth, the certificate levels differ materially. Over all frames,
