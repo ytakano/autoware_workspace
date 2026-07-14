@@ -227,7 +227,8 @@ points, the worst regressor correlation is \regCorr, bootstrap intervals are wid
 adopted Rust model has a \regLooMaxRust\% worst leave-one-out error. Moreover, each engine
 uses a different traversal counter. We therefore base the implementation comparison on the
 direct fixture maxima in Table~\ref{tab:tails}, not coefficient attribution; the models,
-coefficients, and intervals appear in Appendix~\ref{app:regression}.
+coefficients, and intervals appear in Table~\ref{tab:regression} of
+Appendix~\ref{app:regression}.
 
 \subsection{Scaling with the input size $P$}
 \label{sec:eval-psweep}
@@ -306,7 +307,8 @@ therefore remains the tier's hardest measured witness in our search family.
 \label{sec:eval-parallel}
 \input{tables/parallel}
 
-The serial Rust \emph{legal-worst} witness costs \SI{\parRustLegalSerialMs}{ms}, missing the
+Table~\ref{tab:parallel} reports host scaling for the \emph{legal-worst} witness. The
+serial Rust result costs \SI{\parRustLegalSerialMs}{ms}, missing the
 \SI{100}{ms} budget. We therefore ran both engines on $k\in{1,2,4}$ isolated physical
 cores with one pinned worker per core. The Rust rayon reduction preserves point order and
 is bit-identical to serial for every $k$. At $k=\parRustLegalFitK$, it reduces the witness
@@ -521,5 +523,6 @@ samples and applied the full diagnostic gate. Lag-1--10 autocorrelation reaches
 \evtAcfWorst{} rather than the ${\sim}0.03$ expected under independence; consequently the
 bootstrap resamples dependent exceedances and its $q_{10^{-9}}$ intervals are invalid. We
 therefore report no extrapolated exceedance probabilities and retain only the empirical
-maxima in Table~\ref{tab:tails}. Appendix~\ref{app:evt} gives the fixture-level diagnostics
-and illustrates why plausible-looking fits do not override failed assumptions.
+maxima in Table~\ref{tab:tails}. Table~\ref{tab:evt} in Appendix~\ref{app:evt} gives the
+fixture-level ACF and POT/GPD diagnostics and illustrates why plausible-looking fits do
+not override failed assumptions.
