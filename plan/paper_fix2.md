@@ -318,7 +318,7 @@ sentence against our own tables), then A1 (core reframing), then the rest.
 - Acceptance (if run): either the causal sentence returns with a defensible design, or the
   effect is re-attributed.
 
-### C5 (#edit) Re-measure the subnormal shell A/B under Profile B
+### C5 (#edit) Re-measure the subnormal shell A/B under Profile B — **DONE (2026-07-14, autoware_core e745ef65, paper 9a4a552)**
 
 - The null A/B (subnormal vs shifted shell) currently carries pre-protocol timing
   (`\oneoffShell*` macros, flagged "era-specific" in §V-C). Re-run both fixtures under the
@@ -455,3 +455,10 @@ lands).
   had to be re-applied; also colcon now needs `source install/local_setup.zsh` +
   `--base-paths src/core`. Remaining Phase C: C3 (bridge same-n), C5 (subnormal A/B
   re-measure) -- both need the 3.2 GHz reference-clock host, which is now configured.
+- 2026-07-14: **C5 done** (autoware_core e745ef65, paper 9a4a552). Re-measured on the current
+  Profile-B boot (isolated cpu2, no reboot needed). Made the A/B reproducible: parameterized
+  subnormal generator + frozen subnormal_ctrl.ndtfix (1.69 m), regen subnormal byte-identical
+  to the committed fixture. data/subnormal_ab.json + generated \oneoffShell* (4 hand-typed
+  ONEOFF dropped). Null holds stronger: out-of-band control is marginally SLOWER (C++
+  103.8->111.5, Rust 7.2->8.0 ms), guarded. C++ ~2x the pre-protocol era = the isolation tax.
+  Remaining Phase C: C3 (bridge same-n; needs a Profile-A reboot, and already softened by A5).
