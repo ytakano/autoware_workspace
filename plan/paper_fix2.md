@@ -392,7 +392,7 @@ sentence against our own tables), then A1 (core reframing), then the rest.
 | M3 — existing-data strengthening | ~~B1, B2~~ (done, 80ebde9) | **COMPLETE.** Real-data table split; work model has the per-point term. |
 | M4 — trace certificate | ~~C1, C2~~ (done, 2026-07-13) | **COMPLETE.** Transfer claim backed by a measured per-input C++/Rust trace certificate incl. Σkd^C++; C2's per-engine iteration/pose data rode along in trace_real.json. |
 | M5 — measurement cleanups | ~~C8, C5, C3~~ (done) (+ optional C4, C6, C7) | **COMPLETE.** Parallel feasibility measured; subnormal A/B on-protocol; bridge synthetic legs matched-n. |
-| M6 — resubmission package | re-run this audit table against the final PDF; rebuttal letter (include the three push-back notes above) | Submit. |
+| M6 — resubmission package | ~~re-audit against final PDF~~ (done, 8f4baa6); rebuttal letter **skipped (user)** | Final PDF re-audited against every review2 point; full editorial pass (no em dashes, no colloquialisms, consistency checked). |
 
 A before B; C1 can start in parallel with Phase A (different files). B2 lands before C1's
 regression re-fit only in prose (the N_pts term is orthogonal to Σkd^C++; final table includes
@@ -470,3 +470,10 @@ lands).
   **Phase C measurement cleanups complete** (C3/C5/C8). Remaining optional: C4 (isolation
   causality, 2-boot), C6 (ablation arms), C7 (Pi4 pose/score). M6 (rebuttal + re-audit)
   is the path to resubmission.
+- 2026-07-14: **M6 done (editorial + re-audit; rebuttal skipped per user)** (paper 8f4baa6).
+  Removed all prose em dashes from the round-2 additions (natural rewrites, not parentheses),
+  de-colloquialized (sharpens/pays off/cheap/honest/knife-edge), clarified the parallel k=1
+  baseline vs the frozen Profile-B max. Re-audited the final PDF against all review2 points
+  (#1-#9 + stats + edit) -- all reflected. No contractions/AI-tells; latexmk clean; 16 pages.
+  Round 2 (review2) is fully addressed. Remaining optional experiments: C4/C6/C7. Author
+  block (email/affiliation) TODO is user-side; artifact DOI placeholder pending.
