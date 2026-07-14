@@ -49,12 +49,15 @@ allocation) that would otherwise make the per-callback WCET assumption fragile.
 \paragraph{Rust in real-time and safety-critical systems}
 Rust's ownership model underpins systems such as the Tock embedded
 OS~\cite{levy2017tock}, and RustBelt~\cite{jung2018rustbelt} gives machine-checked foundations
-for its safety claims. That line of work targets \emph{memory} safety; WCET requires more:
-panic-freedom, allocation-freedom, recursion-freedom, and bounded loops on the hot path. We
-show these can be made lint- and test-enforced properties of a production kernel. In this
-case study, a high-fidelity, per-input-certified port is not just a
-migration artifact but an analysis instrument: it lets the memory-safe implementation carry
-the instrumentation burden for both languages.
+for its safety claims. In safe Rust, ownership, lifetime, and aliasing rules discharge
+memory-safety and data-race-freedom obligations that an equivalent C++ implementation would
+need to establish through its own design and verification evidence. This advantage does not
+establish WCET: panic-freedom, allocation-freedom, recursion-freedom, and bounded loops on
+the hot path remain separate requirements. We show these can be made lint- and test-enforced
+properties of a production kernel. In this case study, a high-fidelity,
+per-input-certified port is not just a migration artifact but an analysis instrument: its
+safe core narrows the verification surface while carrying the instrumentation burden for
+both languages.
 
 \paragraph{NDT scan matching}
 \ndt{} registration originates with Biber and Stra{\ss}er~\cite{biber2003ndt} and was extended

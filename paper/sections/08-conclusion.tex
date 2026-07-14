@@ -15,6 +15,13 @@ the Rust port meets or beats the C++ engine's observed maximum while eliminating
 heap-allocation hazard, and the per-input equal-work certification exposed port-fidelity gaps
 that conventional differential testing had missed.
 
+Rust is not a prerequisite for the work bounds or real-time hardening reported here; an
+equivalent C++ redesign is possible. Its role in this case study is to discharge the safe
+core's memory-safety and data-race-freedom obligations through the language, so that
+project-specific validation can concentrate on equivalence, numerical behavior, bounded
+work, and timing. That reduction stops at the FFI, unsafe code, and trusted-dependency
+boundaries identified in Sec.~\ref{sec:threats}.
+
 \paragraph{Future work}
 On the bare-metal AArch64 evaluation target both legs are now exercised: the counters
 transfer exactly and the Profile-C timing series shows sub-percent spread

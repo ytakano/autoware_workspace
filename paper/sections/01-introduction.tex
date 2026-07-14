@@ -32,14 +32,25 @@ neighbor multiplicity, kd-tree traversal length) are properties of the input geo
 of the program text. Exhaustive input enumeration is infeasible, and naive fuzzing with
 wall-clock fitness is noisy, machine-specific, and unreproducible.
 
-% Para 3: the opportunity. A high-fidelity Rust port of the C++ engine exists (motivated by
-% a no_std kernel deployment), designed to reproduce the FP operand stream; equal work is
+% Para 3: the opportunity. A high-fidelity Rust port reduces the low-level verification
+% surface and supports real-time environments without the standard library; equal work is
 % certified per input, not assumed (review2 #1).
-This work exploits an unusual asset: a high-fidelity Rust port of the production C++ engine,
-originally motivated by deployment on a bare-metal real-time kernel (a \texttt{no\_std}
-environment, i.e.\ Rust without its standard library). Where the C++ engine collects an
-unbounded per-point neighbor set, the port caps the number of neighbors a radius search may
-return; we call the set of inputs on which this cap never truncates (so both engines see
+The relevant distinction is not that bounded execution can only be implemented in Rust: an
+equivalent C++ redesign is possible. Rather, safe Rust discharges a class of low-level proof
+obligations through its ownership, lifetime, and aliasing rules~\cite{jung2018rustbelt}.
+Memory safety and data-race freedom of the safe core therefore do not need to be
+re-established by project-specific testing or analysis, allowing validation to focus on
+algorithmic equivalence, numerical behavior, work bounds, and timing predictability. This
+reduction applies only to safe Rust; the FFI boundary, any unsafe code, and trusted
+dependencies remain in the verification surface (Sec.~\ref{sec:threats}).
+
+This work exploits a high-fidelity Rust port of the production C++ engine with this narrower
+verification surface. The port also supports deployment in real-time environments where the
+standard library is unavailable by building as \texttt{no\_std} (Rust without its standard
+library); the bare-metal real-time kernel evaluated here is one such environment. Where the
+C++ engine collects an unbounded per-point neighbor set, the port caps the number of
+neighbors a radius search may return; we call the set of inputs on which this cap never
+truncates (so both engines see
 identical neighbor sets) the \emph{bounded-neighbor domain} $D$, made precise in
 Sec.~\ref{sec:methodology}. The port is designed to reproduce the C++ engine's
 floating-point operand stream on $D$ (same iteration count, same neighbor sets, same

@@ -75,6 +75,18 @@ be commit-pinned, and cross-ISA equality (bit-identical counters) remains a per-
 \emph{certified} property rather than an assumed one. The C++ comparison itself is
 inherently x86/Linux-bound (pcl/ROS dependency).
 
+\subsection{Safety and verification scope}
+Our rationale for the Rust port is a reduction in verification surface, not a claim that
+Rust is necessary for bounded execution. A C++ redesign could impose the same allocation,
+recursion, loop, and neighbor bounds. Within the safe Rust core, however, ownership,
+lifetime, and aliasing rules discharge memory-safety and data-race-freedom obligations that
+would otherwise require project-specific evidence. These language guarantees do not cover
+the C ABI and FFI boundary, any \texttt{unsafe} implementation used behind a safe interface,
+or trusted dependencies; all remain part of the verification surface. Likewise,
+\texttt{no\_std} removes a deployment dependency on the Rust standard library but does not
+by itself provide bounded execution or real-time behavior. Those properties depend on the
+explicit hardening and contracts of Sec.~\ref{sec:implementation}.
+
 \subsection{Contract preconditions}
 \input{tables/preconditions}
 Table~\ref{tab:preconditions} collects every precondition of the work

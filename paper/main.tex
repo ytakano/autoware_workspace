@@ -70,7 +70,10 @@ data-dependent, which makes classical static worst-case execution time (WCET) an
 impractical. We present a hybrid WCET analysis of the align kernel of the Autoware \ndt{}
 scan matcher (map construction, preprocessing, and ROS scheduling are out of scope), built
 around a high-fidelity Rust port of the production C++ engine, work-equivalent to it on
-individually certified inputs. We establish a parametric bound on the algorithmic
+individually certified inputs. Bounded execution is not specific to Rust; an equivalent
+C++ redesign is possible. The port instead reduces the low-level verification surface of
+the safe core, allowing the analysis to focus on algorithmic and timing properties. We
+establish a parametric bound on the algorithmic
 \emph{work} and empirically characterize the \emph{time per unit of work}; we do not claim
 a certified hard time bound on the evaluated platform. Deterministic algorithmic cost
 counters, compiled to zero overhead when disabled, serve both as automatically checked
