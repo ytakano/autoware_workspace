@@ -222,29 +222,12 @@ is what its kd-dominated cost structure predicts.
 
 \subsection{Unit-cost regression}
 \label{sec:eval-regression}
-We use regression as a diagnostic decomposition, not as reliable unit-cost identification.
-Over the fixtures and $P$-sweep points, $n=\regN$ per engine, we fit a two-term model
-$T \approx a\cdot\sumnbr+b\cdot\mathrm{kd}+c$ and a four-term model that adds
-$c_{\mathrm{pt}}N_{\mathrm{pts}}$. The trace supplies each engine's own traversal counter:
-FLANN distance/plane evaluations for C++ and nodes examined for Rust. These regressors do
-not denote the same operation and their coefficients are not cross-engine unit costs.
-
-The diagnostics are the main result. The worst pairwise regressor correlation is
-\regCorr, the bootstrap intervals are wide, and the adopted Rust model misses one
-leave-one-out fixture by \regLooMaxRust\%. Adding the point term makes the Rust fit
-degenerate, with a negative coefficient and a larger worst leave-one-out error. For C++,
-the point term reduces the worst miss from \regLooMaxCppTwoTerm\% to
-\regLooMaxCppFourTerm\%, but its interval
-[\regPtUsCppLo,\,\regPtUsCppHi]\,\si{\micro\second} includes zero. Table~\ref{tab:regression}
-marks the four-term C++ and two-term Rust diagnostics, but coefficient-level causal
-attribution is not supported by this design.
-
-The resolved implementation comparison is therefore the direct per-fixture measurement in
-Table~\ref{tab:tails}: maximum-latency ratios are \tailsRatioMin--\tailsRatioMax{} and
-remain stable to $\pm\sessRatioSpreadWorst$ across sessions. This conclusion does not
-depend on the regression decomposition.
-
-\input{tables/regression}
+Regression is diagnostic, not unit-cost identification. Across the fixtures and $P$-sweep
+points, the worst regressor correlation is \regCorr, bootstrap intervals are wide, and the
+adopted Rust model has a \regLooMaxRust\% worst leave-one-out error. Moreover, each engine
+uses a different traversal counter. We therefore base the implementation comparison on the
+direct fixture maxima in Table~\ref{tab:tails}, not coefficient attribution; the models,
+coefficients, and intervals appear in Appendix~\ref{app:regression}.
 
 \subsection{Scaling with the input size $P$}
 \label{sec:eval-psweep}
@@ -323,36 +306,13 @@ therefore remains the tier's hardest measured witness in our search family.
 \label{sec:eval-parallel}
 \input{tables/parallel}
 
-Even under the deployment contracts the serial Rust engine misses the \SI{100}{ms} budget on
-the tier's witness: \emph{legal-worst} costs \SI{\parRustLegalSerialMs}{ms} at $k{=}1$ here.
-This reproduces the frozen \SI{\legalWorstMaxRust}{ms} maximum measured under Isolated from
-Sec.~\ref{sec:eval-twotier} to within run-to-run variation. Both engines,
-however, expose a thread count: the C++ engine through OpenMP, and the Rust port through a
-rayon-backed derivative reduction that is \emph{order-preserving and bit-identical to the
-serial backend}. Per-point contributions are folded in point-index order regardless of
-worker count, so parallelism changes only wall time, never the result. We measure it as a
-throughput lever, not as an extension of the WCET argument: the serial engine remains the
-deterministic baseline of this paper. A multi-core \emph{WCET} analysis of worker
-interference and scheduling is out of scope.
-
-We ran both engines on $k \in \{1,2,4\}$ isolated physical cores, one worker pinned per core.
-Both engines take an equivalent CPU-affinity environment variable that pins worker $i$ to the
-$i$-th listed core. C++ OpenMP threads use \texttt{GOMP\_CPU\_AFFINITY}; the port's rayon
-pool uses a matching \texttt{NDT\_RAYON\_CPU\_AFFINITY} variable that we added. Explicit pinning is
-necessary here because \texttt{isolcpus} disables the kernel's automatic load balancing, so
-unpinned workers would share one core. Table~\ref{tab:parallel} reports the result: both
-engines scale nearly linearly. At $k{=}4$, Rust reaches approximately
-\parRustSpeedupFour$\times$ and C++ approximately \parCppSpeedupFour$\times$. The Rust
-engine's iteration counts are identical across $k$, so the bit-identical property is
-measured rather than merely asserted. The deployment-tier residual
-closes at $k = \parRustLegalFitK$: the Rust engine brings \emph{legal-worst} to
-\SI{\parRustLegalFitMaxMs}{ms}, inside the \SI{100}{ms} budget. Read against the two tiers,
-the \SI{100}{ms} deadline on this host is met by the composition of enforcing the input
-contracts, which provide the measured $\legalWorstRatioRust\times$ improvement reported
-in Sec.~\ref{sec:eval-twotier}, and two
-pinned cores. These are host observations at the \SI{3.2}{GHz} reference clock; the same
-$k$-scaling protocol, run on the deployment target, gives the core count that platform
-requires, following the protocol of Sec.~\ref{sec:eval-raspi4}.
+The serial Rust \emph{legal-worst} witness costs \SI{\parRustLegalSerialMs}{ms}, missing the
+\SI{100}{ms} budget. We therefore ran both engines on $k\in{1,2,4}$ isolated physical
+cores with one pinned worker per core. The Rust rayon reduction preserves point order and
+is bit-identical to serial for every $k$. At $k=\parRustLegalFitK$, it reduces the witness
+to \SI{\parRustLegalFitMaxMs}{ms}; contract enforcement plus two cores therefore meets the
+deadline on this host. This is throughput feasibility, not multi-core WCET: deployment
+requires the same pinned-core protocol with platform-specific interference analysis.
 
 \subsection{Real-data replay: contract validation and degraded-prior behavior}
 \label{sec:eval-realdata}
@@ -517,24 +477,11 @@ parses the embedded fixture bytes, performs one counted align each, and asserts 
 against the host values in Table~\ref{tab:raspi4}. Every counter of every fixture transfers
 \emph{exactly}, or \raspiExact{} of \raspiTotal{}.
 
-The result was reached via a detour that stress-tested the certificate. The \emph{first}
-hardware run reported 7 of 8 against the expectation table then embedded in the kernel app.
-The repository history preserves that log. On \emph{search-01}, the measured work
-differed by $\sumnbr\,{+}\raspiNbrDelta$ / $\kdnodes\,{-}\raspiKdDelta$, deterministically,
-and bit-identically under QEMU-TCG emulation and on the Cortex-A72 silicon. We excluded
-ISA-level mechanisms: the kernel image contains no fused-multiply-add
-instructions, the FPU uses IEEE defaults, and the \emph{subnormal} fixture transfers
-exactly. Commit
-bisection located the true cause \emph{off-target}: the embedded expectations had been
-transcribed from a host snapshot that predated one of the two port-fidelity fixes of
-Sec.~\ref{sec:threats}, namely the pcl f32 transform-association mirror. This shifts the
-boundary-sensitive fixture's work by \raspiNbrDelta{} evaluations in \raspiMismatchNbrM\,M.
-Re-baselining against the fixed engine reconciles host, emulator, and hardware exactly. The
-re-captured hardware run in Table~\ref{tab:raspi4} reports \raspiDeviceOk{} of \raspiTotal{}
-on-device, with counters bit-identical between the two hardware runs. No ISA dependence is visible in these counters after re-baselining, and the flag demonstrated the certificate's parts-per-million
-sensitivity. The counters double as a behavioral fingerprint of the engine \emph{version},
-which is why the artifact-manifest discipline of Sec.~\ref{sec:threats} pins baselines to
-engine commits.
+The first hardware run matched only 7 of 8 stored expectations. Bisection identified a
+stale pre-fidelity-fix host snapshot, not an ISA effect; re-baselining reconciled host,
+emulator, and hardware at \raspiDeviceOk{} of \raspiTotal{}. This incident demonstrates
+the certificate sensitivity and the need to commit-pin expected counters; the FMA, QEMU,
+and subnormal checks are documented in Appendix~\ref{app:crossisa-debug}.
 
 The timing columns of Table~\ref{tab:raspi4} report the \emph{Bare-metal} series, an amendment
 to the measurement policy for OS-less targets. For each fixture, the series contains
@@ -569,33 +516,10 @@ parallelization. Section~\ref{sec:eval-parallel} measures approximately
 
 \subsection{Extreme-value analysis: what the diagnostics permit}
 \label{sec:eval-evt}
-\input{tables/evt}
-
-With $3{\times}1000$ Isolated samples per tail-claim fixture, we ran the
-measurement-based-\pwcet{} analysis in full: peaks-over-threshold fits of a generalized
-Pareto distribution by maximum likelihood, separately per session because pooling would
-mix the documented cross-session level shifts. The analysis uses a threshold sweep,
-\evtBoot{} bootstrap draws for CIs,
-and the policy's diagnostic checklist. \emph{The diagnostics gate the conclusion}, as
-Table~\ref{tab:evt} shows. The sample series carry strong serial dependence. Lag-1 through
-lag-10 autocorrelation magnitudes reach \evtAcfWorst{}, whereas an i.i.d.\ series of this
-length would show approximately 0.03. On an isolated, frequency-pinned core, the residual
-variability is a slowly wandering band of ${\sim}0.1$--$0.5\%$, not independent noise. The
-violated independence assumption surfaces exactly where theory predicts: the bootstrapped
-$10^{-9}$ per-align quantiles have upper CI ends diverging to as much as
-\SI{\evtCiExplodeS}{s} on the tightest fixtures. Our measurement policy forbids
-mechanical EVT on data that fails its assumptions, so \textbf{we claim no
-extrapolated exceedance probabilities}. For the same reason the bootstrapped intervals are
-themselves not valid confidence intervals because the bootstrap resamples serially
-dependent exceedances. Table~\ref{tab:evt} retains the $q_{10^{-9}}$ column only as diagnostic
-evidence for why extrapolation is withheld.
-
-The data do support the empirical maxima in Table~\ref{tab:tails}, whose cross-session
-stability is documented in Sec.~\ref{sec:threats}. They also show tails so tight that max/p50
-$\le 1.01$ on every fixture and qualitative shape estimates that lean in the negative,
-bounded-tail direction where the fits for \emph{search-00} are most stable on both engines. A naive
-block-maxima Gumbel fit on the pooled stream would nevertheless have produced
-plausible-looking numbers: $q_{10^{-9}} \approx \SI{\evtGumbelQNine}{ms}$,
-$+\evtGumbelExtraPct\%$ over the maximum, with block-size sensitivity within
-\SI{\evtGumbelSpread}{ms}. This illustrates why our policy gates extrapolation on diagnostics
-rather than on fit appearance alone.
+For each tail fixture we fitted per-session POT/GPD models to $3{\times}1000$ Isolated
+samples and applied the full diagnostic gate. Lag-1--10 autocorrelation reaches
+\evtAcfWorst{} rather than the ${\sim}0.03$ expected under independence; consequently the
+bootstrap resamples dependent exceedances and its $q_{10^{-9}}$ intervals are invalid. We
+therefore report no extrapolated exceedance probabilities and retain only the empirical
+maxima in Table~\ref{tab:tails}. Appendix~\ref{app:evt} gives the fixture-level diagnostics
+and illustrates why plausible-looking fits do not override failed assumptions.

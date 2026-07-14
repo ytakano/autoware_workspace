@@ -64,34 +64,25 @@ Structural Work Bounds and Cross-Language Trace Certification}
 \maketitle
 
 \begin{abstract}
-Iterative scan-matching kernels such as the Normal Distributions Transform (\ndt) sit on the
-critical path of autonomous-vehicle localization, yet their execution time is strongly
-data-dependent, which makes classical static worst-case execution time (WCET) analysis
-impractical. We present a hybrid WCET analysis of the align kernel of the Autoware \ndt{}
-scan matcher. Map construction, preprocessing, and ROS scheduling are outside the scope of
-the analysis. The method is built around a high-fidelity Rust port of the production C++
-engine whose common semantic work is trace-certified against it on each compared input.
-Bounded execution is not specific to Rust; an equivalent
-C++ redesign is possible. The port instead reduces the low-level verification surface of
-the safe core, allowing the analysis to focus on algorithmic and timing properties. We
-establish a parametric bound on the algorithmic
-\emph{work} and empirically characterize the \emph{time per unit of work}; we do not claim
-a certified hard time bound on the evaluated platform. Deterministic algorithmic cost
-counters, compiled to zero overhead when disabled, serve both as automatically checked
-evidence for the work bound and as a platform-independent fitness function for a search for
-counter-extremal inputs. Each discovered input is carried verbatim to the uninstrumented
-C++ engine, with equal common semantic work trace-certified per input. On the frozen search fixtures, the search
-saturates the analytic bound on the number of kernel evaluations per align, and a controlled
-sweep shows an affine observed envelope in the scan size. A two-tier formulation separates
-the bounded-neighbor engine tier from the preprocessing-reachable tier. Their measured
-fixtures differ by $\legalWorstRatioRust\times$--$\legalWorstRatioCpp\times$, quantifying
-the value of input-contract validation at the component boundary. In a 57-minute urban
-capture with \realOnMap{} on-map matching aligns, \realTraceOnMap{} frames pass the trace
-certificate, \realBaseOnly{} pass only the base certificate, and
-\realIterationDivergent{} diverge in iteration count. On the frozen synthetic fixtures,
-the Rust port meets or beats the C++ engine's observed maximum,
-while eliminating the C++ engine's ${\approx}\allocPerPtPass$ heap allocations per point
-per derivative pass.
+The execution time of Normal Distributions Transform (\ndt) scan matching is strongly
+input-dependent, complicating worst-case execution-time (WCET) analysis on the localization
+critical path. We analyze the align kernel of the industrial Autoware matcher; map loading,
+preprocessing, and ROS scheduling are outside scope. A high-fidelity Rust port reduces the
+low-level verification surface of the safe core and supports \texttt{no\_std}, but bounded
+execution is not Rust-specific and the FFI, unsafe code, and dependencies remain trusted.
+Our three-layer method establishes a structural work bound, searches deterministic cost
+counters for extremal inputs, and measures frozen witnesses. It separates algorithmic work
+from platform-specific time per unit work and does not claim a certified hard time bound.
+The search saturates the analytic maximum number of kernel evaluations and increases the
+remaining kd-traversal term. Per-input traces certify common semantic work across Rust and
+C++ while keeping implementation-specific traversal and latency distinct. A two-tier model
+separates the bounded-neighbor engine domain from preprocessing-reachable inputs; their
+measured witnesses differ by $\legalWorstRatioRust\times$--$\legalWorstRatioCpp\times$.
+Among \realOnMap{} on-map frames from a 57-minute drive, \realTraceOnMap{} are
+trace-certified, \realBaseOnly{} pass only the base certificate, and
+\realIterationDivergent{} diverge in iteration count. On frozen synthetic fixtures, Rust
+meets or improves the C++ observed maximum and removes approximately \allocPerPtPass{}
+per-point heap allocations per derivative pass within its reserved envelope.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -107,6 +98,7 @@ autonomous driving, localization
 \input{sections/06-threats}
 \input{sections/07-related}
 \input{sections/08-conclusion}
+\input{sections/09-appendix}
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}

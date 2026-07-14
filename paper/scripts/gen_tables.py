@@ -1036,16 +1036,9 @@ def main():
     print("wrote tables/regression_macros.tex")
     write(
         "regression.tex",
-        rf"Unit-cost regression over the fixtures pooled with the $P$-sweep points "
-        rf"($n={reg_n}$; brackets: 95\% bootstrap CIs; worst pairwise regressor "
-        rf"correlation {corr:.2f}). Two nested models per engine: 2-term "
-        r"$T_{p50} \approx a\cdot\sumnbr + b\cdot\kdnodes + c$ and 4-term adding "
-        r"$c_{\mathrm{pt}} \cdot N_{\mathrm{pts}}$ (per-point fixed cost). $\star$ marks "
-        r"the model adopted per engine (Sec.~\ref{sec:eval-regression}). The kd regressor "
-        r"is each engine's \emph{own} traversal counter (C++: FLANN distance+plane "
-        r"evaluations, measured by the traced analysis build; Rust: nodes examined), so "
-        r"The kd regressor is engine-specific; coefficients are diagnostic and not "
-        r"cross-engine unit costs.",
+        rf"Diagnostic regression ($n={reg_n}$ per engine; brackets: 95\% bootstrap CIs; "
+        rf"worst regressor correlation {corr:.2f}). The kd regressor is engine-specific; "
+        r"coefficients are not cross-engine unit costs.",
         "tab:regression",
         "llrrrrr",
         r"engine & model & $c_{\mathrm{pt}}$ (\si{\micro\second}/pt) "
@@ -1784,10 +1777,10 @@ def parallel():
         return
     doc = json.loads(pj.read_text())
     inputs = doc["inputs"]
-    label = {"search_00": r"\emph{search-00}", "legal_worst": r"\emph{legal-worst}$^\dagger$",
+    label = {"search_00": r"\emph{search-00}", "legal_worst": r"\emph{legal-worst}",
              "legal_osc": r"\emph{legal-osc}$^\dagger$"}
     rows = []
-    for fx in ("search_00", "legal_worst", "legal_osc"):
+    for fx in ("legal_worst",):
         cells = inputs[fx]
         for eng, name in (("cpp", "C++"), ("rust", "Rust")):
             r = [cells[str(k)][eng] for k in (1, 2, 4)]
@@ -1798,17 +1791,14 @@ def parallel():
             )
     write(
         "parallel.tex",
-        r"Parallel feasibility on the host (max align \si{ms}; $k$ isolated physical cores, "
-        r"per-worker-pinned; deterministic-work fixtures). Throughput measurement, not a "
-        r"multi-core WCET analysis (Sec.~\ref{sec:eval-parallel}); the serial $k{=}1$ column "
-        r"is the within-configuration baseline for the speedups.",
+        r"Host parallel feasibility for the deployment-tier witness (maximum align \si{ms}; "
+        r"one pinned worker per isolated physical core). Not a multi-core WCET result.",
         "tab:parallel",
         "llrrr",
         r"fixture & engine & $k{=}1$ & $k{=}2$ & $k{=}4$",
         rows,
-        note=r"$^\dagger$deployment-tier witnesses. Rust iteration counts are $k$-invariant "
-        r"(the parallel backend is bit-identical to serial). Calibration drift over the "
-        r"campaign: \parCalibDriftPct\% (no throttling).",
+        note=r"Rust iteration counts are $k$-invariant; calibration drift: "
+        r"\parCalibDriftPct\% (no throttling).",
     )
     lw = inputs["legal_worst"]
     # First k at which the Rust deployment witness fits the 100 ms budget.

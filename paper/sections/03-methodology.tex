@@ -1,149 +1,76 @@
 \section{Methodology}
 \label{sec:methodology}
 
-Our methodology combines a three-layer analysis with two transfer arguments. Analysis
-layer~1 establishes and tests a structural work bound. Analysis layer~2 deterministically
-searches for inputs that approach the bound. Before measurement, the cross-language
-transfer certifies equal common semantic work for each compared input.
-Analysis layer~3 measures the frozen inputs and evaluates their timing distributions.
-Finally, the cross-ISA transfer checks that the work characterization carries to the
-deployment target.
+Three analysis layers establish a work bound, search for counter-extremal inputs, and
+measure frozen witnesses. Cross-language traces certify common work before timing, and a
+cross-ISA replay checks transfer to the deployment-class target.
 
 \subsection{Analysis layer 1: Structural bound and property tests}
-The scan size $P$ and the map size $N_{\mathrm{leaves}}$ are caller-side contracts listed
-in Table~\ref{tab:preconditions}. Once they are fixed, static loop guards, the hard
-\maxnn{} search cap and buffers pre-reserved for the declared envelope enforce every internal term of
-\eqref{eq:decomp} by construction in the Rust engine. Property-based tests
-\emph{automatically check} these terms over randomized maps, clouds, and parameters. For
-every sampled input,
-$\mathrm{passes} \le N_{\mathrm{iter}}{+}1$, $\mathrm{points} = \mathrm{passes} \cdot P$,
-$\sumnbr \le \mathrm{points} \cdot \maxnn$, and $\kdnodes \le \mathrm{points} \cdot
-N_{\mathrm{leaves}}$. Within that reserved envelope, the real-time path is allocation-free
-from the first frame, as verified by a counting allocator; it is recursion-free through a
-fixed-depth explicit stack;
-and panic-free through lint enforcement. Section~\ref{sec:threats} explains why these
-properties are necessary for a finite bound.
+Given caller contracts on $P$ and $N_{\mathrm{leaves}}$, loop guards, the \maxnn{} cap,
+and pre-reserved buffers enforce Eq.~\eqref{eq:decomp}. Randomized property tests check
+$\mathrm{passes}\le N_{\mathrm{iter}}+1$,
+$\mathrm{points}=P\,\mathrm{passes}$,
+$\sumnbr\le\mathrm{points}\,\maxnn$, and
+$\kdnodes\le\mathrm{points}\,N_{\mathrm{leaves}}$.
+Within the reserved envelope, a counting allocator verifies allocation freedom from the
+first frame; linting and an explicit fixed-depth kd stack enforce panic- and
+recursion-freedom.
 
 \subsection{Analysis layer 2: Counter-guided extremal-input search}
 \label{sec:meth-search}
-We instrument the engine with four \emph{deterministic algorithmic cost counters}: derivative
-passes, points processed, \sumnbr, and \kdnodes, as defined in
-Sec.~\ref{sec:decomposition}. They sit behind a
-compile-time feature whose disabled form compiles to nothing. A seeded hill-climb mutates a
-parameterized input generator. Its dimensions are map tile overlap, map extent, centroid
-crowding versus surface roughness, source composition, initial-guess offset, and convergence
-threshold. The search maximizes
-the lexicographic counter vector $(N_{\mathrm{iter}}, \sumnbr, \kdnodes)$. Because the
-fitness is a pure function of the input, the search is reproducible, and the
-\emph{counter-extremal} input it returns is a property of the \emph{algorithm} rather than
-of the measurement machine. $P$ is deliberately \emph{not} a search freedom: it is a caller-side
-cap, and searching it would saturate trivially while masking the interesting terms.
-
-A lexicographic scalarization need not rank the \emph{time}-worst input first: an input with
-fewer kernel evaluations but heavier traversal could be slower. The search therefore
-additionally archives the non-dominated Pareto frontier over the counter vector across
-\emph{all} evaluations, and every frontier member is frozen and timed under the same
-controlled protocol as the champion. Section~\ref{sec:eval-search} ablates the search
-protocol across seeds, comparing hill-climbing with budget-matched random sampling and
-counter fitness with wall-clock fitness.
+Compile-time instrumentation counts passes, points, \sumnbr, and \kdnodes; disabled counters
+compile away. A seeded hill-climb mutates tile overlap and extent, centroid geometry, source
+composition, initial guess, and convergence threshold to maximize
+$(N_{\mathrm{iter}},\sumnbr,\kdnodes)$ lexicographically. $P$ remains a caller contract,
+not a search dimension. Deterministic fitness makes results reproducible and
+platform-independent. Because lexicographic order need not match time order, all
+non-dominated counter vectors are archived and their fixtures timed. Budget-matched random
+and wall-clock-fitness arms test search effectiveness.
 
 \subsection{Cross-language transfer: Per-input common-work certification}
 \label{sec:meth-transfer}
-An upstream constraint requires the shipped C++ sources to remain byte-identical, so they cannot
-be instrumented. Instead we rely on the port's fidelity: the Rust engine is \emph{designed}
-to perform the same algorithmic structure as the C++ engine, including the same iteration
-counts and point--leaf evaluations, with near-identical numerics. A differential test suite
-checks this goal by running both engines on identical inputs and requiring exactly equal
-iteration counts and near-exact poses and scores. Bit-identical f64 streams are
-unattainable by design because pcl/FLANN returns each point's neighbors distance-sorted while the
-port's kd walk returns them in visit order, so the same per-point sums are accumulated in
-different orders. Section~\ref{sec:eval-tracecert} measures the resulting ULP-level gap.
-Three definitions scope the transfer. The \textbf{bounded-neighbor domain} $D$ contains
-inputs for which every uncapped radius query returns at most \maxnn{} in-range leaves.
-The production Rust query caps its output at \maxnn{} but does not report whether a 65th
-leaf existed, so neither normal execution nor the certificates below establish membership
-in $D$ at runtime. Section~\ref{sec:implementation} instead gives geometric conditions
-under which deployment inputs are expected to lie in $D$.
+The shipped C++ sources remain byte-identical. A local analysis build and the Rust port
+instead emit matched per-pass traces; the same fixture bytes then run on the unmodified C++
+binary for timing. Floating-point streams need not be bit-identical because FLANN returns
+distance-sorted neighbors while Rust uses kd-visit order.
 
-The \textbf{base-certified set} $E_{\mathrm{base}}$ contains inputs with equal
-\texttt{iteration\_num} and, where recorded, agreement of the final pose and convergence
-scores. This is a divergence detector, not a common-work certificate. The
-\textbf{trace-certified set} $E_{\mathrm{trace}}\subseteq E_{\mathrm{base}}$ additionally
-requires equal derivative-pass structure, points processed per pass, point-neighbor
-evaluation counts, and per-point FNV-1a hashes of the neighbor-leaf mean bits. These fields
-define the common semantic work
+Three definitions limit the comparison. The \textbf{bounded-neighbor domain} $D$ contains
+inputs whose uncapped queries return at most \maxnn{} leaves; the capped Rust query does not
+report a 65th leaf, so execution and certification do not prove membership in $D$. The
+\textbf{base-certified set} $E_{\mathrm{base}}$ requires equal iterations and recorded
+pose/score agreement. The stricter
+$E_{\mathrm{trace}}\subseteq E_{\mathrm{base}}$ also requires equal pass structure,
+points per pass, neighbor-evaluation counts, and per-point FNV-1a hashes of neighbor-leaf
+mean bits. These fields define
 \[
  \begin{aligned}
- W_{\mathrm{common}}=(&\text{pass structure},\text{points/pass},\\
-                     &\text{neighbor evaluations},\text{neighbor count/hash}).
+ W_{\mathrm{common}}=(&\text{passes},\text{points/pass},\\
+ &\text{neighbor evaluations},\text{neighbor count/hash}).
  \end{aligned}
 \]
-Hash equality has a non-zero collision probability and is therefore evidence of matching
-leaf sets rather than a formal set-equality proof.
+Hash collisions remain possible, so equality is evidence rather than a formal set proof.
+C++ FLANN traversal, result containers, and allocation and Rust kd traversal and flat
+buffers are outside $W_{\mathrm{common}}$; each engine therefore has a separate work-model
+instance. A transferred fixture is a shared certified witness, not proof of equal total
+work or equal stress.
 
-The certificate does not equate total work. C++-specific work includes FLANN distance and
-plane evaluations, result-container and allocator operations, and other implementation
-details. Rust-specific work includes kd-tree nodes examined, flat-buffer operations, and
-its own control and memory operations. Instructions, memory traffic, allocation behavior,
-and latency also remain outside $W_{\mathrm{common}}$. Accordingly,
-Eq.~\eqref{eq:decomp} is instantiated separately for each engine, and a transferred input
-is a shared certified witness rather than proof that it stresses both engines equally.
-
-A local \emph{analysis build} of the C++ engine uses an
-instrumented copy of its sources that is never shipped, because the byte-identical
-constraint governs only the shipped sources. It records a per-pass trace containing the
-pass count, per-pass point and neighbor counts, and the per-point hash. The replay compares
-this trace leg by leg against the Rust engine's mirrored
-trace, as described in Sec.~\ref{sec:eval-tracecert}. On
-every frozen fixture the common-work trace certificate passes; on real data it identifies
-where equal iterations and common semantic work part ways. The discrepancy affects
-\traceRealWorkGapFrames{} frames, as reported in Sec.~\ref{sec:eval-tracecert}. The certification earned this scrutiny in practice:
-on real map data the base certificate caught two port-fidelity gaps that the synthetic
-suite could not see, leaving \realBaseOnly{} base-only frames and
-\realIterationDivergent{} iteration-divergent frames.
-Sections~\ref{sec:eval-realdata} and~\ref{sec:threats} characterize this residual.
-
-A second, independent certificate leg requires no instrumentation at all. The C++ engine's
-allocation count, read from the untouched production binary by the \texttt{LD\_PRELOAD}
-interposer, is a deterministic function of its per-point work: it re-derives $P \cdot
-N_{\mathrm{pass}}$ on the C++ side and agrees with the Rust counters to
-\allocCertSpreadPct\% on every neighbor-returning fixture. Section~\ref{sec:eval-alloc}
-reports this result at a resolution that would expose even a single extra derivative pass.
-We prioritize certificates obtainable from the production binary itself, while recognizing
-that this allocation leg checks pass/point work rather than the full
-$W_{\mathrm{common}}$ tuple.
+All synthetic fixtures pass the full trace. Real replay separates
+\realTraceAll{} trace-certified, \realBaseOnly{} base-only, and
+\realIterationDivergent{} iteration-divergent frames. An independent production-binary
+allocation count also reconstructs C++ point/pass work to \allocCertSpreadPct\% on every
+neighbor-returning fixture, but does not certify the full tuple.
 
 \subsection{Analysis layer 3: Measurement and \pwcet}
-The counter-extremal inputs are frozen in a self-contained little-endian binary format
-readable from both languages, so the exact same bytes feed every experiment. The map is
-stored as tiles because, as Sec.~\ref{sec:impl-fixtures} explains, tile overlap is the
-$K$-adversarial case. A single replay binary drives both engines on identical buffers. Heap
-allocations are counted by an \texttt{LD\_PRELOAD} interposer whose hooks the replay
-discovers via \texttt{dlsym}, requiring no upstream edits. We first regress median
-latency against each engine's own counters,
-$T \approx a\cdot\sumnbr + b\cdot\kdnodes + c$. This is a diagnostic decomposition, not
-an identification of portable per-operation costs, because the regressors are strongly
-correlated and the traversal counters have different meanings. We then run a
-peaks-over-threshold extreme-value analysis
-using measurement-based probabilistic timing analysis, or MBPTA, with maximum likelihood, bootstrap
-confidence intervals, and the full diagnostic checklist of our measurement policy;
-extrapolated exceedance claims are made \emph{only if the diagnostics hold}, as required
-by Sec.~\ref{sec:eval-evt}.
+Frozen little-endian fixtures feed both engines through one replay harness. An
+\texttt{LD\_PRELOAD} interposer counts C++ allocations without source changes. Regression
+against engine-specific counters is diagnostic only. Per-session POT/GPD fitting uses
+maximum likelihood, bootstrap intervals, and a mandatory diagnostic gate; extrapolation is
+reported only when assumptions hold.
 
 \subsection{Cross-ISA transfer: Deployment-target validation}
 \label{sec:meth-crossisa}
-The Rust engine routes every transcendental, including those inside its linear-algebra
-library, through a pure-Rust \texttt{libm} implementation. It targets floating-point results that are
-independent of the instruction-set architecture and of the platform's C library. The frozen
-fixtures and their counter values therefore carry over to the bare-metal deployment target
-unchanged, and the transfer is \emph{checkable} there by re-running the counters and
-asserting equality: the same per-input certification as the cross-language comparison.
-
-We executed this protocol on a Raspberry Pi~4 running the bare-metal \texttt{no\_std}
-kernel, our deployment-class evaluation target. The production ECU is expected to be
-substantially faster, as discussed in Sec.~\ref{sec:eval-raspi4}. The counters transfer
-\emph{exactly} on all \raspiTotal{} frozen fixtures. One fixture initially raised a flag,
-but bisection traced the mismatch to a stale host-side expectation snapshot rather than the
-ISA. Section~\ref{sec:eval-raspi4} gives the details. The \texttt{libm} choice also costs
-a bounded, measured loss of parity with the host C++ engine, as noted in
-Sec.~\ref{sec:threats}.
+Pure-Rust \texttt{libm} removes dependence on the platform C library. Replaying frozen
+fixtures on a Raspberry Pi~4 bare-metal \texttt{no\_std} kernel reproduces all
+\raspiTotal{} counter tuples exactly after correcting one stale expected snapshot. This
+checks each fixture rather than assuming ISA independence; Sec.~\ref{sec:eval-raspi4}
+reports timing and Appendix~\ref{app:crossisa-debug} the discrepancy diagnosis.

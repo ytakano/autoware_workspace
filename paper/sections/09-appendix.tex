@@ -1,0 +1,31 @@
+\appendices
+\section{Supplementary Diagnostics}
+
+\subsection{Regression details}
+\label{app:regression}
+We fitted $T\approx a\sumnbr+b\,\mathrm{kd}+c$ and a four-term model adding
+$c_{\mathrm{pt}}N_{\mathrm{pts}}$ over $n=\regN$ points per engine. The traversal regressor
+is engine-specific: FLANN distance/plane evaluations for C++ and nodes examined for Rust.
+Adding the point term reduces the C++ worst leave-one-out error from
+\regLooMaxCppTwoTerm\% to \regLooMaxCppFourTerm\%, but its interval
+[\regPtUsCppLo,\,\regPtUsCppHi]\,\si{\micro\second} includes zero. For Rust the added term
+is negative and worsens the worst error, so coefficient-level attribution is unsupported.
+\input{tables/regression}
+
+\subsection{EVT diagnostics}
+\label{app:evt}
+\input{tables/evt}
+The fits use a 95\% threshold, per-session maximum likelihood, a threshold sweep, and
+\evtBoot{} bootstrap draws. Serial dependence invalidates both the extrapolated quantiles
+and their nominal intervals. A pooled block-maxima Gumbel fit would nevertheless give
+$q_{10^{-9}}\approx\SI{\evtGumbelQNine}{ms}$, only \evtGumbelExtraPct\% above the observed
+maximum, showing why fit appearance is not an acceptance criterion.
+
+\subsection{Cross-ISA discrepancy diagnosis}
+\label{app:crossisa-debug}
+The initial AArch64 run disagreed only on \emph{search-01}, by
+$\sumnbr{+}\raspiNbrDelta$ and $\kdnodes{-}\raspiKdDelta$, identically under QEMU-TCG and
+Cortex-A72 hardware. The image contains no fused multiply-add instructions, uses IEEE FPU
+defaults, and transfers the \emph{subnormal} fixture exactly. Commit bisection instead found
+that the embedded expectation predated the pcl f32 transform-association fidelity fix.
+Re-baselining the fixed engine made host, emulator, and both hardware runs bit-identical.

@@ -1,106 +1,42 @@
 \section{Introduction}
 \label{sec:intro}
 
-% Para 1: the deadline problem. LiDAR localization at 10 Hz; NDT align on the critical path;
-% a missed/late pose estimate degrades downstream planning and control.
-An autonomous vehicle localizes by registering each incoming LiDAR scan against a pre-built
-point-cloud map. In Autoware~\cite{autoware}, an open-source production driving stack, the
-primary matcher is the Normal Distributions Transform (\ndt)~\cite{biber2003ndt}: a
-Newton-optimized alignment of the downsampled scan against a voxelized Gaussian map, executed
-once per scan at the sensor rate. The typical rate is 10\,Hz, which gives a
-\SI{100}{ms} period. The
-resulting pose feeds the extended Kalman filter (EKF), planner, and controller on the critical
-path, and a \emph{late} pose is operationally as bad as a wrong one: consumers fall back to
-dead-reckoning extrapolation whose error grows with vehicle speed, and sustained overruns
-trigger degraded operation or a minimum-risk maneuver. For deadline analysis, the relevant question is therefore
-not the average align time but the upper tail under the configured input contracts: does one
-\ndt{} align fit the period with defensible margin?
+Autoware~\cite{autoware} localizes a vehicle by aligning each LiDAR scan to a Gaussian
+voxel map with the Normal Distributions Transform (\ndt)~\cite{biber2003ndt}. At 10\,Hz,
+one align has a \SI{100}{ms} period before a late pose forces downstream estimation toward
+dead reckoning. Yet input geometry changes Newton iterations, neighbor multiplicity, and
+kd-tree traversal: legal synthetic inputs span under \SI{10}{ms} to nearly one second on
+the same core. Nominal replay therefore cannot answer whether the deadline has defensible
+margin.
 
-% Para 1b: the spread we actually observe motivates the question empirically.
-The question is acute in the configurations studied here because the align time is strongly input-dependent. On the engines
-studied here, adversarially constructed yet parameter-legal map/scan geometries stretch
-one serial align from under \SI{10}{ms} to nearly a second on the same desktop-class core.
-Section~\ref{sec:evaluation} reports this two-order-of-magnitude range, which extends well
-past a 10\,Hz budget. Whether
-production configurations can approach such inputs, and with what margin, cannot be answered by
-observing nominal traffic; it requires a worst-case analysis.
+Classical static WCET analysis struggles because the dominant bounds are input properties;
+exhaustive enumeration is infeasible, while wall-clock-guided fuzzing is noisy and
+machine-specific. We instead separate a structural work envelope from measured
+platform cost, then search deterministic work counters for stress witnesses.
 
-% Para 2: why WCET is hard here. Data-dependent iterative optimization: Newton iterations
-% (bounded but input-dependent), per-point neighbor counts, kd-tree traversal shape all depend
-% on the map/scan geometry. Static WCET tools need loop bounds that are input properties.
-Data-dependent, iterative optimization kernels resist classical static worst-case
-execution-time (WCET) analysis: the dominant loop bounds (Newton iteration count, per-point
-neighbor multiplicity, kd-tree traversal length) are properties of the input geometry, not
-of the program text. Exhaustive input enumeration is infeasible, and naive fuzzing with
-wall-clock fitness is noisy, machine-specific, and unreproducible.
+Rust is useful here not because C++ cannot be bounded, but because ownership, lifetimes, and
+aliasing rules discharge memory-safety and data-race-freedom obligations in the safe
+core~\cite{jung2018rustbelt}. This narrows project-specific validation to equivalence,
+numerics, work bounds, and timing. The reduction excludes the FFI, unsafe code, and trusted
+dependencies. The port also builds as \texttt{no\_std} for real-time environments without
+the standard library. Its radius query caps neighbors at \maxnn; the
+\emph{bounded-neighbor domain} $D$ contains inputs whose uncapped queries already satisfy
+that limit. Per-input traces compare common semantic work on evaluated inputs; traversal,
+memory operations, and latency remain engine-specific.
 
-% Para 3: the opportunity. A high-fidelity Rust port reduces the low-level verification
-% surface and supports real-time environments without the standard library; common work is
-% certified per input, not assumed (review2 #1).
-The relevant distinction is not that bounded execution can only be implemented in Rust: an
-equivalent C++ redesign is possible. Rather, safe Rust discharges a class of low-level proof
-obligations through its ownership, lifetime, and aliasing rules~\cite{jung2018rustbelt}.
-Memory safety and data-race freedom of the safe core therefore do not need to be
-re-established by project-specific testing or analysis, allowing validation to focus on
-algorithmic equivalence, numerical behavior, work bounds, and timing predictability. This
-reduction applies only to safe Rust; the FFI boundary, any unsafe code, and trusted
-dependencies remain in the verification surface, as discussed in
-Sec.~\ref{sec:threats}.
-
-This work exploits a high-fidelity Rust port of the production C++ engine with this narrower
-verification surface. The port also supports deployment in real-time environments where the
-standard library is unavailable by building as \texttt{no\_std} (Rust without its standard
-library); the bare-metal real-time kernel evaluated here is one such environment. Where the
-C++ engine collects an unbounded per-point neighbor set, the port caps the number of
-neighbors a radius search may return; we call the set of inputs on which an uncapped query
-would return no more than that limit the \emph{bounded-neighbor domain} $D$, made precise in
-Sec.~\ref{sec:methodology}. The port is designed to reproduce the C++ engine's
-algorithmic structure on $D$. A per-input trace certificate checks the common semantic
-work rather than inferring it from iteration count. Engine-specific traversal, memory
-operations, and latency remain separate measurements.
-
-% Para 4: contributions.
-Our contributions:
+Our contributions are:
 \begin{enumerate}
-  \item A \textbf{three-layer hybrid WCET methodology} for data-dependent kernels: (i)~a
-    structural work bound whose terms are enforced by construction and automatically
-    checked by property-based tests; (ii)~a search for counter-extremal inputs guided by
-    deterministic algorithmic cost counters, which are platform-independent and
-    zero-overhead when disabled; (iii)~controlled measurement on the frozen extreme inputs,
-    with a diagnostics-gated extreme-value analysis in the style of measurement-based
-    probabilistic timing analysis (MBPTA), where the diagnostics, not the fits, decide what
-    may be extrapolated.
-  \item A \textbf{cross-language transfer argument}: instrumenting the Rust port and a
-    local C++ \emph{analysis} build suffices; the shipped C++ sources stay untouched.
-    Discovered inputs are carried to the unmodified C++ engine. A base
-    iteration/pose/score assertion defines $E_{\mathrm{base}}$, and a full per-pass trace
-    defines the stricter $E_{\mathrm{trace}}$ used for common-work comparisons. Neither
-    certificate is a runtime membership test for $D$; the
-    transfer is claimed only over $E_{\mathrm{trace}}$, as defined in
-    Secs.~\ref{sec:meth-transfer} and~\ref{sec:eval-tracecert}. On real map data this
-    certification exposed, and led us to fix, two port-fidelity gaps that synthetic
-    fixtures are structurally blind to. It also showed that equal iteration counts alone
-    would \emph{not} have implied common-work equivalence, as detailed in
-    Sec.~\ref{sec:threats}.
-  \item \textbf{Evidence that the search is effective}: on the frozen search fixtures, it saturates the analytic
-    maximum on the number of kernel evaluations per align,
-    $P \cdot \maxnn \cdot (N_{\mathrm{iter}}{+}1)$, where $P$ is the scan size, \maxnn{}
-    the per-point neighbor cap, and $N_{\mathrm{iter}}$ the Newton iteration count
-    defined in Sec.~\ref{sec:problem}. It then grows the remaining free term, kd-tree
-    traversal, by a further \searchKdGrowthPct\%.
-  \item An \textbf{industrial case study}. On the adversarial fixtures, the Rust port's
-    observed maximum is at or below C++'s, with ratios of
-    \tailsRatioMin--\tailsRatioMax, and the
-    port eliminates under its declared pre-reserved capacity the C++ engine's
-    ${\approx}\allocPerPtPass$ heap
-    allocations per point per derivative pass. The count reaches
-    \allocWorstPerAlign{} per align, a
-    structural unbounded-latency hazard (the port is zero-allocation under a declared
-    capacity contract, recursion-free, and panic-free). A \textbf{two-tier work envelope} separates
-    the bounded-neighbor engine tier, which admits unvalidated inputs over $D$, from the
-    preprocessing-reachable one, with each axis of the deployment tier backed by a legal witness
-    input; the measured fixture gap ($\legalWorstRatioRust\times$, with a ${\ge}2.4\times$ reduction on
-    the kernel term) quantifies what enforcing input contracts at the component boundary
-    buys. A 57-minute real drive provides one-drive evidence consistent with the contracts
-    and the margins.
+  \item A three-layer analysis combining a property-tested structural work bound,
+    deterministic counter-guided input search, and controlled timing with diagnostics-gated
+    MBPTA. Failed diagnostics prohibit extrapolation.
+  \item A cross-language transfer certificate. $E_{\mathrm{base}}$ checks iteration,
+    pose, and score agreement; $E_{\mathrm{trace}}$ additionally checks per-pass common
+    semantic work. Neither establishes runtime membership in $D$.
+  \item Search evidence that reaches
+    $P\maxnn(N_{\mathrm{iter}}{+}1)$ kernel evaluations and then raises kd traversal by
+    \searchKdGrowthPct\%, with frozen Pareto alternatives timed separately.
+  \item An industrial case study: Rust removes the C++ per-point allocation hazard within
+    reserved capacities, has observed maxima no greater on the shared fixtures, and supports
+    a two-tier work envelope whose deployment axes are backed by legal witnesses. One-drive
+    replay tests the contracts and exposes the residual certification boundary.
 \end{enumerate}

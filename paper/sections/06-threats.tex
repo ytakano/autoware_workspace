@@ -1,193 +1,73 @@
 \section{Threats to Validity}
 \label{sec:threats}
 
+\subsection{Measurement and coverage}
+Isolated timing uses a pinned core, \envSessions{} randomized sessions spanning a reboot,
+separate warm/cold/co-runner series, and a calibration guard that rejected two transient
+frequency clamps. Worst-fixture session medians agree within \sessMedSpreadWorstPct\%, and
+Rust/C++ max ratios within $\pm\sessRatioSpreadWorst$. Nevertheless, all timing comes from
+one machine. The campaign compares complete deployable implementations under recorded
+release settings, not languages in isolation; compiler flags have no exact cross-toolchain
+mapping, and allocators, layouts, kd-trees, libraries, and compiler choices all contribute.
+Real replay is single-shot per frame, and parallel results omit worker scheduling and
+interference, so neither supports a multi-core WCET claim.
 
-\subsection{Measurement and statistical rigor}
-Engine-tier timing follows the Isolated protocol defined in
-Sec.~\ref{sec:eval-setup}:
-isolated pinned core, \envSessions{} sessions spanning a reboot cycle with randomized
-orders, warm/cold/co-runner series separated, and a calibration guard that aborted (and
-thereby excluded) two transient firmware-level frequency clamps it caught mid-campaign. On
-\texttt{nohz\_full} cores the kernel's frequency reporting is stale, so measured sustained
-speed is the only reliable throttling detector. Cross-session stability bounds the residual
-environment sensitivity. On the worst fixture, per-session medians agree within
-\sessMedSpreadWorstPct\%. The remaining per-session memory-layout effect persists with
-or without a reboot. The Rust/C++ max ratios are stable to $\pm\sessRatioSpreadWorst$.
+Search covers a parameterized generator, not all inputs. Kernel-evaluation saturation is
+exact, but kd traversal has only its $O(N_{\mathrm{leaves}})$ structural cap; a slower
+geometry may exist. The real-data evidence covers one vehicle and route, with only
+\realOnMap{} on-map frames. Its degraded-prior track uses offline NDT odometry rather than
+the production filter, so it does not represent nominal cruising or closed-loop behavior.
 
-Remaining limits include the use of one machine. The campaign compares the complete,
-deployable implementations under their recorded release configurations; it was not designed
-to isolate the causal effect of the implementation language or of individual design choices.
-Compiler options have no exact one-to-one mapping across the two toolchains, while a bounded
-C++ redesign and component ablations would require additional implementation variants.
-Allocators, layouts, containers, kd-trees, math libraries, and compiler choices therefore all
-contribute to the measured difference, which must not be attributed to Rust alone.
-The real-data replay of
-Sec.~\ref{sec:eval-realdata} is single-shot, with one align per frame per engine under
-Replay, so its per-frame times carry
-no repetition statistics; the parallel-feasibility numbers of
-Sec.~\ref{sec:eval-parallel} are a host throughput observation, not a multi-core WCET
-result. Worker interference and scheduling under contention are unmodeled, and the serial
-engine remains the deterministic baseline. Finally, the full POT/MLE
-extreme-value treatment was run and its \emph{diagnostics rejected extrapolation}. The
-per-session sample series carry serial dependence up to $|\mathrm{ACF}| = \evtAcfWorst$, so
-no extrapolated exceedance probability is claimed, and the tail deliverable is the
-empirical maxima with the cross-session stability reported in Sec.~\ref{sec:eval-evt}.
+\subsection{Cross-language and cross-ISA validity}
+Two corrected port gaps reduced real-frame iteration divergence to
+\realIterationDivergent{} of \realFrames{} frames, all among the \realOnMap{} on-map set
+(\realOnMapDivPct\%). Residual differences arise from glibc versus \texttt{libm}, the
+eigensolver, and neighbor accumulation order. Thus common-work claims apply only to
+$E_{\mathrm{trace}}$: \realBaseOnly{} equal-iteration frames still differ by up to
+\traceRealWorkGapRelMaxPct\% in kernel work. Direct membership in $D$ was not recorded
+because Rust does not expose a 65th leaf, and FNV-1a equality has non-zero collision risk.
 
-\subsection{Input-space coverage}
-The hill-climb explores a parameterized generator, not the full input space. The saturation
-argument covers the kernel-evaluation term exactly, but the kd-traversal term has no matching
-analytic maximum, so a worse traversal geometry may exist; the structural
-$O(N_{\mathrm{leaves}})$ bound still caps it. On the empirical side, the real-data
-reference in Sec.~\ref{sec:eval-realdata} covers one route and one vehicle. Its
-\emph{degraded-prior} guess track uses offline NDT odometry rather than the production
-localization filter, so its iteration statistics
-do not represent nominal cruising, and its margins are specific to that drive. Moreover, the
-benchmark map crop limits meaningful matching to the \realOnMap{} on-map frames, a prefix
-window of the 57-minute capture, so the effective real-data evidence base is far smaller
-than the raw \realFrames{}-frame count suggests.
+The Rust stream targets ISA stability through software \texttt{libm} and no FMA contraction;
+all \raspiTotal{} frozen fixtures match on the AArch64 target. This is a per-fixture check,
+not a general ISA proof. The initial stale-baseline mismatch also shows that expected
+counters must be commit-pinned. The C++ leg remains x86/Linux-specific because it depends
+on pcl and ROS.
 
-\subsection{Comparison validity: the divergence residual}
-The real-data replay surfaced a case absent from the synthetic suites: iteration counts initially
-diverged by ${\pm}1$ on ${\sim}2\%$ of real frames. Root-causing identified and fixed two
-port-fidelity gaps invisible to translation-only fixtures: the C++ engine transforms its
-\emph{initial} pass by the guess matrix rather than the Euler rebuild, and pcl's SSE transform
-kernel is right-associated with the translation innermost. Fixing both reduced the
-iteration-count divergence to \realIterationDivergent{} of \realFrames{} frames, or
-\realDivPctAll\%. The honest denominator is smaller: all
-\realIterationDivergent{} divergences lie on the \realOnMap{} on-map
-frames identified in Sec.~\ref{sec:eval-realdata}. This is \realOnMapDivPct\% of the frames doing
-meaningful matching work.
+\subsection{Safety and contract scope}
+Rust reduces the verification surface but is not required for bounded execution; an
+appropriately redesigned C++ engine could impose the same loop, allocation, recursion, and
+neighbor bounds. Safe Rust discharges memory-safety and data-race-freedom obligations, but
+the C ABI, unsafe internals, and trusted dependencies remain in scope. Likewise,
+\texttt{no\_std} removes a library dependency rather than guaranteeing real-time behavior.
 
-The residual is irreducible without matching glibc's eigensolver and \texttt{f64}
-transcendentals bit-for-bit. The eigensolver differs by at most
-$\oneoffEigensolverBound$ on the inverse covariances, and \texttt{libm} differs from
-glibc \texttt{exp}. More fundamentally, the residual is
-irreducible without matching the per-point neighbor accumulation \emph{order}, which differs
-by design: pcl/FLANN returns distance-sorted neighbors whereas the port returns them in
-kd-visit order, as detailed in Sec.~\ref{sec:eval-tracecert}. These sub-f32-ULP \texttt{f64} differences
-surface only on the marginal frames, which is
-why the paper claims common-work equivalence only over $E_{\mathrm{trace}}$ defined in
-Sec.~\ref{sec:meth-transfer}. Direct membership in $D$ was not recorded: the capped Rust
-query reports at most 64 leaves without exposing whether a 65th existed. The trace instead
-provides retrospective count/hash evidence on evaluated inputs. It shows the same numerical
-boundary mechanism below the iteration threshold: \realBaseOnly{} equal-iteration frames
-differ in point-neighbor evaluations by up to \traceRealWorkGapRelMaxPct\% of their kernel
-work. Cross-language common-work statements are therefore scoped to the
-\realTraceOnMap{} on-map frames in $E_{\mathrm{trace}}$. The FNV-1a hash has non-zero
-collision risk and does not formally prove set equality.
-
-Relatedly, the Rust floating-point stream is \emph{designed} for ISA-stable execution
-through pure-software \texttt{libm} and the absence of FMA contraction in the kernel
-image. It is \emph{verified}
-on the deployment-class evaluation target in Sec.~\ref{sec:eval-raspi4}, where the
-counters match exactly on all \raspiTotal{} fixtures. The one flag the
-on-target certificate initially raised was root-caused to a stale expected-value snapshot
-predating one of the port-fidelity fixes above, a reminder that the counters are sensitive
-to the engine \emph{version} at parts-per-million resolution: cross-version baselines must
-be commit-pinned, and cross-ISA equality of bit-identical counters remains a per-fixture
-\emph{certified} property rather than an assumed one. The C++ comparison itself is
-inherently x86/Linux-bound because of its pcl/ROS dependency.
-
-\subsection{Safety and verification scope}
-Our rationale for the Rust port is a reduction in verification surface, not a claim that
-Rust is necessary for bounded execution. A C++ redesign could impose the same allocation,
-recursion, loop, and neighbor bounds. Within the safe Rust core, however, ownership,
-lifetime, and aliasing rules discharge memory-safety and data-race-freedom obligations that
-would otherwise require project-specific evidence. These language guarantees do not cover
-the C ABI and FFI boundary, any \texttt{unsafe} implementation used behind a safe interface,
-or trusted dependencies; all remain part of the verification surface. Likewise,
-\texttt{no\_std} removes a deployment dependency on the Rust standard library but does not
-by itself provide bounded execution or real-time behavior. Those properties depend on the
-explicit hardening and contracts of Sec.~\ref{sec:implementation}.
-
-\subsection{Contract preconditions}
 \input{tables/preconditions}
-Table~\ref{tab:preconditions} collects every precondition of the work
-bound~\eqref{eq:decomp}: its limit, who enforces it, and what happens on violation,
-distinguishing limits the engine enforces at runtime from contracts that are merely
-\emph{assumed}. The engine-tier fixtures are API-legal but not reachable through the
-production preprocessing because they contain duplicate source points, sub-downsample map
-clusters, or overlapping tiles. The deliberately conservative bound they support is the
-bounded-neighbor engine tier over $D$ from Sec.~\ref{sec:meth-transfer}.
+Table~\ref{tab:preconditions} distinguishes enforced limits from assumptions. Engine-tier
+fixtures are API-legal but not preprocessing-reachable. Deployment contracts include tile
+geometry, downsampling, and $P\le1500$; the engine does not verify them. Production must
+validate static map conditions at load time and per-scan conditions before align, with a
+defined rejection or fallback. Validator execution must be bounded and included in the
+10\,Hz deadline analysis.
 
-The deployment tier's contracts cover tile disjointness and alignment, map and scan
-downsampling, and the $P \le 1500$ cap. They are properties of the map and sensing pipelines that the engine does
-\emph{not} verify; a violated contract silently moves the system back to the engine tier.
-The tier is therefore an \emph{assumption}, not a guarantee. Production deployment
-must convert these contracts into checked integration conditions: static map and tile
-properties must be validated when map data are loaded, and per-scan conditions such as the
-$P$ cap must be checked before invoking the align kernel. A violation must trigger a defined
-rejection or fallback rather than silently changing the applicable tier. The validators must
-have bounded execution time, and their cost must be included in the end-to-end 10\,Hz
-deadline analysis.
+No searched legal input combines $K=8$ with 30 production-parameter iterations:
+\emph{legal-worst} pins the latter through non-production $\epsilon$, while
+\emph{legal-osc} proves the cap reachable at shipped settings. The analytic $K\le27$
+ceiling has no witness and assumes boundary and floating-point behavior. A
+\legalKSearchSeeds{}-seed legal search reaches only $K=\legalKSearchMax$; this is evidence,
+not proof, that legal $K$ stays below the ceiling. The affine $P$ envelope is validated only
+for $P\in[\psweepPmin{},\psweepPmax{}]$ on the host, and allocation freedom holds only
+inside pre-reserved capacities.
 
-On the iteration axis, the tier's \emph{legal-worst} time witness pins
-$N_{\mathrm{iter}} = 30$ via a non-production $\epsilon$. The cap itself is legally
-reachable through the production-parameterized \emph{legal-osc} witness of
-Sec.~\ref{sec:impl-legal}, but no single legal input in our search family achieves the
-$K = 8$ and 30-iteration worst cases \emph{simultaneously}: the tier bound combines the two
-axes conservatively rather than exhibiting one witness for both. The tier's analytic $K$
-ceiling of 27 has no constructed witness at all. Legal inputs may exist above the observed
-$K = \realKmaxMax$ and below that ceiling. Boundary inclusion and floating-point radius
-comparison are assumptions in the ceiling derivation. A dedicated production-parameterized search
-uses \legalKSearchSeeds{} seeds through the same legality verifier and sets fitness to the
-per-point maximum $K$. It plateaus at $K = \legalKSearchMax$: the legal rough-surface family
-scatters centroids and cannot crowd more into one search ball, so the corner-lattice
-construction with $K = 8$ and the real map with
-$K = \realKmaxMax$ remain the strongest known
-legal witnesses. Within these searched families, this is evidence that legal $K$ concentrates far below the ceiling, though
-not a proof.
-
-Two further preconditions apply. The \maxnn{} sufficiency derivation in
-Sec.~\ref{sec:implementation} assumes the search radius stays coupled to the voxel size;
-decoupling them would require re-deriving the cap. The affine
-$T_{\mathrm{obs,max}}(P)$ envelope is validated over $P \in [\psweepPmin{}, \psweepPmax{}]$
-on the host in Sec.~\ref{sec:eval-psweep}. Beyond that range or on other platforms,
-working sets exceeding the last-level
-cache could bend the slope upward. The zero-allocation guarantee is tied to the
-pre-reserved capacity; exceeding it costs a one-time buffer growth.
-
-\subsection{Evidence strength: what is enforced, checked, tested, and proven}
+\subsection{Evidence strength}
 \label{sec:threats-epistemic}
-None of the reported times is a certified hard bound, but the layers carry different
-epistemic strength, and the distinction is the point of the decomposition. We distinguish
-four evidence tiers. \emph{Enforced by construction} covers static loop guards, the hard
-\maxnn{} cap, fixed-capacity buffers, and the fixed-depth kd stack.
-\emph{Statically checked} covers the lint-enforced absence of panicking operations.
-\emph{Dynamically verified} covers randomized property tests, the counting allocator, the
-differential suite, and the per-input replay certificates. We claim \emph{nothing} at the
-\emph{formally proven} tier: no property has been shown in a proof assistant, and property
-testing is not exhaustive.
+Loop guards, the neighbor cap, reserved buffers, and fixed-depth stack are enforced by
+construction; panic exclusion is statically checked; property, allocation, differential,
+and replay tests provide dynamic evidence. Nothing is formally proven. The kernel-evaluation
+maximum has an exact saturation witness, whereas kd traversal does not.
 
-The \emph{work} bound of Eq.~\eqref{eq:decomp} carries the strongest evidence we have:
-every term enforced by construction, with the enforcement dynamically verified over
-randomized inputs. For the kernel-evaluation term, a frozen input demonstrably
-\emph{achieves} the maximum through a saturation certificate that is an exact counter identity. The
-kd-traversal term has no matching certificate, so a worse traversal geometry may exist
-within its structural cap; the frontier ablation of Sec.~\ref{sec:eval-search} shows this
-caveat binds, since on Rust a kd-heavier frontier member runs
-$\ablationFrontierRustExcessPct\%$ past the lexicographic champion.
-
-Every \emph{time} figure, by contrast, is an observation from one machine and one
-controlled, interference-probed, but still measured protocol. The out-of-order x86
-microarchitecture has no sound static timing model. On this hardware class a
-true WCET is practically unobtainable by any method, and extreme-value extrapolation failed
-its own diagnostics here, as shown in Sec.~\ref{sec:eval-evt}. The bridge experiment adds a sharper
-warning about the measured part: the \emph{controlled configuration itself} is associated
-with a \SI{\bridgeCppTaxMinMs}{}--\SI{\bridgeCppTaxMaxMs}{ms} shift in one engine's
-per-align constant. The mechanism remains unresolved, as discussed in
-Sec.~\ref{sec:eval-bridge}, so
-controlled numbers are configuration-specific observations, not platform-free truths.
-
-In this case study, the counter decomposition \emph{factorizes} WCET evidence into a
-structurally enforced work component and an empirical time-per-unit-of-work component. Only
-the former carries the strong evidence tier. On a timing-predictable target, precisely the \texttt{no\_std} kernel
-deployment of Sec.~\ref{sec:intro}, a defensible per-operation cost bound would promote
-$\text{work bound} \times \text{unit-cost bound}$ to an analytical WCET. Separately, the
-the structural removal of allocation, recursion, and panic hazards provides constructive
-properties rather than measurements. These properties make a finite bound \emph{possible} at all,
-since an engine that calls the allocator inside its align loop cannot be given a defensible
-finite bound under this allocator/system model. The deliverable is therefore an enforced
-and property-tested work envelope, removal of specified structural hazards within the
-reserved capacity, and observed fixture maxima on the evaluated platforms. It is not a
-certified hard timing bound.
+All times are platform-specific observations. POT/GPD extrapolation is rejected because
+serial dependence reaches $|\mathrm{ACF}|=\evtAcfWorst$, and the bridge experiment associates
+the controlled configuration with a \SI{\bridgeCppTaxMinMs}--\SI{\bridgeCppTaxMaxMs}{ms}
+unresolved C++ shift. The result is therefore a structurally enforced and property-tested
+work envelope plus observed maxima, not a certified hard timing bound. On a predictable
+target, a defensible per-operation bound could combine with the work envelope to establish
+an analytical WCET.

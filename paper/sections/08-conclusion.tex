@@ -1,40 +1,22 @@
 \section{Conclusion}
 \label{sec:conclusion}
 
-This case study shows how a high-fidelity, per-input-certified port can turn WCET analysis of a
-data-dependent industrial kernel into
-a tractable pipeline: a structural work bound enforced and
-property-tested in the port, counter-extremal inputs found by a deterministic
-counter-guided search with an exact saturation certificate for the dominant term, and
-cross-language common-work measurement
-requiring no instrumentation of the production C++ sources. The resulting evidence is
-\emph{layered}: enforced by construction and property-tested on the work axis, parametric in
-the caller's contract through a $P$-affine, two-tier model, and empirical only in the
-time-per-operation factor. On the shared adversarial fixtures, the Rust port meets or beats
-the C++ engine's observed maximum while eliminating its per-point heap-allocation hazard
-within the reserved envelope. The per-input trace exposed \realBaseOnly{} base-only and
-\realIterationDivergent{} iteration-divergent real frames that an iteration-only reading
-would have missed.
+A high-fidelity port turns analysis of a data-dependent industrial kernel into three
+separable obligations: enforce and test a work envelope, search deterministic counters for
+stress witnesses, and measure frozen inputs. Per-input traces transfer common semantic work
+to unmodified C++ without equating implementation-specific traversal or latency. The search
+saturates the dominant kernel term; the Rust port removes the per-point allocation hazard
+within reserved capacities and has no larger observed maximum on shared fixtures. Timing
+remains empirical.
 
-Rust is not a prerequisite for the work bounds or real-time hardening reported here; an
-equivalent C++ redesign is possible. Its role in this case study is to discharge the safe
-core's memory-safety and data-race-freedom obligations through the language, so that
-project-specific validation can concentrate on equivalence, numerical behavior, bounded
-work, and timing. That reduction stops at the FFI, unsafe code, and trusted-dependency
-boundaries identified in Sec.~\ref{sec:threats}.
+Rust is not necessary for these bounds. Its safe core narrows memory-safety and race
+obligations so validation can focus on equivalence, numerics, work, and timing; FFI, unsafe
+code, and dependencies remain trusted.
 
 \paragraph{Operational validation requirements}
-The evidence reported here is component-level and does not establish production readiness.
-Before deployment, the port must be evaluated on the production ECU with representative
-maps, scans, initial guesses, and co-resident Autoware workloads. That campaign must
-characterize governor and boost behavior, multi-core scheduling and interference, and
-end-to-end compliance with the 10\,Hz deadline. It must also assess closed-loop localization
-behavior, including quality-gate decisions and filter innovations, on the ill-conditioned
-segments where the implementations can diverge. The serial engine is not schedulable at
-10\,Hz on the bare-metal AArch64 target, so the production ECU evaluation must repeat the
-on-target $P$-sweep protocol. The host rayon result in Sec.~\ref{sec:eval-parallel} is only
-throughput and deadline-feasibility evidence; it does not establish multi-core WCET. An
-analytical WCET claim additionally requires a certified per-operation cost bound under the
-deployment hardware and interference model. Likewise, the rejected POT/MLE diagnostics in
-Sec.~\ref{sec:eval-evt} mean that probabilistic extrapolation requires an
-independence-preserving measurement protocol rather than a different tail fit.
+The component results do not establish production readiness. Deployment requires the
+production ECU, representative maps, scans, initial guesses, and co-resident Autoware loads;
+measurements must cover governor behavior, multi-core interference, end-to-end 10\,Hz
+compliance, and closed-loop quality gates and filter innovations. The host parallel result
+is deadline feasibility, not multi-core WCET. Analytical or probabilistic timing claims
+also require, respectively, a deployment cost bound or an independence-preserving protocol.
