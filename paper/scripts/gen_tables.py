@@ -16,7 +16,7 @@ paper builds without re-running the benchmark).
 The generator also *asserts* the rounded qualitative claims the prose makes (the intro
 spread claim, "grazing the 100 ms budget", "the same per-point constant", the search-log kd
 baseline): if a re-measurement falsifies one, generation fails instead of leaving stale prose.
-wcet.json must carry the Profile-B meta.manifest emitted by scripts/integrate_campaign.py.
+wcet.json must carry the Isolated meta.manifest emitted by scripts/integrate_campaign.py.
 """
 
 import json
@@ -65,7 +65,7 @@ ONEOFF = {
     # derived from wcet_rust.json and asserted below so this baseline cannot silently pair
     # with a different search run.
     "kd_gen_zero_m": 8.88,
-    # (Subnormal shell A/B moved to data/subnormal_ab.json, C5: re-measured under Profile B
+    # (Subnormal shell A/B moved to data/subnormal_ab.json, C5: re-measured under Isolated
     # from the reproducible subnormal / subnormal_ctrl fixtures; \oneoffShell* now generated.)
     # exp() microbenchmark (2026-07-10 session): subnormal-result vs normal-result cost per
     # call, glibc exp vs the port's pure-Rust libm.
@@ -127,13 +127,15 @@ def provenance(manifest, meta):
     """One generated sentence carried by every timing-table note (review #8).
 
     Built from the policy-schema meta.manifest of the campaign integration; names the
-    measurement profile so no table can be read without its protocol.
+    measurement configuration so no table can be read without its protocol.
     """
     sessions = manifest.get("sessions") or [manifest.get("experiment_id", "?")]
     dates = sorted({m["run_timestamp"][:10]
                     for m in manifest.get("session_manifests", [manifest])})
+    configuration = {"A": "Replay", "B": "Isolated"}.get(
+        manifest["measurement_profile"], manifest["measurement_profile"])
     return (
-        rf"Profile {manifest['measurement_profile']} "
+        rf"{configuration} "
         rf"(\texttt{{plan/ndt\_timing\_measurement\_policy.md}}): {len(sessions)} "
         rf"session(s), {'/'.join(dates)}, isolated pinned core "
         rf"(\texttt{{{tex_escape(manifest.get('affinity_mask', '?'))}}}), "
@@ -222,7 +224,7 @@ def legal_k_macros():
 def ablation():
     """Search-ablation table + macros (review #9) from data/search_ablation.json:
     hill vs budget-matched random over seeds, wall-clock-fitness reproducibility, and
-    Profile-B timing of the counter-Pareto frontier against an in-session search-00 anchor."""
+    Isolated timing of the counter-Pareto frontier against an in-session search-00 anchor."""
     doc = json.loads((DATA / "search_ablation.json").read_text())
     meta, runs = doc["meta"], doc["runs"]
     nbr_max = meta["analytic_nbr_max"]
@@ -391,7 +393,7 @@ def raspi4():
 
 
 def raspi4_timing():
-    """On-target timing series (Raspberry Pi 4, bare-metal, Profile C): table + macros from
+    """On-target timing series (Raspberry Pi 4, Bare-metal): table + macros from
     the frozen serial log data/raspi4_timing.txt (skipped if absent).
 
     Protocol (kernel app, FEATURES=ndt): per fixture, 3 warmups (the first is the counted
@@ -466,7 +468,7 @@ def raspi4_timing():
             f"& {c['max'] / 1000.0:.1f} & exact")
     write(
         "raspi4.tex",
-        r"On-target series (\textbf{Profile C}): Raspberry Pi 4 (Cortex-A72), bare-metal "
+        r"On-target \emph{Bare-metal} series: Raspberry Pi 4 (Cortex-A72), bare-metal "
         r"\texttt{no\_std} kernel; per fixture 100 warm + 20 cold (8\,MiB evict) samples "
         r"after 3 warmups (serial log frozen as \texttt{data/raspi4\_timing.txt}).",
         "tab:raspi4",
@@ -612,7 +614,7 @@ def main():
     manifest = meta.get("manifest")
     if not manifest or manifest.get("measurement_profile") != "B":
         raise SystemExit(
-            "wcet.json lacks a Profile-B meta.manifest -- regenerate it via "
+            "wcet.json lacks an Isolated meta.manifest -- regenerate it via "
             "scripts/integrate_campaign.py (tables must not mix measurement profiles)")
     rust = json.loads((DATA / "wcet_rust.json").read_text())["fixtures"]
     alloc = json.loads((DATA / "wcet_alloc.json").read_text())["fixtures"]
@@ -1090,8 +1092,8 @@ def realdata():
     rdoc = json.loads(rj.read_text())
     if rdoc.get("meta", {}).get("measurement_profile") != "A":
         raise SystemExit(
-            "realdata.json lacks the Profile-A meta -- Sec. V-G presents Profile-A results; "
-            "regenerate via the open-loop replay protocol (tables must not mix profiles)")
+            "realdata.json lacks the Replay meta -- Sec. V-G presents Replay results; "
+            "regenerate via the open-loop replay protocol (tables must not mix configurations)")
     allframes = rdoc["frames"]
     timing = json.loads((DATA / "wcet.json").read_text())["fixtures"]
     # Envelope rows use the on-map frames (the vehicle leaves the benchmark's cropped map for
@@ -1165,13 +1167,13 @@ def realdata():
     cert_cpp = sorted(x["cpp_ms"] for x in cert)
     cert_rust = sorted(x["rust_ms"] for x in cert)
     # Deadline overruns at 10 Hz (policy: report frames > 100 ms). The prose claims C++
-    # overruns exist under Profile A while Rust never overruns; regenerate-or-break.
+    # overruns exist under Replay while Rust never overruns; regenerate-or-break.
     over_cpp = sum(1 for x in allframes if x["cpp_ms"] > 100.0)
     over_cpp_onmap = sum(1 for x in frames if x["cpp_ms"] > 100.0)
     over_rust = sum(1 for x in allframes if x["rust_ms"] > 100.0)
     if over_cpp == 0:
         raise SystemExit(
-            "no C++ frame exceeds 100 ms in realdata.json -- the Sec. V-G Profile-A "
+            "no C++ frame exceeds 100 ms in realdata.json -- the Sec. V-G Replay "
             "overrun paragraph is stale; update the prose")
     if over_rust != 0:
         raise SystemExit(
@@ -1197,7 +1199,7 @@ def realdata():
     write(
         "realdata.tex",
         rf"Real-data replay (İstanbul urban drive, open-loop frozen guess track), "
-        r"\textbf{Profile A} (production-representative: CFS, unpinned, one align per "
+        r"the \emph{Replay} configuration (CFS, unpinned, one align per "
         r"frame): per-frame distributions.",
         "tab:realdata",
         "lrrr",
@@ -1265,9 +1267,10 @@ def realdata():
 
 
 def bridge():
-    """A/B bridge table + macros (policy: Bridge Experiment) from data/bridge.json
-    (skipped if absent): the same five frozen inputs under Profile A (production CFS)
-    and Profile B (isolated core), per-engine inflation ratios."""
+    """Bridge table + macros (policy: Bridge Experiment) from data/bridge.json.
+
+    The same five frozen inputs run under Replay and Isolated, with per-engine ratios.
+    """
     bj = DATA / "bridge.json"
     if not bj.exists():
         print("bridge data absent -- skipping bridge outputs")
@@ -1292,7 +1295,7 @@ def bridge():
                 f"{a['p50_ms']:.1f} & {a['max_ms']:.1f} & "
                 f"\\textbf{{{v['inflation_max']:.2f}}}"
             )
-    # Guards: the prose claims Rust A/B ~= 1 and a C++ controlled-environment tax (< 1).
+    # Guards: the prose claims Rust Replay/Isolated ~= 1 and a C++ isolation tax (< 1).
     if not all(0.95 <= r <= 1.05 for r in infl["rust"]):
         raise SystemExit(f"bridge: Rust inflation outside ~1 ({infl['rust']}) -- "
                          "the Sec. V bridge prose claims ~=1.01; update it")
@@ -1300,7 +1303,7 @@ def bridge():
         raise SystemExit(f"bridge: C++ inflation not uniformly < 1 ({infl['cpp']}) -- "
                          "the controlled-environment-tax story is stale; update the prose")
     # Cross-engine gap per profile (Rust max / C++ max). The Sec. V prose (review2 #6)
-    # claims the conclusions survive under Profile A while the relative gap narrows:
+    # claims the conclusions survive under Replay while the relative gap narrows:
     # regenerate-or-break on both directions.
     gaps = {}
     for fx in order:
@@ -1308,26 +1311,29 @@ def bridge():
         gb = e["rust"]["profile_b"]["max_ms"] / e["cpp"]["profile_b"]["max_ms"]
         ga = e["rust"]["profile_a"]["max_ms"] / e["cpp"]["profile_a"]["max_ms"]
         if ga >= 1.0:
-            raise SystemExit(f"bridge: Rust max >= C++ max under Profile A on {fx} -- "
+            raise SystemExit(f"bridge: Rust max >= C++ max under Replay on {fx} -- "
                              "the cross-engine conclusion does not survive; update the prose")
         if ga <= gb:
-            raise SystemExit(f"bridge: gap does not narrow under Profile A on {fx} "
+            raise SystemExit(f"bridge: gap does not narrow under Replay on {fx} "
                              f"({gb:.3f} -> {ga:.3f}) -- the narrowing sentence is stale")
         gaps[fx] = (gb, ga)
     write(
         "bridge.tex",
-        r"Bridge experiment: the same frozen inputs under \textbf{Profile B} (controlled: "
-        r"isolated core, SMT sibling offline, IRQs moved) and \textbf{Profile A} "
-        r"(production-representative: normal CFS, unpinned, SMT on), same "
-        r"\SI{3.2}{GHz} reference clock. inflation = A/B at the maximum (descriptive only).",
+        r"Bridge experiment on the same frozen inputs under \emph{Isolated}, with an "
+        r"isolated core, its SMT sibling offline, and IRQs moved, and under \emph{Replay}, "
+        r"with normal CFS, no pinning, and SMT enabled. Both use the same "
+        r"\SI{3.2}{GHz} reference clock. The ratio is Replay maximum divided by "
+        r"Isolated maximum and is descriptive only.",
         "tab:bridge",
         "llrrrrr",
-        r"input & engine & \multicolumn{2}{c}{B p50 / max (ms)} "
-        r"& \multicolumn{2}{c}{A p50 / max (ms)} & infl.",
+        r"input & engine & \multicolumn{2}{c}{Isolated (\si{ms})} "
+        r"& \multicolumn{2}{c}{Replay (\si{ms})} & ratio \\ "
+        r"\cmidrule(lr){3-4} \cmidrule(lr){5-6} "
+        r"& & p50 & max & p50 & max &",
         rows,
-        note=r"Iteration counts identical across profiles on every input (equal work). "
+        note=r"Iteration counts identical across configurations on every input (equal work). "
         r"Synthetic legs are matched-$n$ pooled 3-session campaigns ($n{=}3000$) on both "
-        r"profiles (so the max-vs-max ratios are same-$n$); real-frame legs are dedicated "
+        r"configurations (so the max-vs-max ratios are same-$n$); real-frame legs are dedicated "
         r"controlled sessions ($n{=}100$ each).",
     )
     # C++ per-align controlled-environment tax on the three P=2000/31-pass synthetics.
@@ -1630,7 +1636,7 @@ def ulp_tex(v):
 
 
 def subnormal_ab():
-    """Subnormal shell A/B macros from data/subnormal_ab.json (C5, Profile B): the \\oneoffShell*
+    """Subnormal shell A/B macros from data/subnormal_ab.json (C5, Isolated): the \\oneoffShell*
     p50 times, re-measured on-protocol from the reproducible subnormal / subnormal_ctrl fixtures.
     Guard (regenerate-or-break): moving out of the subnormal band must NOT reduce the time (the
     control is >= the in-band shell), so the "subnormals are not the mechanism" null holds."""

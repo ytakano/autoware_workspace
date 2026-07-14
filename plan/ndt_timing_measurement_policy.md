@@ -13,11 +13,11 @@ Do not mix conclusions from these two environments. Report them separately and s
 
 ---
 
-## Measurement Profiles
+## Measurement Configurations
 
-### Profile A: Production-Representative Real-Data Replay
+### Replay: Production-Representative Real-Data Replay
 
-Use this profile for real-drive data and production-like replay.
+Use this configuration for real-drive data and production-like replay.
 
 #### Required configuration
 
@@ -74,9 +74,9 @@ Do not describe these values as a certified WCET.
 
 ---
 
-### Profile B: Controlled Engine Characterization
+### Isolated: Controlled Engine Characterization
 
-Use this profile for synthetic fixtures, counter-generated adversarial inputs, cross-language comparisons, unit-cost regression, scaling experiments, and allocator studies.
+Use this configuration for synthetic fixtures, counter-generated adversarial inputs, cross-language comparisons, unit-cost regression, scaling experiments, and allocator studies.
 
 #### Required configuration
 
@@ -97,7 +97,7 @@ Core isolation may be implemented with boot-time isolation, cpusets, or an equiv
 
 Measure engine-intrinsic timing behavior while minimizing unrelated operating-system interference.
 
-This profile is the primary environment for comparing:
+This configuration is the primary environment for comparing:
 
 - C++ and Rust implementations,
 - frozen adversarial fixtures,
@@ -157,11 +157,11 @@ Do not claim that these values directly equal end-to-end Autoware response time.
 
 ---
 
-## Bridge Experiment Between the Two Profiles
+## Bridge Experiment Between the Two Configurations
 
 A small bridge experiment is mandatory. Its purpose is to quantify how much the production scheduling environment inflates or widens the controlled engine timing distribution.
 
-Run the same frozen inputs under both profiles.
+Run the same frozen inputs under both configurations.
 
 ### Required bridge inputs
 
@@ -177,17 +177,17 @@ Include at least:
 
 For each input and implementation, report:
 
-- controlled-profile median and maximum,
-- production-profile median and maximum,
+- Isolated median and maximum,
+- Replay median and maximum,
 - absolute difference,
 - relative inflation,
-- any deadline overrun introduced only in the production profile.
+- any deadline overrun introduced only in Replay.
 
 Use the following descriptive quantity:
 
 ```text
 interference inflation =
-    production-profile latency / controlled-profile latency
+    Replay latency / Isolated latency
 ```
 
 This ratio is descriptive only. Do not assume that scheduler and interference costs are additive or constant.
@@ -287,9 +287,9 @@ Do not perform extreme-tail extrapolation from a very small number of block maxi
 
 Keep probabilistic timing analysis separate from ordinary percentile reporting.
 
-### Controlled-profile data
+### Isolated data
 
-EVT analysis, when retained, should primarily use controlled-profile measurements because the experimental conditions are easier to characterize.
+EVT analysis, when retained, should primarily use Isolated measurements because the experimental conditions are easier to characterize.
 
 The analysis must include:
 
@@ -301,7 +301,7 @@ The analysis must include:
 - sensitivity to block size or threshold,
 - a clear statement that the result is comparative unless all MBPTA assumptions are justified.
 
-### Production-profile data
+### Replay data
 
 For CFS-based production measurements, prefer:
 
@@ -421,11 +421,11 @@ The final report must use separate tables or clearly separated columns for:
 
 ### Bridge results
 
-- identical inputs under both profiles,
+- identical inputs under both configurations,
 - measured interference inflation,
 - explanation of how isolated and production results relate.
 
-Never merge samples from the two profiles into one percentile or maximum.
+Never merge samples from the two configurations into one percentile or maximum.
 
 ---
 
@@ -435,7 +435,7 @@ Examples:
 
 - "Under controlled isolated-core conditions, the Rust implementation had a lower observed maximum than the C++ implementation on every frozen fixture."
 - "Under the production-like CFS configuration, the real-data replay observed N deadline overruns."
-- "The production-like environment increased the maximum latency of the legal-worst fixture by X% relative to the isolated-core profile."
+- "The production-like environment increased the maximum latency of the legal-worst fixture by X% relative to the Isolated configuration."
 - "The deterministic work counters were identical for the samples included in the cross-language timing comparison."
 
 ## Claims That Are Not Allowed
@@ -455,7 +455,7 @@ Do not write:
 
 The measurement task is complete only when all of the following are true:
 
-- both measurement profiles are implemented,
+- both measurement configurations are implemented,
 - the governor is verified programmatically,
 - controlled runs verify affinity and isolation,
 - raw per-sample timing data is preserved,
@@ -467,5 +467,4 @@ The measurement task is complete only when all of the following are true:
 - all reported tables are generated from raw data,
 - claims are labeled as controlled, production-representative, or bridge results,
 - no measured value is presented as a certified hard WCET.
-
 

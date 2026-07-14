@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Integrate the Profile-B measurement-campaign output into paper/data (roadmap C4).
+"""Integrate the Isolated measurement-campaign output into paper/data (roadmap C4).
 
 Reads the merged per-series JSONs produced by bench/wcet_campaign.py:
 
   <bench>/campaign_runs/session-{1,2,3}/{warm,cold,corunner_*}.json
-  <bench>/campaign_runs/psweep/session-1/warm.json      (P-sweep, Profile-B protocol)
+  <bench>/campaign_runs/psweep/session-1/warm.json      (P-sweep, Isolated protocol)
   <bench>/campaign_runs/psweep/psweep_rust.json         (fresh counters at engine HEAD)
   <bench>/campaign_runs/alloc/wcet_alloc.json           (alloc pass re-verified)
 
@@ -14,7 +14,7 @@ and (re)writes the paper's frozen data files:
                                 meta.manifest = policy schema with per-session manifests
   paper/data/wcet_cold.json     pooled cold series
   paper/data/wcet_corunner.json co-runner series per mode
-  paper/data/wcet_psweep.json   P-sweep timing (Profile B)
+  paper/data/wcet_psweep.json   P-sweep timing (Isolated)
   paper/data/psweep_rust.json   P-sweep counters (engine HEAD)
   paper/data/wcet_alloc.json    allocation counts (environment-invariant; re-verified)
 
@@ -129,12 +129,12 @@ def main():
         "alloc_counting": False,
         "cache_condition": "warm",
         "note": "align loop only; map+kdtree built once per engine per fixture; "
-                "Profile B (controlled engine) per plan/ndt_timing_measurement_policy.md",
+                "Isolated configuration per plan/ndt_timing_measurement_policy.md",
         "manifest": top_manifest(
             warm_manifests,
-            "primary timing base: pooled warm series of the 3-session Profile-B campaign"),
+            "primary timing base: pooled warm series of the 3-session Isolated campaign"),
     }
-    emit(DATA / "wcet.json", "WCET fixture replay (Profile-B campaign, pooled warm)",
+    emit(DATA / "wcet.json", "WCET fixture replay (Isolated campaign, pooled warm)",
          meta, warm)
 
     # ---- cold -> wcet_cold.json ----
@@ -145,10 +145,10 @@ def main():
         "warmup": 0,
         "cache_condition": "cold",
         "note": "between-sample software cache eviction (WCET_EVICT_BYTES; an approximation "
-                "-- see the policy's Cache Measurement Policy); Profile B",
-        "manifest": top_manifest(cold_manifests, "cold series of the Profile-B campaign"),
+                "-- see the policy's Cache Measurement Policy); Isolated",
+        "manifest": top_manifest(cold_manifests, "cold series of the Isolated campaign"),
     })
-    emit(DATA / "wcet_cold.json", "WCET fixture replay (Profile-B campaign, cold series)",
+    emit(DATA / "wcet_cold.json", "WCET fixture replay (Isolated campaign, cold series)",
          meta_cold, cold)
 
     # ---- co-runner series -> wcet_corunner.json (modes nested) ----
@@ -159,31 +159,31 @@ def main():
         modes[mode] = fixtures
         mode_manifests.extend(manifests)
     doc = {
-        "benchmark": "WCET fixture replay (Profile-B campaign, co-runner series)",
+        "benchmark": "WCET fixture replay (Isolated campaign, co-runner series)",
         "meta": {
             "unit": "ms",
             "note": "one-resource-at-a-time interference co-runner pinned to a different "
                     "physical core sharing the L3 (policy: Interference Sensitivity "
-                    "Experiment); Profile B",
+                    "Experiment); Isolated",
             "manifest": top_manifest(mode_manifests,
-                                     "co-runner series of the Profile-B campaign"),
+                                     "co-runner series of the Isolated campaign"),
         },
         "modes": modes,
     }
     (DATA / "wcet_corunner.json").write_text(json.dumps(doc, indent=1), encoding="utf-8")
     print(f"wrote {DATA / 'wcet_corunner.json'} ({len(modes)} modes)")
 
-    # ---- P-sweep (single Profile-B session) -> wcet_psweep.json ----
+    # ---- P-sweep (single Isolated session) -> wcet_psweep.json ----
     ps_dir = RUNS / "psweep" / "session-1"
     ps, ps_manifests, ps_iters = pool_series("warm", [ps_dir])
     meta_ps = dict(meta)
     meta_ps.update({
         "iters": ps_iters,
-        "manifest": top_manifest(ps_manifests, "P-sweep under the Profile-B protocol"),
+        "manifest": top_manifest(ps_manifests, "P-sweep under the Isolated protocol"),
         "note": "regenerated union-worst geometry per P (distinct fixture instances from "
-                "the frozen search-00); Profile B",
+                "the frozen search-00); Isolated",
     })
-    emit(DATA / "wcet_psweep.json", "WCET P-sweep (Profile-B campaign)", meta_ps, ps)
+    emit(DATA / "wcet_psweep.json", "WCET P-sweep (Isolated campaign)", meta_ps, ps)
 
     # ---- P-sweep counters at engine HEAD ----
     src = RUNS / "psweep" / "psweep_rust.json"
@@ -200,7 +200,7 @@ def main():
     alloc = load(src)
     alloc.setdefault("meta", {})["note"] = (
         "LD_PRELOAD interposer; allocation counts are deterministic and "
-        "environment-invariant (re-verified under the Profile-B environment)")
+        "environment-invariant (re-verified under the Isolated environment)")
     (DATA / "wcet_alloc.json").write_text(json.dumps(alloc, indent=1), encoding="utf-8")
     print(f"wrote {DATA / 'wcet_alloc.json'}")
 

@@ -6,7 +6,7 @@ Reads the per-engine, per-k cells produced by bench/run_c8.sh (a directory of
 guard) and emits a single merged JSON with a manifest. Both engines run on the isolated cores
 2,4,6,8 with per-worker pinning (OpenMP GOMP_CPU_AFFINITY; rayon NDT_PIN_RAYON_WORKERS +
 init_thread_pool). Speedups are computed WITHIN this boot/configuration (k=1 baseline), never
-against the frozen serial Profile-B campaign (a different isolation set).
+against the frozen serial Isolated campaign (a different isolation set).
 
 Guard: the Rust engine's iteration count must be identical across k for every fixture (the
 parallel backend is order-preserving and bit-identical to serial; k only changes wall time).
@@ -71,7 +71,7 @@ def main(c8_dir, commit):
             "NDT_PIN_RAYON_WORKERS (init_thread_pool pins worker i to the i-th cpuset CPU)",
             "note": "Throughput feasibility, NOT a multi-core WCET analysis: the serial engine "
             "remains the deterministic baseline. Speedups are within this boot (k=1 baseline); "
-            "not comparable to the frozen serial Profile-B (a different isolation set). Rust "
+            "not comparable to the frozen serial Isolated series (a different isolation set). Rust "
             "iteration counts are k-invariant (parallel backend bit-identical to serial).",
         },
         "inputs": inputs,

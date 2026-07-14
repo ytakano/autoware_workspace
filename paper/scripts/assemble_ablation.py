@@ -4,11 +4,11 @@
 Inputs (scratchpad/b4/):
   hill_default.json, hill_<seed>.json x3, random_<seed>.json x3,
   time_run1.json, time_run2.json, pareto_default_counters.json
-  <campaign session dir>/merged.json  (frontier timing, Profile B)
+  <campaign session dir>/merged.json  (frontier timing, Isolated)
 
 Provenance: runs produced by realtime_ndt_scan_matcher/examples/wcet_search.rs
 (WCET_SEARCH_MODE/FITNESS/JSON/PARETO_DIR), timing by bench/wcet_campaign.py
-under the Profile-B environment of the main campaign.
+under the Isolated environment of the main campaign.
 
 Archived for provenance: the run JSONs it consumed were one-time B4 session artifacts
 (this file's directory was the session scratchpad at run time); re-running the search
@@ -70,7 +70,7 @@ def main(timing_merged):
             "kd": c["kd_nodes_visited"],
         })
 
-    # Frontier timing (Profile B, warm, 100 samples). Engine cells carry raw samples.
+    # Frontier timing (Isolated, warm, 100 samples). Engine cells carry raw samples.
     m = load(timing_merged)
     timing = {}
     for fxname, fx in m["fixtures"].items():

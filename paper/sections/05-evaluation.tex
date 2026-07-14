@@ -3,8 +3,11 @@
 
 \subsection{Setup}
 \label{sec:eval-setup}
-All engine-tier timing follows the controlled-engine configuration, \textbf{Profile B}, of
-our measurement policy. The host uses \envCpu{} and \envKernel{}. The benchmark core is
+We use three named measurement configurations. \emph{Isolated} denotes controlled engine
+characterization on a pinned core, \emph{Replay} denotes real-data replay under normal CFS
+scheduling, and \emph{Bare-metal} denotes evaluation on the AArch64 \texttt{no\_std} target.
+All engine-tier timing follows the Isolated configuration of our measurement policy. The
+host uses \envCpu{} and \envKernel{}. The benchmark core is
 isolated with \texttt{isolcpus} and \texttt{nohz\_full}; IRQ affinities are moved, with
 three immovable IRQs remaining. Its SMT sibling is offline, and the \envGovernor{}
 governor pins its frequency at \SI{3.2}{GHz}. We compile C++ with \envCppCompiler{} and
@@ -90,7 +93,7 @@ the C++ engine's on the measured fixtures in Table~\ref{tab:tails}. Ratios span
 The \emph{subnormal} fixture's outlier ratio of $\subnormalMedianRatio\times$ at p50 required
 a controlled check. Re-generating the same fixture with the source shell pulled from
 \SI{1.99}{m} to \SI{1.69}{m}, which moves every kernel $\exp$ result out of the subnormal
-band with all else equal, did \emph{not} reduce the time under the same Profile-B protocol:
+band with all else equal, did \emph{not} reduce the time under the same Isolated protocol:
 the control is marginally \emph{slower}. C++ p50 rises from
 \SI{\oneoffShellSubCpp}{ms} to \SI{\oneoffShellCtrlCpp}{ms}, and Rust p50 rises from
 \oneoffShellSubRust{} to \oneoffShellCtrlRust. On this microarchitecture, subnormal
@@ -197,7 +200,7 @@ mostly-empty radius searches skip the per-result containers.
 \label{sec:eval-interference}
 \input{tables/interference}
 
-Table~\ref{tab:interference} reports two further Profile-B series that probe the
+Table~\ref{tab:interference} reports two further Isolated series that probe the
 warm-series results. The \emph{cold} series uses between-sample software cache eviction
 and shifts medians by at most \coldWorstPct\% across the whole fixture set: the
 worst-case-shaped inputs are already cache-hostile, so eviction adds little. The
@@ -349,7 +352,7 @@ therefore remains the tier's hardest measured witness in our search family.
 
 Even under the deployment contracts the serial Rust engine misses the \SI{100}{ms} budget on
 the tier's witness: \emph{legal-worst} costs \SI{\parRustLegalSerialMs}{ms} at $k{=}1$ here.
-This reproduces the \SI{\legalWorstMaxRust}{ms} frozen Profile-B maximum from
+This reproduces the frozen \SI{\legalWorstMaxRust}{ms} maximum measured under Isolated from
 Sec.~\ref{sec:eval-twotier} to within run-to-run variation. Both engines,
 however, expose a thread count: the C++ engine through OpenMP, and the Rust port through a
 rayon-backed derivative reduction that is \emph{order-preserving and bit-identical to the
@@ -417,7 +420,7 @@ is the 27, not the 8. Third, under degraded priors the iteration cap is \emph{ro
 reached on real geometry, affecting \realIterCapPct\% of on-map frames and corroborating the deployment
 tier's iteration axis with real data.
 
-The timing rows are \textbf{Profile-A} results under the measurement policy. They use
+The timing rows report the \emph{Replay} configuration. They use
 normal CFS scheduling, no pinning, one align per frame in production order, and a pinned
 \SI{3.2}{GHz} reference clock on all cores. The real worst frame costs
 \SI{\realCppMax}{ms} in C++ and \SI{\realRustMax}{ms} in Rust. Under this degraded-prior
@@ -427,8 +430,9 @@ aligns exceed the \SI{100}{ms} budget. They represent
 \SI{\realCppMedOnMap}{ms}. Rust never exceeds the budget under this degraded-prior
 track. The Rust maximum sits
 $\realMarginDeploy\times$ below the deployment-tier witness and
-${\sim}\realMarginEngine\times$ below the engine tier. These tier maxima are Profile-B
-values. For Rust, the bridge experiment justifies the comparison with A/B ratios of
+${\sim}\realMarginEngine\times$ below the engine tier. These tier maxima are Isolated
+values. For Rust, the bridge experiment justifies the comparison with
+Replay-to-Isolated ratios of
 $\bridgeRustInflMin$--$\bridgeRustInflMax\times$, as reported in
 Sec.~\ref{sec:eval-bridge}.
 Two scope notes: a production ECU's governor and boost behavior may differ from the pinned
@@ -484,10 +488,10 @@ feature-poor geometry, and map edges.
 
 \input{tables/realdata}
 
-\subsection{Bridge experiment: controlled vs.\ production profiles}
+\subsection{Bridge experiment: Isolated and Replay configurations}
 \label{sec:eval-bridge}
-Our measurement policy links the two profiles through a mandatory bridge experiment. The
-same five frozen inputs replay under both profiles: the union-worst, both deployment-legal
+Our measurement policy links the two configurations through a mandatory bridge experiment. The
+same five frozen inputs replay under both configurations: the union-worst, both deployment-legal
 witnesses, and the slowest and median-cost real frames frozen from the drive capture. They
 use the same \SI{3.2}{GHz} reference clock and harness, differing only in the environment.
 Table~\ref{tab:bridge} reports medians, maxima, and the descriptive
@@ -506,19 +510,22 @@ For the \textbf{C++} engine the ratio is \emph{uniformly below one}, spanning
 $\bridgeCppInflMin$--$\bridgeCppInflMax\times$. The controlled environment is not
 engine-neutral. A same-boot control narrows the cause. Pinned to the isolated core the C++
 \emph{legal-osc} align costs \SI{194.9}{ms} against \SI{165.8}{ms} on a non-isolated core
-of the same boot, same pin, while Rust, in the same binary, is unchanged. Profile B is thus
+of the same boot, same pin, while Rust, in the same binary, is unchanged. The Isolated
+configuration is thus
 \emph{associated} with a \SI{\bridgeCppTaxMinMs}{}--\SI{\bridgeCppTaxMaxMs}{ms} higher C++
 per-align constant on the measured inputs; because this control varies the physical core
 and the per-core \texttt{isolcpus}, \texttt{nohz\_full}, and \texttt{rcu\_nocbs} flags
 together, the responsible mechanism remains unresolved. The zero-allocation engine's
 immunity points at the allocator and per-query machinery; a same-core two-boot experiment
 would settle the question. Frequency,
-SMT-sibling state, transparent hugepages, and fault counts were ruled out by direct A/B
-tests; a fixed-work calibration spin runs marginally \emph{faster} on the isolated core.
-Consequently the Profile-B C++ maxima are \emph{conservative} for this production
+SMT-sibling state, transparent hugepages, and fault counts were ruled out by direct paired
+tests across the two configurations; a fixed-work calibration spin runs marginally
+\emph{faster} on the isolated core.
+Consequently the Isolated C++ maxima are \emph{conservative} for this production
 configuration, and every cross-engine conclusion of Table~\ref{tab:tails} survives under
-Profile A, although the relative gap narrows. The \emph{legal-worst} maximum ratio changes
-from \bridgeGapBLegalWorst{} under B to \bridgeGapALegalWorst{} under A. The policy's caution
+Replay, although the relative gap narrows. The \emph{legal-worst} maximum ratio changes
+from \bridgeGapBLegalWorst{} under Isolated to \bridgeGapALegalWorst{} under Replay. The
+policy's caution
 that scheduler and interference costs must not be assumed additive or constant is
 confirmed: for one engine the ``interference inflation'' is not even ${\ge}1$.
 
@@ -552,7 +559,7 @@ sensitivity. The counters double as a behavioral fingerprint of the engine \emph
 which is why the artifact-manifest discipline of Sec.~\ref{sec:threats} pins baselines to
 engine commits.
 
-The timing columns of Table~\ref{tab:raspi4} are a \textbf{Profile-C} series, an amendment
+The timing columns of Table~\ref{tab:raspi4} report the \emph{Bare-metal} series, an amendment
 to the measurement policy for OS-less targets. For each fixture, the series contains
 \raspiTimingSamples{} warm and \raspiTimingCold{} cold samples on the warm map and is
 bracketed by a fixed-work
@@ -562,14 +569,14 @@ ${\sim}55$-minute run the calibration drifted at most \raspiCalibDriftPct\%: no 
 throttling. The distributions are very tight: worst warm max/p50 across all fixtures is
 ${+}\raspiSpreadWorstPct\%$. The cold series uses an 8\,MiB eviction sweep before every
 sample and sits at most ${+}\raspiColdDeltaWorstPct\%$ above the warm maximum, tighter than
-the isolated-host Profile-B series, as expected with no OS, one active core, and a
+the Isolated host series, as expected with no OS, one active core, and a
 firmware-fixed clock. This is the platform class where the factorization of
 Sec.~\ref{sec:threats} is closest to its intended use: the work bound transfers exactly
 through the counters, and the per-unit cost has sub-percent spread and is nearly deterministic. Thus,
 $\text{work bound} \times \text{unit-cost bound}$ approaches an analytical WCET. In
 absolute terms the serial configuration is not schedulable at 10\,Hz on this target: the
 engine-tier worst costs \SI{\raspiSearchWarmMaxS}{s}, or $\raspiHostFactor\times$ the
-x86 host's Profile-B maximum. Even the deployment-tier witness \emph{legal-worst} costs
+x86 host's Isolated maximum. Even the deployment-tier witness \emph{legal-worst} costs
 $\raspiLegalWorstBudgetX\times$ the \SI{100}{ms} budget; Table~\ref{tab:raspi4} gives
 the per-fixture values. The Pi~4 is the evaluation target rather than the production ECU,
 so we read this as a requirement on the production platform: roughly
@@ -587,7 +594,7 @@ parallelization. Section~\ref{sec:eval-parallel} measures approximately
 \label{sec:eval-evt}
 \input{tables/evt}
 
-With $3{\times}1000$ Profile-B samples per tail-claim fixture, we ran the
+With $3{\times}1000$ Isolated samples per tail-claim fixture, we ran the
 measurement-based-\pwcet{} analysis in full: peaks-over-threshold fits of a generalized
 Pareto distribution by maximum likelihood, separately per session because pooling would
 mix the documented cross-session level shifts. The analysis uses a threshold sweep,

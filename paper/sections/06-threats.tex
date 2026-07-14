@@ -3,7 +3,7 @@
 
 
 \subsection{Measurement and statistical rigor}
-Engine-tier timing follows the controlled Profile-B protocol defined in
+Engine-tier timing follows the Isolated protocol defined in
 Sec.~\ref{sec:eval-setup}:
 isolated pinned core, \envSessions{} sessions spanning a reboot cycle with randomized
 orders, warm/cold/co-runner series separated, and a calibration guard that aborted (and
@@ -17,7 +17,7 @@ the Rust/C++ max ratios are stable to $\pm\sessRatioSpreadWorst$.
 
 Remaining limits include the use of one machine. The real-data replay of
 Sec.~\ref{sec:eval-realdata} is single-shot, with one align per frame per engine under
-Profile A, so its per-frame times carry
+Replay, so its per-frame times carry
 no repetition statistics; the parallel-feasibility numbers of
 Sec.~\ref{sec:eval-parallel} are a host throughput observation, not a multi-core WCET
 result. Worker interference and scheduling under contention are unmodeled, and the serial

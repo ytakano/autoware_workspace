@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Assemble paper/data/bridge.json — the A/B bridge experiment (policy: Bridge Experiment).
+"""Assemble paper/data/bridge.json for the Replay-to-Isolated bridge experiment.
 
 Five inputs, both profiles:
   synthetic (search_00, legal_worst, legal_osc):
-    A-leg: bench/campaign_runs/profileA/session-1/warm.json
+    Replay leg: bench/campaign_runs/profileA/session-1/warm.json
     B-leg: paper/data/wcet.json (pooled 3-session campaign)
   real (real_slowest, real_median):
-    A-leg: same profileA session
+    Replay leg: same profileA session
     B-leg: bench/campaign_runs/<b_leg_session>/warm.json  (short controlled session)
 
 Usage: assemble_bridge.py <b_leg_warm.json>
@@ -29,9 +29,9 @@ def stats(samples):
 
 
 def main(b_leg_path):
-    # C3: the A-leg now uses the matched-n pooled Profile-A campaign (synthetics at n=3000, the
+    # C3: the Replay leg uses the matched-n pooled campaign (synthetics at n=3000, the
     # 3 x 1000 pooled run; real-frame legs copied from the original session-1 at n=100, already
-    # matched to their B-leg), so the synthetic A/B max comparison is same-n.
+    # matched to their Isolated leg), so the synthetic max comparison is same-n.
     a_doc = json.loads((B / "campaign_runs/profileA/c3_pooled/warm.json").read_text())
     b_pool = json.loads((DATA / "wcet.json").read_text())
     b_real = json.loads(pathlib.Path(b_leg_path).read_text())
