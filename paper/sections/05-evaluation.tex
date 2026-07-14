@@ -32,7 +32,7 @@ $\rightarrow$ 9 blocks; the generation-0 value is from the recorded search log, 
 value from the frozen fixture's counters).
 The frozen union-worst fixture (\emph{search-00}; ``union-worst'' throughout means worst in
 the \emph{counter} order, i.e.\ counter-extremal) dominates every other frozen fixture on
-every engine and percentile (Table~\ref{tab:tails}); the frontier ablation below sharpens
+every engine and percentile (Table~\ref{tab:tails}); the frontier ablation below refines
 the scope of that statement. Table~\ref{tab:counters} lists the frozen set.
 
 \input{tables/counters}
@@ -90,7 +90,7 @@ band with all else equal, did \emph{not} reduce the time under the same Profile-
 the control is marginally \emph{slower} (C++ \SI{\oneoffShellSubCpp}{ms} $\rightarrow$
 \SI{\oneoffShellCtrlCpp}{ms} p50; Rust \oneoffShellSubRust{} $\rightarrow$
 \oneoffShellCtrlRust). Subnormal operands are therefore \emph{not} the mechanism on this
-microarchitecture --- if anything, removing them costs slightly more; a
+microarchitecture (if anything, removing them costs slightly more); a
 microbenchmark confirms that subnormal-result \texttt{exp} costs only
 $\oneoffExpSubGlibc\times$/$\oneoffExpSubLibm\times$ per call for glibc/\texttt{libm},
 negligible at this fixture's $\bar{K}=\subnormalKbar$.
@@ -104,8 +104,8 @@ the measured allocator fast path (\SI{\oneoffMallocPairNs}{ns} per malloc/free p
 $\times$ ${\approx}\subnormalAllocPairs$ pairs) accounts for only
 ${\sim}\subnormalAllocSharePct\%$; the remainder is the per-query search machinery around
 pcl/FLANN (call indirection and result-container handling) that the Rust engine's direct,
-allocation-free kd query does not pay. This sharpens the allocation story of
-Sec.~\ref{sec:eval-alloc}: heap churn is cheap \emph{on average}, and its significance is
+allocation-free kd query does not pay. This refines the allocation analysis of
+Sec.~\ref{sec:eval-alloc}: heap churn is inexpensive \emph{on average}, and its significance is
 the unbounded latency tail, while the mean-cost gap on sparse inputs is search-machinery
 overhead. (No hardware performance counters are available in the measurement container, so
 the final split is arithmetic over microbenchmarks rather than counter-attributed;
@@ -129,9 +129,9 @@ per-pass point and neighbor counts, and each point's neighbor-leaf set) transfer
 the measured C++ pass count equals $N_{\mathrm{iter}}{+}1$ on every input: the equal-work
 transfer previously certified indirectly (iteration/pose/score plus the allocation leg of
 Sec.~\ref{sec:eval-alloc}) is now measured directly on the C++ side, per input. The
-\emph{numeric} legs sharpen the fidelity picture: the per-pass score agrees to
+\emph{numeric} legs quantify the fidelity: the per-pass score agrees to
 \traceUlpConvMax{} f64 ULP or better on the well-conditioned fixtures (bit-identical on
-\emph{cache-hostile}) but drifts to $\traceUlpWorstTex$ ULP on knife-edge geometries. The
+\emph{cache-hostile}) but drifts to $\traceUlpWorstTex$ ULP on the most ill-conditioned geometries. The
 mechanism is structural, not a defect: pcl/FLANN returns each point's neighbors sorted by
 distance while the port's kd walk returns them in visit order, so the two engines
 accumulate identical per-point neighbor sets in different orders; f64 bit-equality of the
@@ -143,10 +143,10 @@ traced replay reproduces the frozen capture frame-exactly (identical per-frame i
 counts and match verdicts on all \realFrames{} frames). Of the \traceRealCertOnMap{} on-map
 frames that pass the base (equal-iteration) certificate, \traceRealWorkCertOnMap{} also
 pass the full trace certificate, while \traceRealWorkGapFrames{} perform
-\emph{equal-iteration but unequal work}: their per-point neighbor sets differ (median
-$|\Delta\sumnbr| = \traceRealWorkGapNbrMed$, maximum \traceRealWorkGapNbrMax, i.e.\ at most
-\traceRealWorkGapRelMaxPct\% of the frame's kernel evaluations) --- the same knife-edge
-boundary mechanism as the iteration divergences, caught below the iteration threshold.
+\emph{equal-iteration but unequal work}: their per-point neighbor sets differ by a median
+$|\Delta\sumnbr|$ of \traceRealWorkGapNbrMed{} and a maximum of \traceRealWorkGapNbrMax,
+at most \traceRealWorkGapRelMaxPct\% of the frame's kernel evaluations. This is the same
+boundary mechanism as the iteration divergences, caught here below the iteration threshold.
 Equal iteration count is therefore measurably \emph{not} sufficient for equal work, and the
 strict work-certified set on this drive is $E_{\mathrm{trace}} = \traceRealETrace$ of
 \realFrames{} frames (all off-map frames certify exactly). The \realDivergences{}
@@ -212,7 +212,7 @@ per-operation cost for both engines. The per-point axis remains engine-asymmetri
 it is real but not separately identified: adding it collapses the worst leave-one-out miss
 from \regLooMaxCppTwoTerm\% to \regLooMaxCppFourTerm\% (median \regLooMedCpp\%), yet the
 coefficient's CI covers zero ([\regPtUsCppLo,\,\regPtUsCppHi]\,\si{\micro\second}) because
-FLANN's per-query work is itself nearly proportional to the point count --- the per-point
+FLANN's per-query work is itself nearly proportional to the point count, so the per-point
 machinery cost is shared between $c_{\mathrm{pt}}$ and $b$, with the point estimate
 (\SI{\regPtUsCpp}{\micro\second}) consistent with the
 ${\approx}\subnormalPtPassCppUs$\,\si{\micro\second} per-point overhead measured
@@ -327,7 +327,9 @@ therefore remains the tier's hardest measured witness.
 \input{tables/parallel}
 
 Even under the deployment contracts the serial Rust engine misses the \SI{100}{ms} budget on
-the tier's witness (\emph{legal-worst}, \SI{\parRustLegalSerialMs}{ms}). Both engines,
+the tier's witness: \emph{legal-worst} costs \SI{\parRustLegalSerialMs}{ms} at $k{=}1$ here,
+reproducing the frozen Profile-B maximum (\SI{\legalWorstMaxRust}{ms},
+Sec.~\ref{sec:eval-twotier}) to within run-to-run variation. Both engines,
 however, expose a thread count: the C++ engine through OpenMP, and the Rust port through a
 rayon-backed derivative reduction that is \emph{order-preserving and bit-identical to the
 serial backend} (the per-point contributions are folded in point index order regardless of
@@ -338,8 +340,8 @@ interference, scheduling) is out of scope.
 
 We ran both engines on $k \in \{1,2,4\}$ isolated physical cores, one worker pinned per core.
 Both engines take an equivalent CPU-affinity environment variable that pins worker $i$ to the
-$i$-th listed core --- \texttt{GOMP\_CPU\_AFFINITY} for the C++ OpenMP threads, and a matching
-\texttt{NDT\_RAYON\_CPU\_AFFINITY} we added for the port's rayon pool. Explicit pinning is
+$i$-th listed core (\texttt{GOMP\_CPU\_AFFINITY} for the C++ OpenMP threads, and a matching
+\texttt{NDT\_RAYON\_CPU\_AFFINITY} we added for the port's rayon pool). Explicit pinning is
 necessary here because \texttt{isolcpus} disables the kernel's automatic load balancing, so
 unpinned workers would share one core. Table~\ref{tab:parallel} reports the result: both
 engines scale nearly
@@ -409,7 +411,7 @@ the replay; a full-stack co-residency run remains future work. The counter rows 
 environment-independent.
 
 Fourth, equal work holds on \realMatch{} of \realFrames{} frames overall (\realMatchPct\%),
-but the honest denominator is the on-map subset: all \realDivergences{} divergences fall on
+but the appropriate denominator is the on-map subset: all \realDivergences{} divergences fall on
 on-map frames, so the equal-work rate over the frames doing meaningful matching work is
 \realOnMapMatchPct\% (\realOnMapMatch{} of \realOnMap).
 % DATA-CHECKED(2026-07-11): every mismatch frame in data/realdata.json has sum_neighbors > 0;
@@ -422,7 +424,7 @@ Sec.~\ref{sec:eval-tracecert} records per-engine iteration counts and pose delta
 frame: the divergent frames fork at a late pass and end up to
 $\pm\traceRealDivIterDeltaMax$ iterations and \SI{\traceRealDivTransDeltaMax}{m} apart.)
 
-Locating that residual sharpens its reading. The \realOnMap{} on-map frames form
+Locating that residual clarifies its reading. The \realOnMap{} on-map frames form
 \realSegments{} contiguous segments (the reconstructed route repeatedly grazes the cropped
 map's edge before leaving it); the \realDivergences{} divergences cluster in
 \realDivSegments{} of them, yet look like ordinary frames: $\bar{K}$ near the on-map
@@ -432,7 +434,7 @@ median ($\bar{K}$ \realDivKbarMin--\realDivKbarMax), iteration counts spanning
 \SI{\realDivCppMed}{ms}/\SI{\realDivCppMax}{ms} p50/max, Rust
 \SI{\realDivRustMed}{ms}/\SI{\realDivRustMax}{ms}, against the overall C++ maximum
 \SI{\realCppMax}{ms}). This is the signature of
-the knife-edge fork mechanism of Sec.~\ref{sec:threats} (a late derivative pass rounds
+the boundary fork mechanism of Sec.~\ref{sec:threats} (a late derivative pass rounds
 differently and the engines then take different convergence paths), not of a systematic
 regime the certificate would be blind to.
 
@@ -444,7 +446,7 @@ the NDT measurement's own noise; the \SI{\traceRealTransDeltaMax}{m}--%
 \SI{\traceRealDivTransDeltaMax}{m} tails arise precisely on the ill-conditioned frames
 (oscillating, degraded-prior, map-edge) where the measurement is low-quality for
 \emph{either} engine, the forks carry no systematic sign, and these are the frames the
-production pipeline is built to attenuate --- the transform-probability/NVTL publish gates,
+production pipeline is built to attenuate: the transform-probability/NVTL publish gates,
 the oscillation diagnostic (Sec.~\ref{sec:impl-legal}), the estimated pose covariance, and
 the downstream filter's innovation gating. Whether that attenuation fully absorbs an engine
 swap is a \emph{closed-loop} question that our open-loop replay cannot answer, so we state
@@ -515,7 +517,7 @@ the FPU at IEEE defaults, with the \emph{subnormal} fixture transferring exactly
 bisection located the true cause \emph{off-target}: the embedded expectations had been
 transcribed from a host snapshot that predated one of the two port-fidelity fixes of
 Sec.~\ref{sec:threats} (the pcl f32 transform-association mirror), which shifts this
-knife-edge fixture's work by \raspiNbrDelta{} evaluations in \raspiMismatchNbrM\,M.
+boundary-sensitive fixture's work by \raspiNbrDelta{} evaluations in \raspiMismatchNbrM\,M.
 Re-baselining against the fixed engine reconciles host, emulator, and hardware exactly: the
 re-captured hardware run (Table~\ref{tab:raspi4}) reports \raspiDeviceOk{} of \raspiTotal{}
 on-device, with counters bit-identical between the two hardware runs. No measurable ISA
@@ -535,7 +537,7 @@ ${+}\raspiSpreadWorstPct\%$, and the cold series (an 8\,MiB eviction sweep befor
 sample) sits at most ${+}\raspiColdDeltaWorstPct\%$ above the warm maximum, tighter than
 the isolated-host Profile-B series, as expected with no OS, one active core, and a
 firmware-fixed clock. This is the platform class where the factorization of
-Sec.~\ref{sec:threats} pays off: the work bound transfers exactly (the counters), the
+Sec.~\ref{sec:threats} is most effective: the work bound transfers exactly (the counters), the
 per-unit cost is nearly deterministic (sub-percent spread), so
 $\text{work bound} \times \text{unit-cost bound}$ approaches an analytical WCET. In
 absolute terms the serial configuration is not schedulable at 10\,Hz on this target: the

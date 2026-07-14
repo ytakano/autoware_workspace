@@ -18,7 +18,7 @@ Remaining limits: one machine; the real-data replay of Sec.~\ref{sec:eval-realda
 single-shot (one align per frame per engine under Profile A), so its per-frame times carry
 no repetition statistics; the parallel-feasibility numbers of
 Sec.~\ref{sec:eval-parallel} are a host throughput observation, not a multi-core WCET result
-(worker interference and scheduling under contention are unmodeled --- the serial engine
+(worker interference and scheduling under contention are unmodeled, and the serial engine
 stays the deterministic baseline); and the full POT/MLE
 extreme-value treatment was run and its \emph{diagnostics rejected extrapolation}. The
 per-session sample series carry serial dependence up to $|\mathrm{ACF}| = \evtAcfWorst$, so
@@ -50,11 +50,11 @@ meaningful matching work.
 
 The residual is irreducible without matching glibc's eigensolver and \texttt{f64}
 transcendentals bit-for-bit (eigensolver ${\le}\oneoffEigensolverBound$ on the inverse
-covariances; \texttt{libm}-vs-glibc \texttt{exp}) --- and, more fundamentally, without
-matching the per-point neighbor accumulation \emph{order}, which differs by design
-(pcl/FLANN returns distance-sorted neighbors, the port its kd-visit order;
-Sec.~\ref{sec:eval-tracecert}). These sub-f32-ULP \texttt{f64} differences surface only on
-knife-edge frames. This residual is
+covariances, and \texttt{libm} against glibc \texttt{exp}). More fundamentally, it is
+irreducible without matching the per-point neighbor accumulation \emph{order}, which differs
+by design: pcl/FLANN returns distance-sorted neighbors whereas the port returns them in
+kd-visit order (Sec.~\ref{sec:eval-tracecert}). These sub-f32-ULP \texttt{f64} differences
+surface only on the marginal frames, which is
 why the paper claims work equivalence only over the certified subset $E$
 (Sec.~\ref{sec:meth-transfer}): all \realDivergences{} divergent frames lie \emph{inside}
 the bounded-neighbor domain $D$, so membership in $D$ alone does not guarantee equal work;

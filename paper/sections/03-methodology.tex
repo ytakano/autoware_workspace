@@ -8,8 +8,8 @@ instrumented Rust engine to the unmodified C++ engine, and a second one connects
 the deployment target.
 
 \subsection{Layer 1: structural bound, property-tested}
-For fixed caller-side parameters --- the scan size $P$ and the map size $N_{\mathrm{leaves}}$,
-which are contracts of the caller (Table~\ref{tab:preconditions}) --- every internal term of
+The scan size $P$ and the map size $N_{\mathrm{leaves}}$ are caller-side contracts
+(Table~\ref{tab:preconditions}); once they are fixed, every internal term of
 \eqref{eq:decomp} is enforced by construction in the Rust engine (static loop guards, the hard
 \maxnn{} search cap, pre-reserved buffers) and \emph{automatically checked} by property-based
 tests over randomized maps, clouds, and parameters: for every sampled input,
@@ -28,9 +28,9 @@ compile-time feature whose disabled form compiles to nothing. A seeded hill-clim
 parameterized input generator (map tile overlap, map extent, centroid crowding vs.\ surface
 roughness, source composition, initial-guess offset, convergence threshold) and maximizes
 the lexicographic counter vector $(N_{\mathrm{iter}}, \sumnbr, \kdnodes)$. Because the
-fitness is a pure function of the input, the search is reproducible, and its result --- a
-\emph{counter-extremal} input --- is a property of the \emph{algorithm}, not of the
-measurement machine. $P$ is deliberately \emph{not} a search freedom: it is a caller-side
+fitness is a pure function of the input, the search is reproducible, and the
+\emph{counter-extremal} input it returns is a property of the \emph{algorithm} rather than
+of the measurement machine. $P$ is deliberately \emph{not} a search freedom: it is a caller-side
 cap, and searching it would saturate trivially while masking the interesting terms.
 
 A lexicographic scalarization need not rank the \emph{time}-worst input first: an input with
@@ -57,11 +57,11 @@ leaves, so that the port's hard cap never truncates;
 Sec.~\ref{sec:implementation} shows that all preprocessing-reachable inputs (and everything
 short of three adversarially crowded overlapping tiles) lie in $D$. Membership in $D$ is
 \emph{necessary} for equal work but not sufficient: within $D$ the engines can still diverge
-on knife-edge inputs through sub-ULP library differences, and the real-data replay exhibits
+on marginal inputs through sub-ULP library differences, and the real-data replay exhibits
 \realDivergences{} such frames (Sec.~\ref{sec:threats}). We therefore claim work
 equivalence only over the \textbf{certified subset} $E \subseteq D$: the inputs on which the
 per-input certificate below has passed. Every cross-language worst-case claim in this paper
-is a claim over $E$, exhibited input by input --- a counter-extremal input discovered on the
+is a claim over $E$, exhibited input by input: a counter-extremal input discovered on the
 instrumented Rust engine is carried to the C++ engine and its equal work is
 \emph{certified}, not assumed. Outside $D$ the engines intentionally diverge; the C++
 engine's neighbor set, and with it its cost, grows without bound with tile multiplicity,
@@ -74,9 +74,9 @@ frozen fixtures, agreement of the final pose and both convergence scores; a mism
 the input instead of silently comparing unequal work, and the same assertion doubles as the
 runtime membership check for $D$, since truncation breaks equal work. Equal iteration count
 alone is, however, only a \emph{necessary} condition for equal work. The \emph{trace}
-certificate closes that gap: a local \emph{analysis build} of the C++ engine --- an
-instrumented copy of its sources, never shipped (the byte-identical constraint governs the
-shipped sources only) --- records a per-pass trace (pass count, per-pass point and neighbor
+certificate closes that gap. A local \emph{analysis build} of the C++ engine (an
+instrumented copy of its sources, never shipped, since the byte-identical constraint governs
+the shipped sources only) records a per-pass trace (pass count, per-pass point and neighbor
 counts, and a hash of each point's neighbor-leaf \emph{set}) that the replay compares
 leg by leg against the Rust engine's mirrored trace (Sec.~\ref{sec:eval-tracecert}). On
 every frozen fixture the trace certificate holds exactly; on real data it measures
@@ -119,9 +119,9 @@ fixtures and their counter values therefore carry over to the bare-metal deploym
 unchanged, and the transfer is \emph{checkable} there by re-running the counters and
 asserting equality: the same per-input certification as the cross-language comparison.
 
-We executed this protocol on the deployment-class evaluation target --- a Raspberry Pi~4
+We executed this protocol on the deployment-class evaluation target (a Raspberry Pi~4
 running the bare-metal \texttt{no\_std} kernel; the production ECU is expected to be
-substantially faster (Sec.~\ref{sec:eval-raspi4}) --- and the counters transfer
+substantially faster, Sec.~\ref{sec:eval-raspi4}), and the counters transfer
 \emph{exactly} on all \raspiTotal{} frozen fixtures. (One fixture initially flagged;
 bisection traced the mismatch to a stale host-side expectation snapshot, not to the ISA;
 Sec.~\ref{sec:eval-raspi4}.) The \texttt{libm} choice also costs a bounded, measured loss
