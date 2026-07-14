@@ -336,11 +336,13 @@ throughput lever, not as an extension of the WCET argument: the serial engine re
 deterministic baseline of this paper, and a multi-core \emph{WCET} analysis (worker
 interference, scheduling) is out of scope.
 
-We ran both engines on $k \in \{1,2,4\}$ isolated physical cores, one worker pinned per core
-(the C++ threads via \texttt{GOMP\_CPU\_AFFINITY}, the rayon workers via a pool that pins
-worker $i$ to the $i$-th core of the process's CPU set --- necessary because
-\texttt{isolcpus} disables the kernel's automatic load balancing, so unpinned workers would
-share one core). Table~\ref{tab:parallel} reports the result: both engines scale nearly
+We ran both engines on $k \in \{1,2,4\}$ isolated physical cores, one worker pinned per core.
+Both engines take an equivalent CPU-affinity environment variable that pins worker $i$ to the
+$i$-th listed core --- \texttt{GOMP\_CPU\_AFFINITY} for the C++ OpenMP threads, and a matching
+\texttt{NDT\_RAYON\_CPU\_AFFINITY} we added for the port's rayon pool. Explicit pinning is
+necessary here because \texttt{isolcpus} disables the kernel's automatic load balancing, so
+unpinned workers would share one core. Table~\ref{tab:parallel} reports the result: both
+engines scale nearly
 linearly (Rust ${\approx}\parRustSpeedupFour\times$, C++ ${\approx}\parCppSpeedupFour\times$
 at $k{=}4$), and the Rust engine's iteration counts are identical across $k$ (the
 bit-identical property, now measured, not just asserted). The deployment-tier residual
