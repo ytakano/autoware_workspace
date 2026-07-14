@@ -180,7 +180,7 @@ def main():
     meta_ps.update({
         "iters": ps_iters,
         "manifest": top_manifest(ps_manifests, "P-sweep under the Isolated protocol"),
-        "note": "regenerated union-worst geometry per P (distinct fixture instances from "
+        "note": "regenerated shared counter-extremal geometry per P (distinct fixture instances from "
                 "the frozen search-00); Isolated",
     })
     emit(DATA / "wcet_psweep.json", "WCET P-sweep (Isolated campaign)", meta_ps, ps)

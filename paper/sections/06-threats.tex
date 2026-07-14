@@ -15,7 +15,10 @@ environment sensitivity. On the worst fixture, per-session medians agree within
 or without a reboot. The
 the Rust/C++ max ratios are stable to $\pm\sessRatioSpreadWorst$.
 
-Remaining limits include the use of one machine. The real-data replay of
+Remaining limits include the use of one machine and a comparison of two complete
+implementations rather than languages in isolation. Allocators, layouts, containers,
+kd-trees, math libraries, and compiler choices all contribute to the measured difference;
+matched flags, a bounded C++ redesign, and component ablations remain future work. The real-data replay of
 Sec.~\ref{sec:eval-realdata} is single-shot, with one align per frame per engine under
 Replay, so its per-frame times carry
 no repetition statistics; the parallel-feasibility numbers of
@@ -46,8 +49,9 @@ diverged by ${\pm}1$ on ${\sim}2\%$ of real frames. Root-causing identified and 
 port-fidelity gaps invisible to translation-only fixtures: the C++ engine transforms its
 \emph{initial} pass by the guess matrix rather than the Euler rebuild, and pcl's SSE transform
 kernel is right-associated with the translation innermost. Fixing both reduced the
-divergence to \realDivergences{} of \realFrames{} frames, or \realDivPctAll\%. The honest
-denominator is smaller: all \realDivergences{} divergences lie on the \realOnMap{} on-map
+iteration-count divergence to \realIterationDivergent{} of \realFrames{} frames, or
+\realDivPctAll\%. The honest denominator is smaller: all
+\realIterationDivergent{} divergences lie on the \realOnMap{} on-map
 frames identified in Sec.~\ref{sec:eval-realdata}. This is \realOnMapDivPct\% of the frames doing
 meaningful matching work.
 
@@ -59,15 +63,15 @@ irreducible without matching the per-point neighbor accumulation \emph{order}, w
 by design: pcl/FLANN returns distance-sorted neighbors whereas the port returns them in
 kd-visit order, as detailed in Sec.~\ref{sec:eval-tracecert}. These sub-f32-ULP \texttt{f64} differences
 surface only on the marginal frames, which is
-why the paper claims work equivalence only over the certified subset $E$ defined in
-Sec.~\ref{sec:meth-transfer}. All \realDivergences{} divergent frames lie \emph{inside}
-the bounded-neighbor domain $D$, so membership in $D$ alone does not guarantee equal work;
-equal work is \emph{certified per frame}, and the residual is flagged rather than silently
-compared. The trace certificate shows the same mechanism operating below the iteration
-threshold: \traceRealWorkGapFrames{} equal-iteration frames differ in their per-point
-neighbor sets by up to \traceRealWorkGapRelMaxPct\% of their kernel work, as shown in
-Sec.~\ref{sec:eval-tracecert}. Cross-language work statements are therefore scoped to
-trace-certified inputs.
+why the paper claims common-work equivalence only over $E_{\mathrm{trace}}$ defined in
+Sec.~\ref{sec:meth-transfer}. Direct membership in $D$ was not recorded: the capped Rust
+query reports at most 64 leaves without exposing whether a 65th existed. The trace instead
+provides retrospective count/hash evidence on evaluated inputs. It shows the same numerical
+boundary mechanism below the iteration threshold: \realBaseOnly{} equal-iteration frames
+differ in point-neighbor evaluations by up to \traceRealWorkGapRelMaxPct\% of their kernel
+work. Cross-language common-work statements are therefore scoped to the
+\realTraceOnMap{} on-map frames in $E_{\mathrm{trace}}$. The FNV-1a hash has non-zero
+collision risk and does not formally prove set equality.
 
 Relatedly, the Rust floating-point stream is \emph{designed} for ISA-stable execution
 through pure-software \texttt{libm} and the absence of FMA contraction in the kernel
@@ -116,13 +120,14 @@ $N_{\mathrm{iter}} = 30$ via a non-production $\epsilon$. The cap itself is lega
 reachable through the production-parameterized \emph{legal-osc} witness of
 Sec.~\ref{sec:impl-legal}, but no single legal input in our search family achieves the
 $K = 8$ and 30-iteration worst cases \emph{simultaneously}: the tier bound combines the two
-axes conservatively rather than exhibiting one witness for both. The tier's provable $K$
+axes conservatively rather than exhibiting one witness for both. The tier's analytic $K$
 ceiling of 27 has no constructed witness at all. Legal inputs may exist above the observed
-$K = \realKmaxMax$ and below that ceiling. A dedicated production-parameterized search
+$K = \realKmaxMax$ and below that ceiling. Boundary inclusion and floating-point radius
+comparison are assumptions in the ceiling derivation. A dedicated production-parameterized search
 uses \legalKSearchSeeds{} seeds through the same legality verifier and sets fitness to the
 per-point maximum $K$. It plateaus at $K = \legalKSearchMax$: the legal rough-surface family
 scatters centroids and cannot crowd more into one search ball, so the corner-lattice
-corner-lattice construction with $K = 8$ and the real map with
+construction with $K = 8$ and the real map with
 $K = \realKmaxMax$ remain the strongest known
 legal witnesses. Within these searched families, this is evidence that legal $K$ concentrates far below the ceiling, though
 not a proof.
@@ -176,7 +181,7 @@ $\text{work bound} \times \text{unit-cost bound}$ to an analytical WCET. Separat
 the structural removal of allocation, recursion, and panic hazards provides constructive
 properties rather than measurements. These properties make a finite bound \emph{possible} at all,
 since an engine that calls the allocator inside its align loop cannot be given a defensible
-finite bound under this allocator/system model. The deliverable is therefore ``the port
-does not regress WCET on any adversarial fixture, removes the structural hazards, and
-carries a work envelope enforced by construction and checked by property tests,'' not a
-proven absolute time bound.
+finite bound under this allocator/system model. The deliverable is therefore an enforced
+and property-tested work envelope, removal of specified structural hazards within the
+reserved capacity, and observed fixture maxima on the evaluated platforms. It is not a
+certified hard timing bound.

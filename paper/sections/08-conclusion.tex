@@ -6,14 +6,15 @@ data-dependent industrial kernel into
 a tractable pipeline: a structural work bound enforced and
 property-tested in the port, counter-extremal inputs found by a deterministic
 counter-guided search with an exact saturation certificate for the dominant term, and
-cross-language equal-work measurement
+cross-language common-work measurement
 requiring no instrumentation of the production C++ sources. The resulting evidence is
 \emph{layered}: enforced by construction and property-tested on the work axis, parametric in
 the caller's contract through a $P$-affine, two-tier model, and empirical only in the
-time-per-operation factor. On every adversarial fixture
-the Rust port meets or beats the C++ engine's observed maximum while eliminating its per-point
-heap-allocation hazard, and the per-input equal-work certification exposed port-fidelity gaps
-that conventional differential testing had missed.
+time-per-operation factor. On the shared adversarial fixtures, the Rust port meets or beats
+the C++ engine's observed maximum while eliminating its per-point heap-allocation hazard
+within the reserved envelope. The per-input trace exposed \realBaseOnly{} base-only and
+\realIterationDivergent{} iteration-divergent real frames that an iteration-only reading
+would have missed.
 
 Rust is not a prerequisite for the work bounds or real-time hardening reported here; an
 equivalent C++ redesign is possible. Its role in this case study is to discharge the safe
@@ -32,8 +33,9 @@ Sec.~\ref{sec:threats}. The serial engine is not schedulable at 10\,Hz on that t
 the production ECU should be audited with the same on-target $P$-sweep protocol. On the
 host, the port's order-preserving, numerically identical rayon backend parallelizes the
 derivative passes. Section~\ref{sec:eval-parallel} reports approximately
-\parRustSpeedupFour$\times$ at four cores and shows that two cores bring the
-deployment-tier witness within the \SI{100}{ms} budget. The full POT/MLE EVT machinery was
+\parRustSpeedupFour$\times$ at four cores; on this host, two cores bring the
+deployment-tier witness within the \SI{100}{ms} budget. This is throughput/deadline
+feasibility evidence, not a multi-core WCET result. The full POT/MLE EVT machinery was
 run and rejected by its own diagnostics in Sec.~\ref{sec:eval-evt}; reviving extrapolation needs an independence-preserving
 measurement protocol, not a better fit. Finally, the counter-guided transfer methodology is a candidate for other data-dependent
 Autoware kernels with comparable structural counters.

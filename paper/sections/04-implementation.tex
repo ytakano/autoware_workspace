@@ -9,7 +9,8 @@ The C++ engine is Autoware's pcl-based, OpenMP multigrid
 \texttt{no\_std}, without the standard library, so its computational core can run in
 real-time environments where that library is unavailable, including the evaluated bare-metal
 kernel deployment. Behind
-the C ABI it exposes the same entry points as a drop-in replacement. The differential test
+the C ABI it exposes the same entry points as an ABI/API-substitutable replacement. This
+does not imply closed-loop behavioral equivalence. The differential test
 suite covers voxel-grid construction, align, engine, and end-to-end node paths and passes
 with the Rust engine substituted.
 Compiler versions and the measurement environment appear in Sec.~\ref{sec:eval-setup};
@@ -20,11 +21,12 @@ per-run manifests contain the binary hashes.
 The following properties are explicit design and verification constraints of the port, not
 automatic consequences of choosing Rust or \texttt{no\_std}.
 \begin{itemize}
-  \item \textbf{Zero allocation from the first frame}: all align buffers are pre-reservable
+  \item \textbf{Zero allocation within the reserved envelope}: all align buffers are pre-reservable
     to the worst-case sizes determined by $P$, \maxnn, and
     $N_{\mathrm{iter}}{+}1$. A counting global allocator asserts zero allocations
-    \emph{including} the first frame. A growth event is a WCET spike, so amortized warmup
-    is not a bound.
+    \emph{including} the first frame when those capacities have been reserved. Exceeding a
+    reserved capacity triggers growth allocation rather than rejection; amortized warmup
+    is therefore not a bound outside the declared envelope.
   \item \textbf{Recursion-free kd-tree}: the radius search runs an iterative walk over a fixed
     64-entry stack. The median build gives a depth of
     $\le \lceil \log_2 N \rceil{+}1$. The port preserves the exact near-then-far visit
@@ -42,48 +44,47 @@ automatic consequences of choosing Rust or \texttt{no\_std}.
 \paragraph{Sufficiency of the neighbor cap}
 The port caps the radius search at $\maxnn = 64$ where the C++ engine collects an unbounded
 neighbor set; the cap is what makes the $P \cdot \maxnn \cdot N_{\mathrm{pass}}$
-decomposition possible at all. Its value is justified geometrically. A leaf's centroid lies
-inside its own voxel. Both engines' APIs couple the search radius to the voxel size, so the
-search ball has diameter two voxels and thus intersects at most
-three cells per axis: \emph{at most $3^3 = 27$ leaves per tile can ever be in range,
-regardless of map content}. Under the disjoint-tile contract, leaf multiplicity is 1, so 27
-bounds the global count and $\maxnn = 64$ carries a $2.4\times$ margin: truncation is
-unreachable, so the equal-work precondition against the uncapped C++ engine holds for
-every such input. Section~\ref{sec:eval-realdata} reports a measured maximum of
+decomposition possible at all. Its value is justified under four geometric assumptions:
+each occupied voxel contributes at most one leaf per tile, deployment tiles are disjoint,
+the search radius equals the voxel size, and each leaf centroid remains inside its voxel.
+The search ball then intersects at most three cells per axis, giving an analytic ceiling of
+$3^3 = 27$ leaves. Boundary inclusion and floating-point radius comparison are assumptions
+of this derivation rather than separately verified properties. Under these conditions,
+$\maxnn = 64$ carries a $2.4\times$ margin. Section~\ref{sec:eval-realdata} reports a measured maximum of
 \realKmaxMax{} on a real map. This is one above the voxel-center heuristic of 8 and
 comfortably inside the limit of 27.
 
-Exceeding 64 requires at least three adversarially crowded \emph{overlapping} tiles, i.e.\
-inputs that leave the comparison domain $D$ of Sec.~\ref{sec:meth-transfer}. There the Rust
-engine truncates, keeping its cost bounded, while the C++ engine's cost grows without bound
-with tile multiplicity: an asymmetry we report as a structural hazard of the uncapped
-implementation, not as something this analysis bounds. Because truncation breaks equal
-work, the equal-work assertion doubles as the runtime membership check for $D$.
+Exceeding 64 is possible with sufficiently crowded \emph{overlapping} tiles, i.e.\
+inputs outside the deployment assumptions and potentially outside $D$ of
+Sec.~\ref{sec:meth-transfer}. There the Rust engine truncates, keeping its returned-neighbor
+work bounded, while the C++ engine's work grows with tile multiplicity. The Rust query does
+not expose a 65th-neighbor overflow flag, so the evaluated traces provide only retrospective
+evidence; they do not enforce or directly validate membership in $D$.
 \emph{Dense-neighbors} sits exactly at the cap with $8 \times 8 = 64$ in-range leaves and
-passes, certifying that the
-two engines still saw identical neighbor sets.
+passes the count/hash trace certificate.
 
 \subsection{Adversarial fixture construction for the engine tier}
 \label{sec:impl-fixtures}
 Four hand-built generators target one hazard each. \emph{Dense-neighbors} pins $K = \maxnn =
-64$ using 8 overlapping map tiles whose voxel centroids crowd shared block corners: a single
-tile geometrically caps $K$ at the ${\le}8$ voxels sharing a corner when the search radius
-equals the leaf size, so tile overlap, which production dynamic map loading makes possible
-in principle, is essential to reach the cap; this is why the frozen fixture format
+64$ using 8 overlapping map tiles whose voxel-center construction contributes 8 leaves per
+tile around a shared lattice corner. Here $K=8$ is a property of this constructed
+corner-lattice witness, not the general per-tile ceiling of 27. Tile overlap, which
+production dynamic map loading makes possible in principle, is essential to reach the cap;
+this is why the frozen fixture format
 stores its map as tiles. \emph{Max-iterations} is a rough random surface with
 $\epsilon = 10^{-10}$ that does not converge within the configured iteration cap. \emph{Cache-hostile} scatters the source across a
 wide map in shuffled order. \emph{Subnormal} places the source on a shell where the kernel's
 $\exp$ lands in the \texttt{f64} subnormal range. The search of Sec.~\ref{sec:meth-search}
 then composes and exceeds them.
 
-\subsection{The deployment tier: preprocessing-legal worst cases}
+\subsection{The deployment tier: preprocessing-legal stress witnesses}
 \label{sec:impl-legal}
 The fixtures above are \emph{engine-API-legal} but not \emph{preprocessing-reachable}. The
 production pipeline voxel-downsamples the scan with a \SI{3.0}{m} leaf and no duplicate
 points, caps it at $P = 1500$ through random downsampling, and crops it to
 $\pm\SI{60}{m}$. The map
-pipeline emits disjoint, voxel-aligned tiles from a downsampled map, which caps leaf
-multiplicity at 1 and hence $K$ at the per-tile geometric ceiling of 27 derived above. The
+pipeline is assumed to emit disjoint, voxel-aligned tiles from a downsampled map, with one
+leaf per occupied voxel. Under the geometric assumptions above, this caps $K$ at 27. The
 voxel-center heuristic suggests at most 8 voxels sharing a corner, but real centroids can
 lie anywhere inside their voxel; Sec.~\ref{sec:eval-realdata} observes
 $K = \realKmaxMax$. These parameter values are Autoware's shipped localization defaults.
@@ -95,8 +96,8 @@ $\sqrt{3} < 2.0$. The fixture has $P = 1500$
 duplicate-free source points on distinct lattice corners at \SI{4}{m} pitch inside the crop,
 each collecting exactly $K = 8$, the voxel-center heuristic's maximum.
 $\epsilon = 10^{-10}$ pins the iteration cap. Its counters certify
-$\bar{K} = \legalWorstKbar$ against the engine-level 64. It is the tier's \emph{witness},
-a constructed lower bound on the tier's worst case, while the tier's provable ceiling
+$\bar{K} = \legalWorstKbar$ against the engine-level 64. It is a constructed stress
+witness, while the tier's analytic ceiling
 remains $K \le 27$.
 
 One axis of this fixture is deliberately \emph{not} production-parameterized: with the shipped

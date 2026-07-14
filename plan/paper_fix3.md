@@ -65,7 +65,7 @@ frames lacking a trace certificate.
 
 ## Phase A -- correctness blockers
 
-### A1 -- Separate base and trace certificates -- **PENDING**
+### A1 -- Separate base and trace certificates -- **COMPLETED**
 
 Use two named sets consistently:
 
@@ -90,7 +90,7 @@ Acceptance:
 - No text calls 473/501 the strict or equal-work-certified subset.
 - Every strict comparison is scoped to 301 on-map or 22,216 total frames.
 
-### A2 -- Define common semantic work -- **PENDING**
+### A2 -- Define common semantic work -- **COMPLETED**
 
 Replace unqualified "equal work" with "equal common semantic work" for the certificate.
 
@@ -123,7 +123,7 @@ Acceptance:
 - Audit every occurrence of `equal work`, `equally`, and `same work`.
 - Captions and table notes use the same terminology as Methodology.
 
-### A3 -- Separate upper bounds, witnesses, and observations -- **PENDING**
+### A3 -- Separate upper bounds, witnesses, and observations -- **COMPLETED**
 
 Use this vocabulary:
 
@@ -149,7 +149,7 @@ Acceptance:
 - No fixture is described as an upper bound.
 - Every timing result is labeled observed, measured, or platform-specific.
 
-### A4 -- Correct \(D\), overflow, and allocation claims -- **PENDING**
+### A4 -- Correct \(D\), overflow, and allocation claims -- **COMPLETED**
 
 Remove the claim that the base certificate is a runtime membership test for \(D\).
 
@@ -169,7 +169,7 @@ Acceptance:
 - Table XIV, Methodology, Implementation, and Threats agree on violation behavior.
 - No absent runtime check is presented as enforced.
 
-### A5 -- Correct build and reproducibility statements -- **PENDING**
+### A5 -- Correct build and reproducibility statements -- **COMPLETED**
 
 Correct C++ flags to the frozen manifest:
 
@@ -201,7 +201,7 @@ Submission blockers:
 
 ## Phase B -- existing-data presentation and editorial fixes
 
-### B1 -- Rebuild the real-data table around \(E_{\mathrm{trace}}\) -- **PENDING**
+### B1 -- Rebuild the real-data table around \(E_{\mathrm{trace}}\) -- **COMPLETED**
 
 Join `realdata.json` and `trace_real.json` by `seq` in the paper-local generator. Do not
 modify either frozen JSON file.
@@ -222,7 +222,7 @@ Acceptance:
 - Strict timing rows contain exactly 301 samples per engine.
 - Generation is deterministic and partition-guarded.
 
-### B2 -- Re-scope search, regression, and parallel results -- **PENDING**
+### B2 -- Re-scope search, regression, and parallel results -- **COMPLETED**
 
 Search:
 
@@ -244,7 +244,7 @@ Parallelism:
 - State immediately that it is not a multi-core WCET result.
 - Describe sub-100 ms as an observed host result, not certified schedulability.
 
-### B3 -- Tighten geometry, hash, and functional-fidelity wording -- **PENDING**
+### B3 -- Tighten geometry, hash, and functional-fidelity wording -- **COMPLETED**
 
 Geometry:
 
@@ -268,7 +268,7 @@ Functional fidelity:
 - Clarify that "drop-in replacement" means ABI/API substitutability, not closed-loop
   behavioral equivalence.
 
-### B4 -- Captions, related work, and compression -- **PENDING**
+### B4 -- Captions, related work, and compression -- **COMPLETED**
 
 - Fix Table III so fixture certification is attributed to the full trace.
 - Ensure every table states its population and certificate level.
@@ -313,21 +313,23 @@ Then verify:
 
 ## Acceptance checklist
 
-- [ ] \(E_{\mathrm{base}}\) and \(E_{\mathrm{trace}}\) are distinct everywhere.
-- [ ] On-map trace certification is 301/501, or 60.1%.
-- [ ] Both 172 base-only and 28 iteration-divergent frames are visible.
-- [ ] Cross-language claims concern common semantic work only.
-- [ ] Engine-specific traversal and runtime work remain separate.
-- [ ] Fixtures are witnesses, not upper bounds.
-- [ ] Timing maxima are empirical observations, not WCET.
-- [ ] Membership in \(D\) is not claimed runtime-enforced.
-- [ ] Zero allocation is conditional on pre-reserved capacities.
-- [ ] The paper reports actual C++ `-O3 -DNDEBUG`.
-- [ ] Search, regression, and parallel claims match their designs.
-- [ ] Hash collision risk and geometric assumptions are disclosed.
-- [ ] Author and artifact placeholders remain explicit blockers.
-- [ ] The PDF builds within the submission page budget.
+- [x] \(E_{\mathrm{base}}\) and \(E_{\mathrm{trace}}\) are distinct everywhere.
+- [x] On-map trace certification is 301/501, or 60.1%.
+- [x] Both 172 base-only and 28 iteration-divergent frames are visible.
+- [x] Cross-language claims concern common semantic work only.
+- [x] Engine-specific traversal and runtime work remain separate.
+- [x] Fixtures are witnesses, not upper bounds.
+- [x] Timing maxima are empirical observations, not WCET.
+- [x] Membership in \(D\) is not claimed runtime-enforced.
+- [x] Zero allocation is conditional on pre-reserved capacities.
+- [x] The paper reports actual C++ `-O3 -DNDEBUG`.
+- [x] Search, regression, and parallel claims match their designs.
+- [x] Hash collision risk and geometric assumptions are disclosed.
+- [x] Author and artifact placeholders remain explicit blockers.
+- [x] The PDF builds within the submission page budget.
 
 ## Status log
 
 - 2026-07-14: Roadmap created from `paper/review3.md`; all tasks pending.
+- 2026-07-14: Implemented all manuscript and generator changes; validation passed at
+  17 pages with deterministic tables and unchanged frozen data.

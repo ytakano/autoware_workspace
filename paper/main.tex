@@ -1,5 +1,5 @@
 % WCET analysis of the NDT scan-matching engine: C++ vs a high-fidelity Rust port
-% (work-equivalent on individually certified inputs).
+% (common semantic work trace-certified on individually compared inputs).
 % Class: IEEEtran conference (switch to LIPIcs for the ECRTS WCET Workshop if accepted style differs).
 % Build: make  (latexmk -pdf main)
 \documentclass[conference]{IEEEtran}
@@ -70,8 +70,8 @@ data-dependent, which makes classical static worst-case execution time (WCET) an
 impractical. We present a hybrid WCET analysis of the align kernel of the Autoware \ndt{}
 scan matcher. Map construction, preprocessing, and ROS scheduling are outside the scope of
 the analysis. The method is built around a high-fidelity Rust port of the production C++
-engine that is work-equivalent to it on
-individually certified inputs. Bounded execution is not specific to Rust; an equivalent
+engine whose common semantic work is trace-certified against it on each compared input.
+Bounded execution is not specific to Rust; an equivalent
 C++ redesign is possible. The port instead reduces the low-level verification surface of
 the safe core, allowing the analysis to focus on algorithmic and timing properties. We
 establish a parametric bound on the algorithmic
@@ -80,15 +80,16 @@ a certified hard time bound on the evaluated platform. Deterministic algorithmic
 counters, compiled to zero overhead when disabled, serve both as automatically checked
 evidence for the work bound and as a platform-independent fitness function for a search for
 counter-extremal inputs. Each discovered input is carried verbatim to the uninstrumented
-C++ engine, with equal work certified per input. On the frozen search fixtures, the search
+C++ engine, with equal common semantic work trace-certified per input. On the frozen search fixtures, the search
 saturates the analytic bound on the number of kernel evaluations per align, and a controlled
 sweep shows an affine observed envelope in the scan size. A two-tier formulation separates
 the bounded-neighbor engine tier from the preprocessing-reachable tier. Their measured
 fixtures differ by $\legalWorstRatioRust\times$--$\legalWorstRatioCpp\times$, quantifying
 the value of input-contract validation at the component boundary. In a 57-minute urban
-capture with \realOnMap{} on-map matching aligns, the per-input certification exposed two
-port-fidelity gaps invisible to synthetic fixtures and led us to fix them. The replay leaves
-\realDivergences{} residual divergent frames. On these fixtures, the Rust port meets or beats the C++ engine's observed maximum,
+capture with \realOnMap{} on-map matching aligns, \realTraceOnMap{} frames pass the trace
+certificate, \realBaseOnly{} pass only the base certificate, and
+\realIterationDivergent{} diverge in iteration count. On the frozen synthetic fixtures,
+the Rust port meets or beats the C++ engine's observed maximum,
 while eliminating the C++ engine's ${\approx}\allocPerPtPass$ heap allocations per point
 per derivative pass.
 \end{abstract}

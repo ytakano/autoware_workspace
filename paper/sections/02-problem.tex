@@ -71,21 +71,23 @@ equal neighbor sets. In contrast, kd traversal is engine-specific: \kdnodes{} co
 Rust engine's nodes examined, and the traced analysis build separately measures the C++
 engine's own traversal work as FLANN distance and plane evaluations.
 Section~\ref{sec:eval-tracecert} reports this measurement.
-In counter form the bound reads
+For each engine, the counter form of the work model reads
 $T \le c_0 + c_{\mathrm{pt}}\, N_{\mathrm{pts}} + c_{\mathrm{nbr}}\, \sumnbr +
 c_{\mathrm{kd}}\, \kdnodes + c_{\mathrm{solve}}\, N_{\mathrm{iter}}$, where
 $N_{\mathrm{pts}} = P \cdot N_{\mathrm{pass}}$ is the total number of points processed and
 $c_{\mathrm{pt}}$ prices the per-point fixed work for transform and query setup. This work is
-independent of the neighbor count; Sec.~\ref{sec:eval-regression} estimates the unit
-costs.
+independent of the neighbor count. The meanings of \kdnodes{} and the fitted coefficients
+are engine-specific; Sec.~\ref{sec:eval-regression} uses them only as a diagnostic
+decomposition.
 Equation~\eqref{eq:decomp} is a \emph{work} bound; converting work to time is
 platform-specific and is where measurement enters.
 
 \subsection{Why the bound alone is not enough}
-Three gaps separate \eqref{eq:decomp} from a usable bound. First, the individual maxima may not
-be simultaneously achievable; a defensible bound needs \emph{witness inputs} that realize the
-product. Second, constant factors are timing hazards invisible to the work model: cache
+Three gaps separate \eqref{eq:decomp} from usable timing evidence. First, the individual
+maxima may not be simultaneously achievable; constructed stress witnesses reveal how much
+of the analytic work envelope is reachable without themselves becoming upper bounds.
+Second, constant factors are timing hazards invisible to the work model: cache
 behavior, allocator latency, and floating-point behavior on extreme operands. Third, the
 production C++ engine calls the heap allocator ${\approx}11$ times per point per derivative
-pass, as measured in Sec.~\ref{sec:eval-alloc}. This places a component with unbounded worst-case latency inside
-the innermost loop.
+pass, as measured in Sec.~\ref{sec:eval-alloc}. Under the allocator/system model used here,
+this prevents a defensible finite latency bound for the innermost loop.

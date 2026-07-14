@@ -35,7 +35,7 @@ of the program text. Exhaustive input enumeration is infeasible, and naive fuzzi
 wall-clock fitness is noisy, machine-specific, and unreproducible.
 
 % Para 3: the opportunity. A high-fidelity Rust port reduces the low-level verification
-% surface and supports real-time environments without the standard library; equal work is
+% surface and supports real-time environments without the standard library; common work is
 % certified per input, not assumed (review2 #1).
 The relevant distinction is not that bounded execution can only be implemented in Rust: an
 equivalent C++ redesign is possible. Rather, safe Rust discharges a class of low-level proof
@@ -52,13 +52,12 @@ verification surface. The port also supports deployment in real-time environment
 standard library is unavailable by building as \texttt{no\_std} (Rust without its standard
 library); the bare-metal real-time kernel evaluated here is one such environment. Where the
 C++ engine collects an unbounded per-point neighbor set, the port caps the number of
-neighbors a radius search may return; we call the set of inputs on which this cap never
-truncates (so both engines see
-identical neighbor sets) the \emph{bounded-neighbor domain} $D$, made precise in
+neighbors a radius search may return; we call the set of inputs on which an uncapped query
+would return no more than that limit the \emph{bounded-neighbor domain} $D$, made precise in
 Sec.~\ref{sec:methodology}. The port is designed to reproduce the C++ engine's
-floating-point operand stream on $D$ (same iteration count, same neighbor sets, same
-work), and a per-input certificate \emph{checks} this rather than assuming it: on
-certified inputs, any statement about one engine's work transfers to the other.
+algorithmic structure on $D$. A per-input trace certificate checks the common semantic
+work rather than inferring it from iteration count. Engine-specific traversal, memory
+operations, and latency remain separate measurements.
 
 % Para 4: contributions.
 Our contributions:
@@ -73,14 +72,16 @@ Our contributions:
     may be extrapolated.
   \item A \textbf{cross-language transfer argument}: instrumenting the Rust port and a
     local C++ \emph{analysis} build suffices; the shipped C++ sources stay untouched.
-    Discovered inputs are carried to the unmodified C++ engine, and equal work is certified
-    \emph{per input}: a base iteration/pose/score assertion that doubles as the runtime
-    membership check for $D$, strengthened to a full per-pass trace comparison; the
-    transfer is claimed over the certified subset $E \subseteq D$, as defined in
+    Discovered inputs are carried to the unmodified C++ engine. A base
+    iteration/pose/score assertion defines $E_{\mathrm{base}}$, and a full per-pass trace
+    defines the stricter $E_{\mathrm{trace}}$ used for common-work comparisons. Neither
+    certificate is a runtime membership test for $D$; the
+    transfer is claimed only over $E_{\mathrm{trace}}$, as defined in
     Secs.~\ref{sec:meth-transfer} and~\ref{sec:eval-tracecert}. On real map data this
     certification exposed, and led us to fix, two port-fidelity gaps that synthetic
     fixtures are structurally blind to. It also showed that equal iteration counts alone
-    would \emph{not} have implied equal work, as detailed in Sec.~\ref{sec:threats}.
+    would \emph{not} have implied common-work equivalence, as detailed in
+    Sec.~\ref{sec:threats}.
   \item \textbf{Evidence that the search is effective}: on the frozen search fixtures, it saturates the analytic
     maximum on the number of kernel evaluations per align,
     $P \cdot \maxnn \cdot (N_{\mathrm{iter}}{+}1)$, where $P$ is the scan size, \maxnn{}
@@ -90,11 +91,12 @@ Our contributions:
   \item An \textbf{industrial case study}. On the adversarial fixtures, the Rust port's
     observed maximum is at or below C++'s, with ratios of
     \tailsRatioMin--\tailsRatioMax, and the
-    port eliminates by construction the C++ engine's ${\approx}\allocPerPtPass$ heap
+    port eliminates under its declared pre-reserved capacity the C++ engine's
+    ${\approx}\allocPerPtPass$ heap
     allocations per point per derivative pass. The count reaches
     \allocWorstPerAlign{} per align, a
     structural unbounded-latency hazard (the port is zero-allocation under a declared
-    capacity contract, recursion-free, and panic-free). A \textbf{two-tier bound} separates
+    capacity contract, recursion-free, and panic-free). A \textbf{two-tier work envelope} separates
     the bounded-neighbor engine tier, which admits unvalidated inputs over $D$, from the
     preprocessing-reachable one, with each axis of the deployment tier backed by a legal witness
     input; the measured fixture gap ($\legalWorstRatioRust\times$, with a ${\ge}2.4\times$ reduction on

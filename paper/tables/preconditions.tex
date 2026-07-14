@@ -6,18 +6,18 @@ behavior on violation. ``assumed'' rows are not runtime-checked by the engine.}
 \label{tab:preconditions}
 \scriptsize
 \setlength{\tabcolsep}{2pt}
-\begin{tabular}{llll}
+\begin{tabular}{@{}lllp{0.22\columnwidth}@{}}
 \toprule
 quantity & limit & enforced by & on violation \\
 \midrule
 $P$ & 1500 & preprocessing (assumed) & engine accepts any $P$ \\
 $N_{\mathrm{iter}}$ & 30 & static loop guard & stop at cap \\
 line-search passes & 0 extra & flag off (shipped) & $\le$10/iter if enabled \\
-$K$ (Rust) & 64 & hard search cap & truncate; leaves $D$ \\
+$K$ (Rust) & 64 & hard search cap & truncate; overflow unreported \\
 $K$ (C++) & none & --- & grows with tile overlap \\
 $K$ (deployment) & 27 & map pipeline (assumed) & back to engine tier \\
 $N_{\mathrm{leaves}}$ & memory & map loader & \kdnodes{} bound parametric \\
-buffer capacity & envelope max & pre-reservation (Rust) & one-time growth alloc \\
+buffer capacity & envelope max & pre-reservation (Rust) & growth allocation \\
 \bottomrule
 \end{tabular}
 \end{table}

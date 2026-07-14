@@ -34,10 +34,11 @@ fitness is noisy, machine-specific, and unreproducible across platforms. Our fit
 vector of deterministic algorithmic cost counters: the search result is a property of the
 algorithm rather than of the measurement machine, runs are exactly reproducible from a seed,
 and the outcome can be checked against the analytic bound. The saturation certificate of
-Sec.~\ref{sec:eval-search} has no analogue under time-based fitness. The counters also enable
-the cross-language transfer: a counter-extremal input found on the instrumented port
-stresses the uninstrumented production engine equally, with equal work certified per input
-through the method of Sec.~\ref{sec:meth-transfer}.
+Sec.~\ref{sec:eval-search} has no analogue under time-based fitness. The counters also
+enable cross-language transfer: a counter-extremal input found on the instrumented port is
+replayed on the production engine, with common semantic work trace-certified per input.
+Engine-specific traversal and timing remain separate, so the shared witness need not
+stress both implementations equally.
 
 \paragraph{Timing analysis of ROS-based systems}
 Casini et al.~\cite{casini2019ros2} bound end-to-end response times of ROS~2 processing chains

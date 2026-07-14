@@ -51,7 +51,7 @@ LABEL = {
     "legal_osc": r"\emph{legal-osc}$^\dagger$",
 }
 # Shared table footnote for the tier markers.
-TIER_NOTE = (r"\emph{search-00} is the union-worst search output; "
+TIER_NOTE = (r"\emph{search-00} is the shared counter-extremal witness; "
              r"$^\dagger$\,deployment-tier fixtures.")
 
 # One-off side measurements quoted in the prose but not captured in data/*.json.
@@ -152,6 +152,13 @@ def kernel_disp(v):
 def env_macros(manifest, meta):
     """Measurement-environment macros so Sec. V-A can never drift from the data."""
     cv = manifest.get("compiler_versions") or {}
+    flags = manifest.get("compiler_flags") or {}
+    if flags.get("CMAKE_BUILD_TYPE") != "Release":
+        raise SystemExit("env: expected CMAKE_BUILD_TYPE=Release")
+    if flags.get("CMAKE_CXX_FLAGS_RELEASE") != "-O3 -DNDEBUG":
+        raise SystemExit("env: expected CMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG")
+    if manifest.get("cargo_profile") != "[profile.release]\noverflow-checks = true":
+        raise SystemExit("env: unexpected Cargo release profile")
     dates = sorted({m["run_timestamp"][:10]
                     for m in manifest.get("session_manifests", [manifest])})
     macros = [
@@ -160,6 +167,7 @@ def env_macros(manifest, meta):
         rf"\newcommand{{\envKernel}}{{{tex_escape(kernel_disp(manifest.get('kernel_version') or '?'))}}}",
         rf"\newcommand{{\envCppCompiler}}{{{tex_escape(cv.get('cxx') or '?')}}}",
         rf"\newcommand{{\envRustCompiler}}{{{tex_escape(cv.get('rustc') or '?')}}}",
+        r"\newcommand{\envCppReleaseFlags}{\texttt{-O3 -DNDEBUG}}",
         rf"\newcommand{{\envGovernor}}{{{manifest.get('governor') or '?'}}}",
         rf"\newcommand{{\envPinning}}{{\texttt{{{tex_escape(manifest.get('affinity_mask') or '?')}}}}}",
         rf"\newcommand{{\envDate}}{{{'/'.join(dates)}}}",
@@ -266,6 +274,7 @@ def ablation():
         r"genomes, so the comparison bundles seed quality with search strategy. The two "
         r"wall-clock-fitness runs share a seed yet return different champions --- counter "
         r"fitness is bit-reproducible.",
+        tabcolsep="3pt",
     )
 
     # Frontier timing macros, anchored on the same-series search_00 cells.
@@ -663,8 +672,8 @@ def main():
         "tails.tex",
         r"Frame time per engine (\si{ms}; \envSessions{} sessions $\times$ "
         r"(\envItersWarmPerSession{} warm ${+}$ \envItersTailPerSession{} tail) samples "
-        r"per fixture per engine, pooled; serial, isolated pinned core). Equal work "
-        r"certified per fixture (identical \texttt{iteration\_num}).",
+        r"per fixture per engine, pooled; serial, isolated pinned core). Equal common "
+        r"semantic work is trace-certified per fixture.",
         "tab:tails",
         "lrrrrr",
         r"fixture & \multicolumn{2}{c}{C++ (p50 / max)} "
@@ -1035,7 +1044,8 @@ def main():
         r"the model adopted per engine (Sec.~\ref{sec:eval-regression}). The kd regressor "
         r"is each engine's \emph{own} traversal counter (C++: FLANN distance+plane "
         r"evaluations, measured by the traced analysis build; Rust: nodes examined), so "
-        r"$b$ is a physical per-operation cost for both engines.",
+        r"The kd regressor is engine-specific; coefficients are diagnostic and not "
+        r"cross-engine unit costs.",
         "tab:regression",
         "llrrrrr",
         r"engine & model & $c_{\mathrm{pt}}$ (\si{\micro\second}/pt) "
@@ -1083,22 +1093,100 @@ def legal_macros(timing, rust):
     print("wrote tables/legal_macros.tex")
 
 
+def _frames_by_seq(frames, source):
+    """Index frozen replay frames and reject ambiguous joins."""
+    indexed = {}
+    for frame in frames:
+        seq = frame.get("seq")
+        if seq in indexed:
+            raise SystemExit(f"{source}: duplicate seq {seq}")
+        indexed[seq] = frame
+    return indexed
+
+
+def load_real_evidence():
+    """Join the base and trace replays by seq and derive certificate partitions."""
+    rj = DATA / "realdata.json"
+    tj = DATA / "trace_real.json"
+    if not (rj.exists() and tj.exists()):
+        raise SystemExit("real-data evidence requires realdata.json and trace_real.json")
+
+    rdoc = json.loads(rj.read_text())
+    tdoc = json.loads(tj.read_text())
+    real = _frames_by_seq(rdoc["frames"], "realdata.json")
+    trace = _frames_by_seq(tdoc["frames"], "trace_real.json")
+    if set(real) != set(trace):
+        missing_trace = sorted(set(real) - set(trace))
+        missing_real = sorted(set(trace) - set(real))
+        raise SystemExit(
+            "real-data seq sets differ: "
+            f"missing trace={missing_trace[:5]}, missing real={missing_real[:5]}"
+        )
+
+    joined = []
+    for seq in sorted(real):
+        rframe, tframe = real[seq], trace[seq]
+        if tframe["iter_rust"] != rframe["iteration_num"]:
+            raise SystemExit(f"seq {seq}: Rust iteration count differs between captures")
+        if bool(tframe["match"]) != bool(rframe["match"]):
+            raise SystemExit(f"seq {seq}: base verdict differs between captures")
+        joined.append((rframe, tframe))
+
+    def onmap(pair):
+        return pair[0]["counters"]["sum_neighbors"] > 0
+
+    def base(pair):
+        return bool(pair[1]["match"])
+
+    def trace_certified(pair):
+        trace_block = pair[1]["trace"]
+        return (
+            base(pair)
+            and bool(trace_block["valid"])
+            and bool(trace_block["structural_match"])
+        )
+
+    def partition(pairs):
+        trace_count = sum(trace_certified(pair) for pair in pairs)
+        base_only = sum(
+            base(pair) and not trace_certified(pair) for pair in pairs
+        )
+        divergent = sum(not base(pair) for pair in pairs)
+        if trace_count + base_only + divergent != len(pairs):
+            raise SystemExit("real-data certificate partition is not exhaustive")
+        return trace_count, base_only, divergent
+
+    all_partition = partition(joined)
+    onmap_joined = [pair for pair in joined if onmap(pair)]
+    onmap_partition = partition(onmap_joined)
+    if (len(joined), all_partition) != (22416, (22216, 172, 28)):
+        raise SystemExit(
+            f"unexpected all-frame certificate partition: {len(joined)}, {all_partition}"
+        )
+    if (len(onmap_joined), onmap_partition) != (501, (301, 172, 28)):
+        raise SystemExit(
+            f"unexpected on-map certificate partition: {len(onmap_joined)}, "
+            f"{onmap_partition}"
+        )
+    return rdoc, joined, onmap_joined, base, trace_certified
+
+
 def realdata():
     """Operational-envelope table + macros from the real-drive capture (skipped if absent)."""
     rj = DATA / "realdata.json"
     if not rj.exists():
         print("realdata absent -- skipping operational-envelope outputs")
         return
-    rdoc = json.loads(rj.read_text())
+    rdoc, joined, onmap_joined, base_certified, trace_certified = load_real_evidence()
     if rdoc.get("meta", {}).get("measurement_profile") != "A":
         raise SystemExit(
             "realdata.json lacks the Replay meta -- Sec. V-G presents Replay results; "
             "regenerate via the open-loop replay protocol (tables must not mix configurations)")
-    allframes = rdoc["frames"]
+    allframes = [real for real, _ in joined]
     timing = json.loads((DATA / "wcet.json").read_text())["fixtures"]
     # Envelope rows use the on-map frames (the vehicle leaves the benchmark's cropped map for
     # most of the 57-min bag); P and max-K contract checks use ALL frames.
-    frames = [f for f in allframes if f["counters"]["sum_neighbors"] > 0]
+    frames = [real for real, _ in onmap_joined]
 
     def series(f):
         return sorted(f(x) for x in frames)
@@ -1114,15 +1202,23 @@ def realdata():
     )
     cpp = series(lambda x: x["cpp_ms"])
     rust = series(lambda x: x["rust_ms"])
-    match = sum(1 for x in allframes if x["match"])
+    base_all = sum(base_certified(pair) for pair in joined)
+    trace_all = sum(trace_certified(pair) for pair in joined)
+    base_only_all = sum(
+        base_certified(pair) and not trace_certified(pair) for pair in joined
+    )
+    divergent_all = sum(not base_certified(pair) for pair in joined)
     # Honest-denominator split (review #10): divergences counted against the on-map subset.
-    onmap_match = sum(1 for x in frames if x["match"])
-    div_all = len(allframes) - match
-    div_onmap = len(frames) - onmap_match
-    if div_onmap != div_all:
+    base_onmap = sum(base_certified(pair) for pair in onmap_joined)
+    trace_onmap = sum(trace_certified(pair) for pair in onmap_joined)
+    base_only_onmap = sum(
+        base_certified(pair) and not trace_certified(pair) for pair in onmap_joined
+    )
+    divergent_onmap = sum(not base_certified(pair) for pair in onmap_joined)
+    if divergent_onmap != divergent_all:
         # The prose claims every divergence is on-map; regenerate-or-break, never stale.
         raise SystemExit(
-            f"realdata: {div_all - div_onmap} divergence(s) off-map -- "
+            f"realdata: {divergent_all - divergent_onmap} divergence(s) off-map -- "
             "prose claims all divergences are on-map; update the paper text"
         )
     offmap = [x for x in allframes if x["counters"]["sum_neighbors"] == 0]
@@ -1142,7 +1238,7 @@ def realdata():
         seg_bounds.append((start, prev))
         start = prev = s
     seg_bounds.append((start, prev))
-    mism = [x for x in allframes if not x["match"]]
+    mism = [real for real, trace in joined if not trace["match"]]
     div_segs = len(
         {
             next(i for i, (a, b) in enumerate(seg_bounds) if a <= x["seq"] <= b)
@@ -1158,14 +1254,15 @@ def realdata():
         x["counters"]["sum_neighbors"] / max(x["counters"]["points_processed"], 1)
         for x in mism
     )
-    # B1 (review2 #8): certified subset = on-map frames whose equal-work certificate
-    # passed; the all-on-map align rows are a system-level reading, the certified rows the
-    # strict equal-work implementation comparison.
-    cert = [x for x in frames if x["match"]]
-    if len(cert) != onmap_match:
-        raise SystemExit("realdata: certified-subset count != on-map match count")
-    cert_cpp = sorted(x["cpp_ms"] for x in cert)
-    cert_rust = sorted(x["rust_ms"] for x in cert)
+    strict = [
+        real
+        for real, trace in onmap_joined
+        if trace_certified((real, trace))
+    ]
+    if len(strict) != trace_onmap:
+        raise SystemExit("realdata: trace-certified timing count is inconsistent")
+    strict_cpp = sorted(x["cpp_ms"] for x in strict)
+    strict_rust = sorted(x["rust_ms"] for x in strict)
     # Deadline overruns at 10 Hz (policy: report frames > 100 ms). The prose claims C++
     # overruns exist under Replay while Rust never overruns; regenerate-or-break.
     over_cpp = sum(1 for x in allframes if x["cpp_ms"] > 100.0)
@@ -1180,41 +1277,45 @@ def realdata():
             f"{over_rust} Rust frames exceed 100 ms -- the prose claims zero Rust "
             "overruns; update Sec. V-G")
 
-    rows = []
-    for label, xs, fmt in (
-        (r"$P$ (points)", p, "{:.0f}"),
-        (r"$N_{\mathrm{iter}}$", it, "{:.0f}"),
-        (r"$\bar{K}$ (mean neighbors/pt)", kbar, "{:.2f}"),
-        (r"max $K$ (per point)", kmax, "{:.0f}"),
-        (r"kd nodes / pt", kd, "{:.1f}"),
-        (r"C++ align (\si{ms})", cpp, "{:.2f}"),
-        (r"Rust align (\si{ms})", rust, "{:.2f}"),
-        (rf"C++ align, certified$^{{\dagger}}$ (\si{{ms}})", cert_cpp, "{:.2f}"),
-        (rf"Rust align, certified$^{{\dagger}}$ (\si{{ms}})", cert_rust, "{:.2f}"),
-    ):
-        rows.append(
-            f"{label} & {fmt.format(pct(xs, 0.5))} & {fmt.format(pct(xs, 0.99))} "
-            f"& {fmt.format(xs[-1])}"
+    def dist_row(population, label, xs, fmt):
+        return (
+            f"{population} & {label} & {num(len(xs))} & {fmt.format(pct(xs, 0.5))} "
+            f"& {fmt.format(pct(xs, 0.99))} & {fmt.format(xs[-1])}"
         )
+
+    def count_row(label, count):
+        return rf"all & {label} & {num(count)} & --- & --- & ---"
+
+    rows = [
+        r"\multicolumn{6}{l}{\emph{All-frame contract observations}}",
+        dist_row("all", r"$P$ (points)", p, "{:.0f}"),
+        dist_row("all", r"max $K$ (per point)", kmax, "{:.0f}"),
+        count_row(r"$E_{\mathrm{base}}$", base_all),
+        count_row(r"$E_{\mathrm{trace}}$", trace_all),
+        count_row("base-only", base_only_all),
+        count_row("iteration-divergent", divergent_all),
+        r"\midrule \multicolumn{6}{l}{\emph{On-map timing observations}}",
+        dist_row("all on-map", r"C++ align (\si{ms})", cpp, "{:.2f}"),
+        dist_row("all on-map", r"Rust align (\si{ms})", rust, "{:.2f}"),
+        dist_row(r"$E_{\mathrm{trace}}$", r"C++ align (\si{ms})", strict_cpp, "{:.2f}"),
+        dist_row(r"$E_{\mathrm{trace}}$", r"Rust align (\si{ms})", strict_rust, "{:.2f}"),
+    ]
     write(
         "realdata.tex",
         rf"Real-data replay (İstanbul urban drive, open-loop frozen guess track), "
         r"the \emph{Replay} configuration (CFS, unpinned, one align per "
         r"frame): per-frame distributions.",
         "tab:realdata",
-        "lrrr",
-        r"metric & p50 & p99 & max",
+        "llrrrr",
+        r"population & metric & $n$ & p50 & p99 & max",
         rows,
-        note=rf"$P$ and max $K$ over all \num{{{len(allframes)}}} frames; other rows over the "
-        rf"\num{{{len(frames)}}} on-map frames (frames whose radius searches return any "
-        rf"neighbor; the drive leaves the benchmark's cropped map after frame "
-        rf"\num{{{onmap_seq_max}}}). Equal work: \num{{{match}}}/\num{{{len(allframes)}}} "
-        rf"overall, on-map \num{{{onmap_match}}}/\num{{{len(frames)}}} "
-        rf"({100.0 * onmap_match / len(frames):.1f}\%) --- all {div_all} divergences are "
-        rf"on-map. $^{{\dagger}}$certified = the {onmap_match} on-map frames whose "
-        rf"equal-work certificate passed (strict implementation comparison); the plain "
-        rf"align rows include the {div_all} divergent frames and are a system-level "
-        rf"reading.",
+        note=rf"On-map means at least one radius query returned a neighbor; "
+        rf"\num{{{len(frames)}}} frames qualify. Their certificate partition is "
+        rf"$E_{{\mathrm{{trace}}}}={trace_onmap}$, base-only={base_only_onmap}, and "
+        rf"iteration-divergent={divergent_onmap}. Strict cross-language timing uses only "
+        rf"$E_{{\mathrm{{trace}}}}$; all-on-map timing is a system-level observation.",
+        tabcolsep="2pt",
+        size=r"\scriptsize",
     )
 
     macros = [
@@ -1222,13 +1323,18 @@ def realdata():
         rf"\newcommand{{\realFrames}}{{\num{{{len(allframes)}}}}}",
         rf"\newcommand{{\realOnMap}}{{{len(frames)}}}",
         rf"\newcommand{{\realOffMap}}{{\num{{{len(allframes) - len(frames)}}}}}",
-        rf"\newcommand{{\realMatch}}{{\num{{{match}}}}}",
-        rf"\newcommand{{\realMatchPct}}{{{100.0 * match / len(allframes):.1f}}}",
-        rf"\newcommand{{\realDivergences}}{{{div_all}}}",
-        rf"\newcommand{{\realDivPctAll}}{{{100.0 * div_all / len(allframes):.2f}}}",
-        rf"\newcommand{{\realOnMapMatch}}{{{onmap_match}}}",
-        rf"\newcommand{{\realOnMapMatchPct}}{{{100.0 * onmap_match / len(frames):.1f}}}",
-        rf"\newcommand{{\realOnMapDivPct}}{{{100.0 * div_onmap / len(frames):.1f}}}",
+        rf"\newcommand{{\realBaseAll}}{{\num{{{base_all}}}}}",
+        rf"\newcommand{{\realBaseOnMap}}{{{base_onmap}}}",
+        rf"\newcommand{{\realBaseOnMapPct}}{{{100.0 * base_onmap / len(frames):.1f}}}",
+        rf"\newcommand{{\realTraceAll}}{{\num{{{trace_all}}}}}",
+        rf"\newcommand{{\realTraceOnMap}}{{{trace_onmap}}}",
+        rf"\newcommand{{\realTraceOnMapPct}}{{{100.0 * trace_onmap / len(frames):.1f}}}",
+        rf"\newcommand{{\realBaseOnly}}{{{base_only_all}}}",
+        rf"\newcommand{{\realIterationDivergent}}{{{divergent_all}}}",
+        rf"\newcommand{{\realNotTraceOnMap}}{{{base_only_onmap + divergent_onmap}}}",
+        rf"\newcommand{{\realNotTraceOnMapPct}}{{{100.0 * (base_only_onmap + divergent_onmap) / len(frames):.1f}}}",
+        rf"\newcommand{{\realDivPctAll}}{{{100.0 * divergent_all / len(allframes):.2f}}}",
+        rf"\newcommand{{\realOnMapDivPct}}{{{100.0 * divergent_onmap / len(frames):.1f}}}",
         rf"\newcommand{{\realOffMapIterMed}}{{{pct(offmap_iter, 0.5):.0f}}}",
         rf"\newcommand{{\realOffMapCppMed}}{{{pct(offmap_cpp, 0.5):.1f}}}",
         rf"\newcommand{{\realOnMapSeqMax}}{{{onmap_seq_max}}}",
@@ -1244,8 +1350,8 @@ def realdata():
         rf"\newcommand{{\realDivRustMax}}{{{mism_rust[-1]:.1f}}}",
         rf"\newcommand{{\realDivKbarMin}}{{{mism_kbar[0]:.1f}}}",
         rf"\newcommand{{\realDivKbarMax}}{{{mism_kbar[-1]:.1f}}}",
-        rf"\newcommand{{\realCertCppMax}}{{{cert_cpp[-1]:.1f}}}",
-        rf"\newcommand{{\realCertRustMax}}{{{cert_rust[-1]:.1f}}}",
+        rf"\newcommand{{\realTraceCppMax}}{{{strict_cpp[-1]:.1f}}}",
+        rf"\newcommand{{\realTraceRustMax}}{{{strict_rust[-1]:.1f}}}",
         rf"\newcommand{{\realIterMax}}{{{it[-1]}}}",
         rf"\newcommand{{\realKmaxMax}}{{{kmax[-1]}}}",
         rf"\newcommand{{\realPMax}}{{{p[-1]}}}",
@@ -1331,7 +1437,7 @@ def bridge():
         r"\cmidrule(lr){3-4} \cmidrule(lr){5-6} "
         r"& & p50 & max & p50 & max &",
         rows,
-        note=r"Iteration counts identical across configurations on every input (equal work). "
+        note=r"Iteration counts are identical across configurations on every input. "
         r"Synthetic legs are matched-$n$ pooled 3-session campaigns ($n{=}3000$) on both "
         r"configurations (so the max-vs-max ratios are same-$n$); real-frame legs are dedicated "
         r"controlled sessions ($n{=}100$ each).",
@@ -1404,13 +1510,13 @@ def psweep():
         )
     write(
         "psweep.tex",
-        r"$P$-sweep on the union-worst geometry (\si{ms}; work invariance verified: "
+        r"$P$-sweep on the shared counter-extremal geometry (\si{ms}; work invariance verified: "
         r"$N_{\mathrm{iter}}{=}30$, $\sumnbr = P \cdot 64 \cdot 31$ exactly at every $P$).",
         "tab:psweep",
         "rrrrr",
         r"$P$ & \multicolumn{2}{c}{C++ (p50 / max)} & \multicolumn{2}{c}{Rust (p50 / max)}",
         rows,
-        note=r"The sweep \emph{regenerates} the union-worst geometry at each $P$; its "
+        note=r"The sweep \emph{regenerates} the shared counter-extremal geometry at each $P$; its "
         r"$P{=}2000$ row is a distinct fixture instance from --- and so differs slightly "
         r"from --- the frozen \emph{search-00} of Table~\ref{tab:tails}. Same host and "
         r"protocol as Table~\ref{tab:tails} (Sec.~\ref{sec:evaluation}).",
@@ -1476,7 +1582,8 @@ def psweep():
 \addlegendentry{{Rust fit ($R^2={fits['rust']['rmx']:.4f}$)}}
 \end{{axis}}
 \end{{tikzpicture}}
-\caption{{Max align latency vs.\ source-point count $P$ on the union-worst geometry
+\caption{{Observed maximum align latency vs.\ source-point count $P$ on the shared
+counter-extremal geometry
 (work per point held invariant; counters verified). Both engines are affine in $P$.}}
 \label{{fig:psweep}}
 \end{{figure}}
@@ -1519,7 +1626,7 @@ def trace_cert():
             raise SystemExit(f"trace_cert: fixture {n} lacks a trace block -- rerun the traced replay")
         if not (tr["valid"] and tr["structural_match"]):
             raise SystemExit(f"trace_cert: structural leg broken on {n} -- the Sec. III/V "
-                             "equal-work certificate claim is void; investigate before publishing")
+                             "common-work certificate claim is void; investigate before publishing")
         if tr["line_search_loops"] != 0:
             raise SystemExit(f"trace_cert: line-search entered on {n} -- N_pass = N_iter+1 is void")
         if tr["passes_cpp"] != fx["cpp"]["iteration_num"] + 1:
@@ -1536,8 +1643,9 @@ def trace_cert():
         "tracecert.tex",
         r"Per-input trace certificate (traced analysis build vs.\ the Rust engine's mirrored "
         r"trace; deterministic, environment-independent). \emph{structural} = pass count, "
-        r"per-pass point/neighbor counts, and per-point neighbor \emph{sets} (leaf-mean bit "
-        r"hashes) all exact. score ULP = max per-pass f64 ULP distance of the score handed to "
+        r"per-pass point/neighbor counts, and per-point FNV-1a hashes of leaf-mean bits. "
+        r"Matching hashes are evidence of matching neighbor sets, subject to collision risk. "
+        r"score ULP = max per-pass f64 ULP distance of the score handed to "
         r"the Newton step. $\Sigma_{\mathrm{kd}}$ columns are each engine's \emph{own} "
         r"traversal counter (C++: FLANN distance+plane evaluations; Rust: nodes examined) and "
         r"are not mutually comparable.",
@@ -1548,7 +1656,7 @@ def trace_cert():
         rows,
         note=r"Line-search entries: 0 on every input (measured); C++ passes = "
         r"$N_{\mathrm{iter}}{+}1$ exactly on every input. The 6 $P$-sweep instances (not "
-        r"shown) also certify structurally exact. " + TIER_NOTE,
+        r"shown) also pass the structural count/hash certificate. " + TIER_NOTE,
         size=r"\scriptsize",
         tabcolsep="3pt",
     )
@@ -1561,66 +1669,61 @@ def trace_cert():
         rf"\newcommand{{\traceUlpWorstTex}}{{{ulp_tex(max(ulps.values()))}}}",
     ]
 
-    rj = DATA / "trace_real.json"
-    if rj.exists():
-        rdoc = json.loads(rj.read_text())
-        frames = rdoc["frames"]
-        rd = json.loads((DATA / "realdata.json").read_text())["frames"]
-        if len(frames) != len(rd):
-            raise SystemExit("trace_real: frame count != realdata.json -- protocol drift")
-        onmap = {f["seq"] for f in rd if f["counters"]["sum_neighbors"] > 0}
-        # Cross-check the replay against the frozen realdata capture: same per-frame
-        # iteration counts and match verdicts (same engine version, same open-loop track).
-        drift = sum(1 for a, b in zip(frames, rd)
-                    if a["seq"] != b["seq"] or a["iter_rust"] != b["iteration_num"]
-                    or a["match"] != b["match"])
-        if drift != 0:
-            raise SystemExit(f"trace_real: {drift} frames disagree with realdata.json -- "
-                             "stale or mis-protocolled capture; regenerate")
-        cert = [f for f in frames if f["match"]]
-        mism = [f for f in frames if not f["match"]]
-        # THE C1 headline finding: equal iteration count is necessary, NOT sufficient, for
-        # equal work -- some equal-iteration frames differ in their per-pass neighbor sets.
-        # Guards pin the finding's shape so the prose can never go stale.
-        work_gap = [f for f in cert if not f["trace"]["structural_match"]]
-        if any(f["seq"] not in onmap for f in work_gap):
-            raise SystemExit("trace_real: a work-gap frame is off-map -- prose says all are on-map")
-        if any(f["trace"]["first_div_leg"] != "passes" for f in mism):
-            raise SystemExit("trace_real: an iteration-divergent frame diverges before the "
-                             "pass-count leg -- update the Sec. V trace prose")
-        cert_onmap = [f for f in cert if f["seq"] in onmap]
-        work_cert_onmap = [f for f in cert_onmap if f["trace"]["structural_match"]]
-        etrace = sum(1 for f in frames if f["match"] and f["trace"]["structural_match"])
-        # Work-gap magnitude: |Sigma_nbr^C++ - Sigma_nbr^Rust| on the equal-iteration frames
-        # whose neighbor sets differ (requires the cpp_nbr/rust_nbr fields of the trace run).
-        gap_abs = sorted(abs(int(f["trace"]["cpp_nbr"]) - int(f["trace"]["rust_nbr"]))
-                         for f in work_gap)
-        gap_rel = sorted(
-            abs(int(f["trace"]["cpp_nbr"]) - int(f["trace"]["rust_nbr"]))
-            / max(int(f["trace"]["cpp_nbr"]), 1) for f in work_gap)
-        fd = sorted(f["trace"]["first_div_pass"] for f in mism)
-        iter_delta = sorted(abs(f["iter_cpp"] - f["iter_rust"]) for f in mism)
-        td_mism = sorted(f.get("trans_delta_m", 0.0) for f in mism)
-        td = sorted(f.get("trans_delta_m", 0.0) for f in cert_onmap)
-        macros += [
-            rf"\newcommand{{\traceRealCert}}{{\num{{{len(cert)}}}}}",
-            rf"\newcommand{{\traceRealCertOnMap}}{{{len(cert_onmap)}}}",
-            rf"\newcommand{{\traceRealWorkCertOnMap}}{{{len(work_cert_onmap)}}}",
-            rf"\newcommand{{\traceRealWorkGapFrames}}{{{len(work_gap)}}}",
-            rf"\newcommand{{\traceRealWorkGapNbrMed}}{{{gap_abs[len(gap_abs) // 2]}}}",
-            rf"\newcommand{{\traceRealWorkGapNbrMax}}{{{gap_abs[-1]}}}",
-            rf"\newcommand{{\traceRealWorkGapRelMaxPct}}{{{100.0 * gap_rel[-1]:.2f}}}",
-            rf"\newcommand{{\traceRealETrace}}{{\num{{{etrace}}}}}",
-            rf"\newcommand{{\traceRealDivFirstMin}}{{{fd[0]}}}",
-            rf"\newcommand{{\traceRealDivFirstMed}}{{{fd[len(fd) // 2]}}}",
-            rf"\newcommand{{\traceRealDivFirstMax}}{{{fd[-1]}}}",
-            rf"\newcommand{{\traceRealDivIterDeltaMax}}{{{iter_delta[-1]}}}",
-            rf"\newcommand{{\traceRealDivTransDeltaMax}}{{{td_mism[-1]:.2f}}}",
-            rf"\newcommand{{\traceRealTransDeltaMed}}{{\num{{{td[len(td) // 2]:.1e}}}}}",
-            rf"\newcommand{{\traceRealTransDeltaMax}}{{{td[-1]:.2f}}}",
+    _, joined, onmap_joined, base_certified, trace_certified = load_real_evidence()
+    divergent = [trace for pair, trace in joined if not base_certified((pair, trace))]
+    base_only = [
+        trace
+        for pair, trace in onmap_joined
+        if base_certified((pair, trace)) and not trace_certified((pair, trace))
+    ]
+    trace_onmap = [
+        trace for pair, trace in onmap_joined if trace_certified((pair, trace))
+    ]
+    if any(trace["trace"]["first_div_leg"] != "passes" for trace in divergent):
+        raise SystemExit(
+            "trace_real: an iteration-divergent frame diverges before the pass-count leg"
+        )
+
+    gap_abs = sorted(
+        abs(int(frame["trace"]["cpp_nbr"]) - int(frame["trace"]["rust_nbr"]))
+        for frame in base_only
+    )
+    gap_rel = sorted(
+        abs(int(frame["trace"]["cpp_nbr"]) - int(frame["trace"]["rust_nbr"]))
+        / max(int(frame["trace"]["cpp_nbr"]), 1)
+        for frame in base_only
+    )
+    fd = sorted(frame["trace"]["first_div_pass"] for frame in divergent)
+    iter_delta = sorted(
+        abs(frame["iter_cpp"] - frame["iter_rust"]) for frame in divergent
+    )
+
+    def trans_delta(frames):
+        return sorted(frame.get("trans_delta_m", 0.0) for frame in frames)
+
+    def trans_macros(prefix, values):
+        return [
+            rf"\newcommand{{\{prefix}Median}}{{{pct(values, 0.5):.6g}}}",
+            rf"\newcommand{{\{prefix}High}}{{{pct(values, 0.99):.6g}}}",
+            rf"\newcommand{{\{prefix}Max}}{{{values[-1]:.6g}}}",
         ]
-    else:
-        print("trace_real absent -- fixture-leg macros only")
+
+    td_trace = trans_delta(trace_onmap)
+    td_base_only = trans_delta(base_only)
+    td_divergent = trans_delta(divergent)
+    macros += [
+        rf"\newcommand{{\traceRealWorkGapFrames}}{{{len(base_only)}}}",
+        rf"\newcommand{{\traceRealWorkGapNbrMed}}{{{gap_abs[len(gap_abs) // 2]}}}",
+        rf"\newcommand{{\traceRealWorkGapNbrMax}}{{{gap_abs[-1]}}}",
+        rf"\newcommand{{\traceRealWorkGapRelMaxPct}}{{{100.0 * gap_rel[-1]:.2f}}}",
+        rf"\newcommand{{\traceRealDivFirstMin}}{{{fd[0]}}}",
+        rf"\newcommand{{\traceRealDivFirstMed}}{{{fd[len(fd) // 2]}}}",
+        rf"\newcommand{{\traceRealDivFirstMax}}{{{fd[-1]}}}",
+        rf"\newcommand{{\traceRealDivIterDeltaMax}}{{{iter_delta[-1]}}}",
+    ]
+    macros += trans_macros("traceRealTraceTransDelta", td_trace)
+    macros += trans_macros("traceRealBaseOnlyTransDelta", td_base_only)
+    macros += trans_macros("traceRealDivergentTransDelta", td_divergent)
     (OUT / "tracecert_macros.tex").write_text("\n".join(macros) + "\n", encoding="utf-8")
     print("wrote tables/tracecert.tex + tracecert_macros.tex")
 
