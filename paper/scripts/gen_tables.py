@@ -135,8 +135,7 @@ def provenance(manifest, meta):
     configuration = {"A": "Replay", "B": "Isolated"}.get(
         manifest["measurement_profile"], manifest["measurement_profile"])
     return (
-        rf"{configuration} "
-        rf"(\texttt{{plan/ndt\_timing\_measurement\_policy.md}}): {len(sessions)} "
+        rf"{configuration}: {len(sessions)} "
         rf"session(s), {'/'.join(dates)}, isolated pinned core "
         rf"(\texttt{{{tex_escape(manifest.get('affinity_mask', '?'))}}}), "
         rf"{meta['iters']} aligns/fixture."
@@ -479,13 +478,13 @@ def raspi4_timing():
         "raspi4.tex",
         r"On-target \emph{Bare-metal} series: Raspberry Pi 4 (Cortex-A72), bare-metal "
         r"\texttt{no\_std} kernel; per fixture 100 warm + 20 cold (8\,MiB evict) samples "
-        r"after 3 warmups (serial log frozen as \texttt{data/raspi4\_timing.txt}).",
+        r"after 3 warmups.",
         "tab:raspi4",
         "lrrrl",
         r"fixture & warm p50 & warm max & cold max (\si{ms}) & counters",
         rows,
-        note=r"Counter comparison recomputed against \texttt{wcet\_rust.json} at generation "
-        r"time; on-device verdict 8/8. A fixed-work calibration spin brackets every series: "
+        note=r"Counters match the host reference for all eight fixtures. A fixed-work "
+        r"calibration spin brackets every series: "
         r"worst drift \raspiCalibDriftPct\% over the sustained run --- no thermal "
         r"throttling. Firmware-default clock; single core active, no interrupts routed to "
         r"the benchmark task's core.",
