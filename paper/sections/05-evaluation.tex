@@ -86,11 +86,11 @@ the C++ engine's on every fixture (Table~\ref{tab:tails}; ratios
 The \emph{subnormal} fixture's outlier ratio ($\subnormalMedianRatio\times$ at p50) required
 a controlled check. Re-generating the same fixture with the source shell pulled from
 \SI{1.99}{m} to \SI{1.69}{m}, which moves every kernel $\exp$ result out of the subnormal
-band with all else equal, left the C++ time \emph{unchanged}
-(\SI{\oneoffShellSubCpp}{ms} vs.\ \SI{\oneoffShellCtrlCpp}{ms} p50;
-Rust \oneoffShellSubRust{} vs.\ \oneoffShellCtrlRust; measured in the pre-protocol
-environment, so the absolute values are era-specific but the null A/B result is not).
-Subnormal operands are therefore \emph{not} the mechanism on this microarchitecture; a
+band with all else equal, did \emph{not} reduce the time under the same Profile-B protocol:
+the control is marginally \emph{slower} (C++ \SI{\oneoffShellSubCpp}{ms} $\rightarrow$
+\SI{\oneoffShellCtrlCpp}{ms} p50; Rust \oneoffShellSubRust{} $\rightarrow$
+\oneoffShellCtrlRust). Subnormal operands are therefore \emph{not} the mechanism on this
+microarchitecture --- if anything, removing them costs slightly more; a
 microbenchmark confirms that subnormal-result \texttt{exp} costs only
 $\oneoffExpSubGlibc\times$/$\oneoffExpSubLibm\times$ per call for glibc/\texttt{libm},
 negligible at this fixture's $\bar{K}=\subnormalKbar$.
