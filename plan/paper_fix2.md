@@ -344,7 +344,7 @@ sentence against our own tables), then A1 (core reframing), then the rest.
 - Acceptance: on-target table gains a pose/score column; A7's "verified" claim covers values,
   not only counters.
 
-### C8 (#9 — recommended, proposed by the author 2026-07-13) Parallel feasibility on x86: legal-worst at 2 and 4 threads
+### C8 (#9 — recommended, proposed by the author 2026-07-13) Parallel feasibility on x86: legal-worst at 2 and 4 threads — **DONE (2026-07-14, autoware_core d41c7272, paper 323b382)**
 
 - Rationale: on the x86 host the deployment-tier witness misses 10 Hz by 1.2× (legal-worst
   Rust 120.8 ms serial). A7 lists parallelization as a lever; this experiment turns the lever
@@ -391,7 +391,7 @@ sentence against our own tables), then A1 (core reframing), then the rest.
 | M2 — claims re-scoped | ~~A1, A2, A3, A4, A7, A8~~ (done, 58251c7) | **COMPLETE.** The paper no longer claims what the current certificate cannot support; rebuttal letter draftable. |
 | M3 — existing-data strengthening | ~~B1, B2~~ (done, 80ebde9) | **COMPLETE.** Real-data table split; work model has the per-point term. |
 | M4 — trace certificate | ~~C1, C2~~ (done, 2026-07-13) | **COMPLETE.** Transfer claim backed by a measured per-input C++/Rust trace certificate incl. Σkd^C++; C2's per-engine iteration/pose data rode along in trace_real.json. |
-| M5 — measurement cleanups | C3, C5, C8 (+ optional C4, C6, C7; C8 shares C4's reboot campaign) | Bridge same-n; no pre-protocol numbers left; parallel feasibility measured. |
+| M5 — measurement cleanups | ~~C8~~ (done, 323b382); C3, C5 pending (+ optional C4, C6, C7) | Parallel feasibility measured; bridge same-n and subnormal re-measure still open. |
 | M6 — resubmission package | re-run this audit table against the final PDF; rebuttal letter (include the three push-back notes above) | Submit. |
 
 A before B; C1 can start in parallel with Phase A (different files). B2 lands before C1's
@@ -445,3 +445,13 @@ lands).
   verdicts in trace_real.json. Open-loop guess rewrite now scripted
   (bench/rewrite_guesses.py). Remaining in phase C: C3 (bridge same-n), C5 (subnormal A/B
   re-measure), C8 (parallel feasibility), optional C4/C6/C7.
+- 2026-07-14: **C8 done** (autoware_core d41c7272, paper 323b382). Isolated-core parallel
+  measurement. Key detour: on isolcpus cores unpinned rayon workers pile onto one core
+  (isolcpus disables auto load-balancing), so init_thread_pool gained opt-in per-worker
+  pinning (NDT_PIN_RAYON_WORKERS); and C++/Rust must run in separate process invocations
+  (libgomp pins the main thread, contaminating a same-process rayon run). Result: both
+  engines ~near-linear (Rust 3.9x, C++ 3.3x at k=4); legal-worst 122.9 -> 61.0 ms at k=2
+  (fits 10 Hz). Note: an earlier uncommitted WCET_THREADS edit was lost in the reboot and
+  had to be re-applied; also colcon now needs `source install/local_setup.zsh` +
+  `--base-paths src/core`. Remaining Phase C: C3 (bridge same-n), C5 (subnormal A/B
+  re-measure) -- both need the 3.2 GHz reference-clock host, which is now configured.
