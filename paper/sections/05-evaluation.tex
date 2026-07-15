@@ -393,37 +393,38 @@ per frame. The divergent frames fork at a late pass and end up to
 $\pm\traceRealDivIterDeltaMax$ iterations and
 \SI{\traceRealDivergentTransDeltaMax}{m} apart.
 
-Locating that residual clarifies its reading. The \realOnMap{} on-map frames form
-\realSegments{} contiguous segments because the reconstructed route repeatedly grazes the
-cropped map's edge before leaving it. The \realIterationDivergent{} divergences cluster in
-\realDivSegments{} of them, yet look like ordinary frames. Their $\bar{K}$ values lie
-near the on-map median, from \realDivKbarMin{} to \realDivKbarMax{}, and their iteration counts span
-\realDivIterMin--\realDivIterMax{} with only
-\realDivAtCap{} at the cap. None is the worst frame. Divergent-frame p50/max values are
-\SI{\realDivCppMed}{ms}/\SI{\realDivCppMax}{ms} for C++ and
-\SI{\realDivRustMed}{ms}/\SI{\realDivRustMax}{ms} for Rust, against the overall C++
-maximum of \SI{\realCppMax}{ms}. This is the signature of the boundary fork mechanism
-from Sec.~\ref{sec:threats}: a late derivative pass rounds differently, after which the
-engines take different convergence paths. It is not evidence of a systematic
-regime the certificate would be blind to.
+The \realIterationDivergent{} divergences cluster in \realDivSegments{} of
+\realSegments{} on-map segments but have ordinary work: $\bar{K}$ spans
+\realDivKbarMin{}--\realDivKbarMax{} and iterations \realDivIterMin--\realDivIterMax{}.
+At the maximum-delta frame Rust stops after 17 iterations while C++ reaches 30, amplifying
+a small numerical perturbation to \SI{\traceRealDivergentTransDeltaMax}{m}. The trigger is
+not language-specific: C++ library, compiler, contraction, or ISA changes can also perturb
+accumulation, eigensolution, or convergence. The open-loop replay did not measure that
+C++-to-C++ variability.
 
-A system-level reading of these pose deltas, offered as interpretation rather than
-measurement: in production only one engine runs, so the deltas quantify
-\emph{substitutability}, not an error either system observes. Translation deltas
-(p50/p99/max) are
-\SI{\traceRealTraceTransDeltaMedian}{m}/\SI{\traceRealTraceTransDeltaHigh}{m}/%
-\SI{\traceRealTraceTransDeltaMax}{m} on $E_{\mathrm{trace}}$,
-\SI{\traceRealBaseOnlyTransDeltaMedian}{m}/\SI{\traceRealBaseOnlyTransDeltaHigh}{m}/%
-\SI{\traceRealBaseOnlyTransDeltaMax}{m} on the base-only subset, and
-\SI{\traceRealDivergentTransDeltaMedian}{m}/\SI{\traceRealDivergentTransDeltaHigh}{m}/%
-\SI{\traceRealDivergentTransDeltaMax}{m} on iteration-divergent frames.
-Rotation error, absolute and relative score error, quality-gate changes, filter innovation,
-nominal-prior behavior, and closed-loop effects were not captured. Therefore ABI/API
-substitutability must not be read as closed-loop behavioral equivalence; deployment
-requires on-vehicle or simulation validation of quality-gate and filter-innovation
-statistics on exactly the
-ill-conditioned segments where the implementations can part ways, including initialization,
-feature-poor geometry, and map edges.
+The pose deltas in Table~\ref{tab:realdata} measure substitutability rather than localization
+error because only one engine runs in production and this replay has no ground truth.
+
+% DATA-CHECKED(2026-07-15): paper/data/stack_replay.json
+Stack-level replay adds the NDT--EKF interface. We replayed the same 57-minute cloud, twist,
+and GNSS streams twice per engine in C++--Rust--Rust--C++ order. A fixed timestamp offset
+preserved recorded intervals; all runs used one initial pose, a 500-m tiled map loaded within
+150 m, and a 3.2 GHz governor. Each consumed 34,375 clouds at 10.00 Hz. C++ NDT maxima were
+45.7--46.8 ms and Rust maxima 15.0--20.7 ms; no align exceeded 100 ms. Raw outputs ranged
+from 14,779 to 21,334 for C++ and 18,096 to 30,711 for Rust because feedback trajectories
+left the differential map region. C++ therefore had per-align compute headroom for 10 Hz; missing
+outputs were predominantly map-availability failures, not deadline overruns.
+
+At the open-loop maximum-delta frame, all runs passed the NDT quality and EKF gates and the cross-language raw
+XY difference was at most 3.9 mm, equal to the C++ repeat difference. Whole-drive
+repeatability was insufficient for attribution: the C++/Rust repeats disagreed on
+2,084/1,965 NDT quality decisions and 1,514/1,065 EKF gate decisions, while cross-language
+ranges were 1,286--2,260 and 1,142--1,462. Cross-language p99 innovation differences
+(1.01--1.42 m) were comparable to same-engine values (0.84--1.32 m). Feedback reached
+kilometre-scale separation within one engine, and no pair recovered below 0.10 m and
+0.01 rad for five frames after its maximum. The replay neither demonstrates EKF absorption
+nor closed-loop equivalence; operational evaluation needs controlled initialization,
+scheduling, map-edge behavior, ground truth, and co-resident workloads.
 
 \input{tables/realdata}
 

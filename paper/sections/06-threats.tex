@@ -17,6 +17,9 @@ exact, but kd traversal has only its $O(N_{\mathrm{leaves}})$ structural cap; a 
 geometry may exist. The real-data evidence covers one vehicle and route, with only
 \realOnMap{} on-map frames. Its degraded-prior track uses offline NDT odometry rather than
 the production filter, so it does not represent nominal cruising or closed-loop behavior.
+The NDT--EKF replay includes feedback but lacks ground truth, vehicle dynamics, and
+co-resident workloads. Same-engine repetitions also diverge, preventing whole-drive
+language attribution; environment-gated EKF tracing may itself perturb scheduling.
 
 \subsection{Cross-language and cross-ISA validity}
 Two corrected port gaps reduced real-frame iteration divergence to

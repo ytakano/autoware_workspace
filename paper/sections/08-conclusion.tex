@@ -13,9 +13,8 @@ Rust is not necessary for these bounds. Its safe core narrows memory-safety and 
 obligations so validation can focus on equivalence, numerics, work, and timing; FFI, unsafe
 code, and dependencies remain trusted.
 
-Operational validation is therefore still required: the component results do not establish
-production readiness. Deployment requires the production ECU, representative maps, scans, initial guesses, and co-resident Autoware loads;
-measurements must cover governor behavior, multi-core interference, end-to-end 10\,Hz
-compliance, and closed-loop quality gates and filter innovations. The host parallel result
-is deadline feasibility, not multi-core WCET. Analytical or probabilistic timing claims
-also require, respectively, a deployment cost bound or an independence-preserving protocol.
+The NDT--EKF replay does not establish production readiness: C++ stayed below 46.8 ms, yet
+same-engine runs diverged and did not recover after their maxima. Operational evaluation
+requires the production ECU, ground truth, co-resident loads, and end-to-end 10 Hz gate and
+innovation measurements. Host parallelism is feasibility, not multi-core WCET; stronger
+claims require a deployment cost bound or an independence-preserving protocol.

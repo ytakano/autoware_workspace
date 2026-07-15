@@ -5,3 +5,6 @@ install/
 autoware/
 awkernel/
 paper/scripts/__pycache__/
+build_stack_*/
+install_stack_*/
+stack_replay_results*/
