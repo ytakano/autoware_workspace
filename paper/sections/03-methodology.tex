@@ -2,7 +2,7 @@
 \label{sec:methodology}
 
 Three analysis layers establish a work bound, search for counter-extremal inputs, and
-measure frozen witnesses. Per-input cross-language traces check recorded common-work
+measure frozen witnesses. Per-input cross-language traces check recorded work-shape
 conformance before timing, and a cross-ISA replay checks transfer to the deployment-class
 target.
 
@@ -28,7 +28,7 @@ platform-independent. Because lexicographic order need not match time order, all
 non-dominated counter vectors are archived and their fixtures timed. Budget-matched random
 and wall-clock-fitness arms test search effectiveness.
 
-\subsection{Cross-language transfer: Per-input work-trace conformance}
+\subsection{Cross-language transfer: Per-input work-shape conformance}
 \label{sec:meth-transfer}
 The shipped C++ sources remain byte-identical. A local analysis build and the Rust port
 instead emit matched per-pass traces; the same fixture bytes then run on the unmodified C++
@@ -37,31 +37,56 @@ distance-sorted neighbors while Rust uses kd-visit order.
 
 Three definitions limit the comparison. The \textbf{bounded-neighbor domain} $D$ contains
 inputs whose uncapped queries return at most \maxnn{} leaves; the capped Rust query does not
-report a 65th leaf, so the trace check does not prove membership in $D$. The
-\textbf{base-agreement set} $E_{\mathrm{base}}$ requires equal iterations and recorded
-pose/score agreement. The stricter \textbf{work-trace-conformant set}
-$E_{\mathrm{trace}}\subseteq E_{\mathrm{base}}$ also requires equal pass structure,
-points per pass, neighbor-evaluation counts, and per-point FNV-1a hashes of neighbor-leaf
-mean bits. These fields define
+report a 65th leaf, so the trace check does not prove membership in $D$. For normalized
+output quaternions $q_C,q_R$, define
 \[
- \begin{aligned}
- W_{\mathrm{common}}=(&\text{passes},\text{points/pass},\\
- &\text{neighbor evaluations},\text{neighbor count/hash}).
- \end{aligned}
+ \Delta_t=\lVert t_C-t_R\rVert_2,\qquad
+ \Delta_R=2\arccos |\langle q_C,q_R\rangle|,
 \]
-For an evaluated input, work-trace conformance means equality of this recorded structure in
-addition to base agreement. It does not imply full semantic equivalence, membership in $D$,
-or equal total work. Hash collisions remain possible, so equality is evidence rather than a
-formal set proof. C++ FLANN traversal, result containers, and allocation and Rust kd
-traversal and flat buffers are outside $W_{\mathrm{common}}$; each engine therefore has a
-separate work-model instance. A conformant transferred fixture is a shared timing witness,
-not proof of equal stress.
+and let $\Delta_{\mathrm{tp}}$ and $\Delta_{\mathrm{nvtl}}$ be absolute differences in
+transformation probability and nearest-voxel transformation likelihood. The
+\textbf{base-agreement set} is
+\[
+ E_{\mathrm{base}}=\{x:N_C=N_R\ \text{and} \Delta_j\le\tau_j\ \text{for every}\ j\in J\}.
+\]
+Here $J=\{t,R,\mathrm{tp},\mathrm{nvtl}\}$, with
+$\tau_t=10^{-4}\,\mathrm{m}$, $\tau_R=10^{-5}\,\mathrm{rad}$, and
+$\tau_{\mathrm{tp}}=\tau_{\mathrm{nvtl}}=10^{-4}$.
+All quantities must also be finite. These fixed numerical-agreement thresholds are much
+smaller than operational localization tolerances; they are comparison criteria, not
+production acceptance limits.
 
-All synthetic fixtures satisfy the full work-trace criterion. Real replay separates
-\realTraceAll{} work-trace-conformant, \realBaseOnly{} base-only, and
-\realIterationDivergent{} iteration-divergent frames. An independent production-binary
-allocation count also reconstructs C++ point/pass work to \allocCertSpreadPct\% on every
-neighbor-returning fixture, but does not establish conformance of the full tuple.
+Each map leaf receives a canonical identifier $(g,v)$, where $g$ is the ordinal of its
+grid in the deterministically sorted map and $v$ is its signed voxel key. Before hashing,
+each point's returned leaves are sorted by this identifier. A domain-separated SHA-256
+digest preserves point and pass order while recording the sorted identifier list. The
+\textbf{work-shape-conformant set}
+$E_{\mathrm{shape}}\subseteq E_{\mathrm{base}}$ requires equal pass structure, points
+per pass, neighbor-evaluation counts, and these per-point leaf-identity digests. Thus
+\[
+ W_{\mathrm{shape}}=(N_p,P_p,S_{\mathrm{nbr}},H_{\mathrm{ID}}).
+\]
+Here $H_{\mathrm{ID}}$ denotes the ordered chain of per-point canonical-ID digests.
+A second SHA-256 payload digest includes each leaf ID, mean, and regularized inverse
+covariance. It is reported independently and is not part of $E_{\mathrm{shape}}$.
+This distinction prevents shape equality from being interpreted as equality of all
+kernel operands.
+
+Work-shape conformance is a dynamic check on each evaluated input. It does not imply full
+semantic equivalence, membership in $D$, or equal total work. SHA-256 collision risk is
+computational rather than a formal impossibility, and the selected payload still does not
+record every execution state. C++ FLANN traversal, result containers, and allocation and
+Rust kd traversal and flat buffers are outside $W_{\mathrm{shape}}$; each engine therefore
+has a separate work-model instance. A conformant transferred fixture is a shared timing
+witness, not proof of equal stress.
+
+All synthetic fixtures satisfy the work-shape criterion, while none has an exact payload
+digest. Real replay separates \realShapeAll{} work-shape-conformant,
+\realBaseOnly{} base-only, and \realBaseDivergent{} frames outside
+$E_{\mathrm{base}}$; \realIterationDivergent{} of the last group differ in iteration
+count. An independent production-binary allocation count also reconstructs C++ point/pass
+work to \allocCertSpreadPct\% on every neighbor-returning fixture, but does not establish
+conformance of the full shape tuple.
 
 \subsection{Analysis layer 3: Measurement and \pwcet}
 Frozen little-endian fixtures feed both engines through one replay harness. An

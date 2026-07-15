@@ -12,16 +12,16 @@ population & metric & $n$ & p50 & p99 & max \\
 \multicolumn{6}{l}{\emph{All-frame contract observations}} \\
 all & $P$ (points) & \num{22416} & 1333 & 1500 & 1500 \\
 all & max $K$ (per point) & \num{22416} & 0 & 8 & 9 \\
-all & $E_{\mathrm{base}}$ & \num{22388} & --- & --- & --- \\
-all & $E_{\mathrm{trace}}$ & \num{22216} & --- & --- & --- \\
-all & base-only & \num{172} & --- & --- & --- \\
-all & iteration-divergent & \num{28} & --- & --- & --- \\
+all & $E_{\mathrm{base}}$ & \num{22183} & --- & --- & --- \\
+all & $E_{\mathrm{shape}}$ & \num{22178} & --- & --- & --- \\
+all & base-only & \num{5} & --- & --- & --- \\
+all & outside $E_{\mathrm{base}}$ & \num{233} & --- & --- & --- \\
 \midrule \multicolumn{6}{l}{\emph{On-map timing observations}} \\
 all on-map & C++ align (\si{ms}) & \num{501} & 106.47 & 128.98 & 133.33 \\
 all on-map & Rust align (\si{ms}) & \num{501} & 20.94 & 49.48 & 57.21 \\
-$E_{\mathrm{trace}}$ & C++ align (\si{ms}) & \num{301} & 98.70 & 127.59 & 132.17 \\
-$E_{\mathrm{trace}}$ & Rust align (\si{ms}) & \num{301} & 15.43 & 44.14 & 56.22 \\
+$E_{\mathrm{shape}}$ & C++ align (\si{ms}) & \num{263} & 98.49 & 127.59 & 132.17 \\
+$E_{\mathrm{shape}}$ & Rust align (\si{ms}) & \num{263} & 19.12 & 44.14 & 56.22 \\
 \bottomrule
 \end{tabular}
-\par\smallskip\footnotesize On-map means at least one radius query returned a neighbor; \num{501} frames qualify. The on-map partition is $E_{\mathrm{trace}}=301$, base-only=172, and iteration-divergent=28. Strict cross-language timing uses only $E_{\mathrm{trace}}$; all-on-map timing is a system-level observation.
+\par\smallskip\footnotesize On-map means at least one radius query returned a neighbor; \num{501} frames qualify. The on-map partition is $E_{\mathrm{shape}}=263$, base-only=5, and outside $E_{\mathrm{base}}$=233. Of the latter, 28 differ in iteration count. Strict cross-language timing uses only $E_{\mathrm{shape}}$; all-on-map timing is a system-level observation.
 \end{table}

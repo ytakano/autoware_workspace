@@ -24,13 +24,22 @@ co-resident workloads. Same-engine repetitions also diverge, preventing whole-dr
 language attribution; environment-gated EKF tracing may itself perturb scheduling.
 
 \subsection{Cross-language and cross-ISA validity}
-Two corrected port gaps reduced real-frame iteration divergence to
+Two corrected port gaps reduced real-frame iteration-count divergence to
 \realIterationDivergent{} of \realFrames{} frames, all among the \realOnMap{} on-map set
-(\realOnMapDivPct\%). Residual differences arise from glibc versus \texttt{libm}, the
-eigensolver, and neighbor accumulation order. Thus common-work claims apply only to
-$E_{\mathrm{trace}}$: \realBaseOnly{} equal-iteration frames still differ by up to
-\traceRealWorkGapRelMaxPct\% in kernel work. Direct membership in $D$ was not recorded
-because Rust does not expose a 65th leaf, and FNV-1a equality has non-zero collision risk.
+(\realOnMapDivPct\%). The stricter $E_{\mathrm{base}}$ criterion excludes
+\realBaseDivergent{} on-map frames: \realOutputDivergent{} have equal iterations but exceed
+at least one output threshold, and \realIterationDivergent{} take different iteration
+paths. Residual differences arise from glibc versus \texttt{libm}, the eigensolver, and
+neighbor accumulation order.
+
+Work-shape claims apply only to $E_{\mathrm{shape}}$; \realBaseOnly{} base-only frames
+still differ by up to \traceRealWorkGapRelMaxPct\% in kernel evaluations. The canonical
+SHA-256 shape digest records leaf identity but not leaf parameters. The separate payload
+digest includes means and regularized inverse covariances, yet agrees on only
+\tracePayloadExactFixtures{} synthetic fixtures and \tracePayloadExactOnMap{} on-map
+frames. Consequently, neither digest establishes full semantic equivalence. SHA-256
+collisions remain computationally possible, and direct membership in $D$ was not recorded
+because Rust does not expose a 65th leaf.
 
 The Rust stream targets ISA stability through software \texttt{libm} and no FMA contraction;
 all \raspiTotal{} frozen fixtures match on the AArch64 target. This is a per-fixture check,

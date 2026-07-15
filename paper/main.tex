@@ -75,16 +75,16 @@ counters for extremal inputs, and measures frozen witnesses. It separates algori
 from platform-specific time per unit work and does not claim a certified hard time bound.
 The search saturates the analytic maximum number of kernel evaluations and increases the
 remaining kd-traversal term. Per-input traces provide evidence that Rust and C++ perform the same
-recorded common-work
-structure on work-trace-conformant inputs, while implementation-specific traversal and
+recorded work shape on work-shape-conformant inputs, while leaf payloads,
+implementation-specific traversal, and
 latency remain distinct. A two-tier model
 separates the bounded-neighbor engine domain from preprocessing-reachable inputs; their
 measured witnesses differ by $\legalWorstRatioRust\times$--$\legalWorstRatioCpp\times$.
 In a cropped-map, degraded-prior stress replay drawn from a 57-minute drive, only
-\realOnMap{} frames perform on-map matching; \realTraceOnMap{} are work-trace-conformant,
-\realBaseOnly{} satisfy only the base-agreement criterion, and \realIterationDivergent{}
-diverge in
-iteration count. On frozen synthetic fixtures, Rust
+\realOnMap{} frames perform on-map matching; \realShapeOnMap{} satisfy both base agreement
+and work-shape conformance, \realBaseOnly{} satisfy base agreement only, and
+\realBaseDivergent{} fall outside the base criterion. Of the last group,
+\realIterationDivergent{} diverge in iteration count. On frozen synthetic fixtures, Rust
 meets or improves the C++ observed maximum and removes approximately \allocPerPtPass{}
 per-point heap allocations per derivative pass within its reserved envelope.
 \end{abstract}

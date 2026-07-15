@@ -80,12 +80,13 @@ time-worst among the evaluated shared fixtures. A Rust Pareto candidate exceeds 
 
 \subsection{Engine-tier frame times: C++ vs.\ Rust}
 \label{sec:eval-tails}
-Every fixture satisfies the full work-trace criterion. The base diagnostics also
+Every fixture satisfies the work-shape criterion, although its payload digest differs.
+The base diagnostics also
 show identical \texttt{iteration\_num} per engine pair, final poses agreeing to at most
 \certMaxTransDelta\,\si{m} of translation, and both convergence scores bit-identical on
 \certScoreExact{} of \certFixtures{} fixtures.
 The largest score delta is \certMaxScoreDelta{} on \emph{subnormal}, or one \texttt{f32} ULP.
-The comparison therefore uses inputs that satisfy the work-trace conformance criterion.
+The timing comparison therefore uses inputs that satisfy the work-shape conformance criterion.
 The Rust port's observed maximum is at or below
 the C++ engine's on the measured fixtures in Table~\ref{tab:tails}. Ratios span
 \tailsRatioMin--\tailsRatioMax, and the union worst falls from
@@ -125,56 +126,59 @@ search-machinery overhead. Hardware performance counters are unavailable in the 
 the final split is arithmetic over microbenchmarks rather than counter-attributed.
 Section~\ref{sec:threats} records this limitation.
 
-\subsection{Per-input work-trace conformance}
+\subsection{Per-input work-shape conformance}
 \label{sec:eval-tracecert}
 \input{tables/tracecert}
 
-The work-trace conformance check of Sec.~\ref{sec:meth-transfer} was applied to every frozen fixture
-and to all \realFrames{} captured real frames. The traced analysis build of the C++ engine
-uses an instrumented copy of the engine sources plus a counting FLANN distance functor;
-the shipped sources remain byte-identical. It emits a per-pass trace that the replay compares leg
-by leg against the Rust engine's mirrored trace. Every quantity is a deterministic function
-of the input, so the runs need no controlled environment, and the traced binaries are never
-used for timing.
+The work-shape conformance check of Sec.~\ref{sec:meth-transfer} was applied to every
+frozen fixture and to all \realFrames{} captured real frames. The traced analysis build of
+the C++ engine uses an instrumented copy of the engine sources plus a counting FLANN
+distance functor; the shipped sources remain byte-identical. It emits a per-pass trace that
+the replay compares leg by leg against the Rust engine's mirrored trace. Every quantity is
+a deterministic function of the input, so the runs need no controlled timing environment,
+and the traced binaries are never used for timing.
 
-Table~\ref{tab:tracecert} shows the fixture leg. The \emph{structural} legs comprise the
-pass count, per-pass point and neighbor counts, and each point's FNV-1a hash over
-neighbor-leaf mean bits. Counts and hashes agree on all \traceFixtures{} inputs, the
-line-search loop is never entered, and the measured C++ pass count equals
-$N_{\mathrm{iter}}{+}1$ on every input: the common-work
-transfer previously inferred indirectly through iteration, pose, score, and the allocation
-leg of Sec.~\ref{sec:eval-alloc} is now measured directly on the C++ side, per input. The
-\emph{numeric} legs quantify the fidelity: the per-pass score agrees to
-\traceUlpConvMax{} f64 ULP or better on the well-conditioned fixtures and is bit-identical
-on \emph{cache-hostile}, but drifts to $\traceUlpWorstTex$ ULP on the most ill-conditioned geometries. The
-mechanism is structural, not a defect: pcl/FLANN returns each point's neighbors sorted by
-distance while the port's kd walk returns them in visit order, so the two engines
-accumulate the count/hash-matched per-point neighbor sets in different orders; f64 bit-equality of the
-sums is unattainable by design, and conformance is correctly scoped to the recorded
-\emph{work} structure. The hash has a non-zero collision probability, so this is not a formal proof of
-literal set equality.
+Table~\ref{tab:tracecert} shows the fixture leg. The \emph{shape} fields comprise pass
+count, per-pass point and neighbor counts, and SHA-256 digests of each point's leaf IDs
+after canonical sorting. Shape agrees on all \traceFixtures{} inputs, the line-search loop
+is never entered, and the measured C++ pass count equals $N_{\mathrm{iter}}{+}1$ on every
+input. This directly establishes equality of the recorded work topology, rather than
+inferring it from iterations or output proximity. The independent payload digest, which
+also records leaf means and regularized inverse covariances, agrees on
+\tracePayloadExactFixtures{} of \traceFixtures{} fixtures. The payload result demonstrates
+that shape conformance does not establish equality of all kernel operands.
 
-The real-data leg turns the necessary-vs-sufficient distinction into measurement. The
-traced replay reproduces the frozen capture frame-exactly, with identical per-frame
-iteration counts and match verdicts on all \realFrames{} frames. Of the
-\realBaseOnMap{} on-map frames in $E_{\mathrm{base}}$, \realTraceOnMap{} also
-belong to $E_{\mathrm{trace}}$, while \traceRealWorkGapFrames{} perform
-\emph{equal-iteration but unequal common semantic work}: their point-neighbor evaluations
-differ by a median
-$|\Delta\sumnbr|$ of \traceRealWorkGapNbrMed{} and a maximum of \traceRealWorkGapNbrMax,
-at most \traceRealWorkGapRelMaxPct\% of the frame's kernel evaluations. This is the same
-boundary mechanism as the iteration divergences, caught here below the iteration threshold.
-In this replay, equal iteration count is therefore measurably \emph{not} sufficient for
-work-trace conformance. The work-trace-conformant set contains \realTraceAll{} of
-\realFrames{} frames overall and \realTraceOnMap{} of \realOnMap{} on-map frames. The
-\realIterationDivergent{}
-iteration-divergent frames all fork late, between passes
-\traceRealDivFirstMin and \traceRealDivFirstMax, with median \traceRealDivFirstMed. They
-then take different convergence paths, with iteration counts up to
-$\pm\traceRealDivIterDeltaMax$ apart and final poses up to
-\SI{\traceRealDivergentTransDeltaMax}{m} apart. Every fixture-level comparison
-in this paper satisfies the full work-trace criterion; real-data work statements are scoped to
-$E_{\mathrm{trace}}$.
+The per-pass score agrees to \traceUlpConvMax{} f64 ULP or better on the
+well-conditioned fixtures and is bit-identical on \emph{cache-hostile}, but drifts to
+$\traceUlpWorstTex$ ULP on the most ill-conditioned geometries. PCL/FLANN returns each
+point's neighbors sorted by distance while the port's kd walk returns them in visit order,
+so the engines may accumulate the same shape in different orders. This explains why exact
+floating-point sums are not required by $E_{\mathrm{shape}}$. SHA-256 makes accidental
+digest equality computationally unlikely but does not turn this per-input check into a
+formal proof.
+
+The real-data leg separates iteration, output, shape, and payload agreement. Of the
+\realBaseOnMap{} on-map frames in $E_{\mathrm{base}}$, \realShapeOnMap{} also belong to
+$E_{\mathrm{shape}}$, while \traceRealWorkGapFrames{} are base-only. In those five
+frames, the point--neighbor evaluation counts differ by a median
+$|\Delta\sumnbr|$ of \traceRealWorkGapNbrMed{} and a maximum of
+\traceRealWorkGapNbrMax, at most \traceRealWorkGapRelMaxPct\% of the frame's kernel
+evaluations. Across all on-map frames, \realShapeStructuralOnMap{} have matching shape
+before applying the base criterion, but only \tracePayloadExactOnMap{} have an exact
+payload digest. Thus even a matching canonical leaf-ID sequence usually does not imply
+bit-identical leaf parameters.
+
+The exhaustive on-map partition is \realShapeOnMap{} shape-conformant,
+\realBaseOnly{} base-only, and \realBaseDivergent{} outside $E_{\mathrm{base}}$.
+Among the last group, \realOutputDivergent{} retain equal iteration counts but exceed at
+least one pose or score threshold, whereas \realIterationDivergent{} take different
+iteration paths. The iteration-divergent frames fork between passes
+\traceRealDivFirstMin{} and \traceRealDivFirstMax{}, with median
+\traceRealDivFirstMed{}. Their iteration counts differ by up to
+$\pm\traceRealDivIterDeltaMax$, and their final poses differ by up to
+\SI{\traceRealDivergentTransDeltaMax}{m}. Fixture timing comparisons are restricted to
+the shape-conformant fixtures; real-data strict comparisons are restricted to
+$E_{\mathrm{shape}}$.
 
 \subsection{Heap allocations per align}
 \label{sec:eval-alloc}
@@ -345,18 +349,17 @@ a neighbor, so $\sumnbr > 0$. On the remaining \realOffMap{}
 \emph{off-map} frames, every radius search returns empty and the align is a near-no-op.
 The median iteration count is \realOffMapIterMed{}, and C++ p50 is approximately
 \SI{\realOffMapCppMed}{ms}. Table~\ref{tab:realdata} separates populations explicitly.
-Its first panel reports $P$, max-$K$, and counts for the two comparison criteria over all
-frames. Its second
-reports timing over all \realOnMap{} on-map frames as a system-level observation and over
-the \realTraceOnMap{}-frame $E_{\mathrm{trace}}$ subset as the strict common-work
-implementation comparison.
+Its first panel reports $P$, max-$K$, and the base/shape comparison partition over all
+frames. Its second reports timing over all \realOnMap{} on-map frames as a system-level
+observation and over the \realShapeOnMap{}-frame $E_{\mathrm{shape}}$ subset as the strict
+work-shape implementation comparison.
 
 Accordingly, this experiment is a \emph{cropped-map, degraded-prior stress replay}, not a
 representative 57-minute nominal-localization workload. It is useful for exposing numerical
 branching near the available-map boundary, stressing initialization and dropout priors, and
 finding port-fidelity failures. All-frame criterion counts provide capture context, but
 the near-no-op off-map majority does not characterize localization fidelity; the strict
-cross-language result is the \realTraceOnMap{}-frame on-map subset.
+cross-language result is the \realShapeOnMap{}-frame on-map subset.
 
 Table~\ref{tab:realdata} shows the distributions; four observations from this replay. First, the observed
 inputs are consistent with the preprocessing contracts: $P \le \realPMax = 1500$ on all
@@ -392,22 +395,20 @@ environment-independent.
 
 Fourth, the comparison levels differ materially. Over all frames,
 $|E_{\mathrm{base}}|=\realBaseAll{}$ and
-$|E_{\mathrm{trace}}|=\realTraceAll{}$. The on-map partition is
-\realTraceOnMap{} work-trace-conformant frames, \realBaseOnly{} base-only frames, and
-\realIterationDivergent{} iteration-divergent frames. Thus only
-\realTraceOnMapPct\% of meaningful matches support strict common-work comparison;
-\realNotTraceOnMap{} frames, or \realNotTraceOnMapPct\%, do not.
-% DATA-CHECKED(2026-07-11): every mismatch frame in data/realdata.json has sum_neighbors > 0;
-% gen_tables.py hard-fails if that ever changes.
+$|E_{\mathrm{shape}}|=\realShapeAll{}$. The exhaustive on-map partition is
+\realShapeOnMap{} work-shape-conformant frames, \realBaseOnly{} base-only frames, and
+\realBaseDivergent{} frames outside $E_{\mathrm{base}}$. Thus
+\realShapeOnMapPct\% of meaningful matches support the strict work-shape comparison;
+\realNotShapeOnMap{} frames, or \realNotShapeOnMapPct\%, do not. The last group contains
+\realOutputDivergent{} frames with equal iteration counts but excessive pose or score
+differences and \realIterationDivergent{} frames with different iteration counts.
+% DATA-CHECKED(2026-07-15): all frames outside E_base are on-map; gen_tables.py enforces this.
 The initial exceptions exposed two port-fidelity gaps that translation-only synthetic
-fixtures are structurally blind to. Fixing both reduced the iteration divergence to
-\realIterationDivergent{} frames, or \realOnMapDivPct\% of on-map frames and \realDivPctAll\%
-of all captured frames. Section~\ref{sec:threats} characterizes this residual. The traced
-replay of Sec.~\ref{sec:eval-tracecert} records per-engine iteration counts and pose deltas
-per frame. The divergent frames fork at a late pass and end up to
-$\pm\traceRealDivIterDeltaMax$ iterations and
-\SI{\traceRealDivergentTransDeltaMax}{m} apart.
-
+fixtures are structurally blind to. Fixing both reduced the iteration-count divergence to
+\realIterationDivergent{} frames, or \realOnMapDivPct\% of on-map frames and
+\realDivPctAll\% of all captured frames. Section~\ref{sec:threats} characterizes both
+the iteration and equal-iteration output residuals. The traced replay of
+Sec.~\ref{sec:eval-tracecert} records their per-engine outputs and work shape.
 The \realIterationDivergent{} divergences cluster in \realDivSegments{} of
 \realSegments{} on-map segments but have ordinary work: $\bar{K}$ spans
 \realDivKbarMin{}--\realDivKbarMax{} and iterations \realDivIterMin--\realDivIterMax{}.

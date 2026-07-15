@@ -21,18 +21,20 @@ numerics, work bounds, and timing. The reduction excludes the FFI, unsafe code, 
 dependencies. The port also builds as \texttt{no\_std} for real-time environments without
 the standard library. Its radius query caps neighbors at \maxnn; the
 \emph{bounded-neighbor domain} $D$ contains inputs whose uncapped queries already satisfy
-that limit. Per-input traces compare common semantic work on evaluated inputs; traversal,
-memory operations, and latency remain engine-specific.
+that limit. Per-input traces compare a defined work shape on evaluated inputs; leaf payloads,
+traversal, memory operations, and latency are assessed separately.
 
 Our contributions are:
 \begin{enumerate}
   \item A three-layer analysis combining a property-tested structural work bound,
     deterministic counter-guided input search, and controlled timing with diagnostics-gated
     MBPTA. Failed diagnostics prohibit extrapolation.
-  \item A per-input cross-language work-trace conformance check. The base-agreement set
+  \item A per-input cross-language work-shape conformance check. The base-agreement set
     $E_{\mathrm{base}}$ checks iteration,
-    pose, and score agreement; $E_{\mathrm{trace}}$ additionally checks the recorded
-    per-pass common-work structure. Neither establishes runtime membership in $D$.
+    pose, and score tolerances; $E_{\mathrm{shape}}$ additionally checks the recorded
+    pass structure, point and neighbor counts, and canonical leaf identities. A separate
+    payload digest checks leaf means and inverse covariances. Neither establishes runtime
+    membership in $D$ or full semantic equivalence.
   \item Search evidence that reaches
     $P\maxnn(N_{\mathrm{iter}}{+}1)$ kernel evaluations and then raises kd traversal by
     \searchKdGrowthPct\%, with frozen Pareto alternatives timed separately.
@@ -45,7 +47,7 @@ Our contributions are:
 The remainder of this paper is organized as follows. Section~\ref{sec:problem}
 formulates the WCET problem and its structural work decomposition.
 Sections~\ref{sec:methodology} and~\ref{sec:implementation} present the three-layer
-method, cross-language work-trace conformance check, and implementation, while
+method, cross-language work-shape conformance check, and implementation, while
 Section~\ref{sec:evaluation} reports the search, timing, trace, real-data, and cross-ISA
 results. Sections~\ref{sec:threats} and~\ref{sec:related} discuss limitations and prior
 work, respectively; Section~\ref{sec:conclusion} presents the conclusions, and the appendix provides
