@@ -36,23 +36,24 @@ manifests containing the environment, compiler flags, commits, and fixture and b
 The frozen hill-climb champion saturates the analytic kernel-evaluation maximum:
 $\sumnbr = P \cdot \maxnn \cdot (N_{\mathrm{iter}}{+}1) = 2000 \cdot 64 \cdot 31 =
 \num{3968000}$, showing that the hand-built \emph{dense-neighbors} construction is
-kernel-count-optimal. It then grows the remaining free term \kdnodes{} by a further
+kernel-count-optimal. It then grows the Rust-specific traversal term \kdnodes{} by a further
 \searchKdGrowthPct\%, from \oneoffKdGenZeroM\,M to \searchZeroKdM\,M, while increasing
 the map extent from 6 to 9 blocks. The generation-0 value comes from the recorded search
 log and the final value from the frozen fixture's counters.
-The shared counter-extremal witness is \emph{search-00}. It is slower than every other frozen fixture
-on every engine and percentile in Table~\ref{tab:tails}; the frontier ablation below refines
-the scope of that statement. Table~\ref{tab:counters} lists the frozen set.
+Thus \emph{search-00} is the Rust-search champion transferred to both engines. It is
+observed to be slower than every other transferred frozen fixture on every engine and
+percentile in Table~\ref{tab:tails}; this is not a C++ traversal-extremum claim. The frontier
+ablation below refines the Rust result. Table~\ref{tab:counters} lists the frozen set.
 
 \input{tables/counters}
 
-Table~\ref{tab:ablation} reports the \emph{ablations}. The design supports three claims. First, the
-analytic construction, not the climb, reaches the kernel-count axis: across \ablationSeeds{}
+Table~\ref{tab:ablation} reports the \emph{ablations}. The design supports three claims.
+First, the analytic construction, not the climb, reaches the kernel-count axis: across \ablationSeeds{}
 seeds the domain-informed seed genome attains the \sumnbr{} maximum already at
 evaluation~1. Second, the climb contributes the
-${+}$\searchKdGrowthPct\% increase in the free traversal term \kdnodes{}. Third, counter fitness is reproducible where wall-clock
-fitness is not: two wall-clock-fitness runs with an identical seed return \emph{different}
-champions whose \kdnodes{} differ by only \ablationTimeKdDeltaPct\%:
+${+}$\searchKdGrowthPct\% increase in the Rust traversal term \kdnodes{}. Third, counter
+fitness is reproducible where wall-clock fitness is not: two wall-clock-fitness runs with an
+identical seed return \emph{different} champions whose \kdnodes{} differ by only \ablationTimeKdDeltaPct\%:
 \ablationTimeKdA{} versus \ablationTimeKdB. Timing noise ranks these two near-identical
 maxima differently. Budget-matched random sampling uses \ablationBudget{} evaluations and
 spans \ablationRandomWorstPct--\ablationRandomBestPct\% of the \sumnbr{} maximum. Because
@@ -61,21 +62,22 @@ strategy and supports no claim that hill-climbing is intrinsically superior.
 
 \input{tables/ablation}
 
-\emph{Counter-Pareto frontier.} A lexicographic order can in principle mis-rank the
+\emph{Rust-counter Pareto frontier.} A lexicographic order can in principle mis-rank the
 \emph{time}-worst input: a candidate trading kernel evaluations for heavier traversal could
 be slower. The union of all counter-based evaluations leaves exactly
 \ablationFrontierSize{} non-dominated points: \emph{search-00} plus two candidates with
 fewer kernel evaluations but more \kdnodes{}, i.e.\ the anticipated trade. We timed both
 under the protocol of Sec.~\ref{sec:eval-tails} against a same-series re-measurement of
-\emph{search-00}. On C++ neither approaches the champion; the maximum ratio is
-$\ablationFrontierCppRatio\times$. On Rust the kd-heaviest candidate marginally
-\emph{exceeds} it by $\ablationFrontierRustRatio\times$ at the maximum, with a
-consistent result at p50:
+\emph{search-00}. On C++ neither approaches \emph{search-00}; the maximum ratio is
+$\ablationFrontierCppRatio\times$. These C++ measurements compare Rust-generated
+candidates and are not an independent FLANN-counter search. On Rust the kd-heaviest
+candidate marginally \emph{exceeds} it by $\ablationFrontierRustRatio\times$ at the
+maximum, with a consistent result at p50:
 the port's cheaper kernel evaluation shifts time-weight toward traversal, so the two
 engines' time-worst inputs need not coincide. This result is consistent with \kdnodes{}
-being a Rust-traversal count, as discussed in Sec.~\ref{sec:eval-regression}. We keep
-\emph{search-00} as the shared counter-extremal witness because it remains the C++
-time-worst among the evaluated shared fixtures. A Rust Pareto candidate exceeds it by
+being a Rust-traversal count, as discussed in Sec.~\ref{sec:eval-regression}. We retain
+\emph{search-00} as the common timing fixture because it remains C++ time-worst only among
+the evaluated transferred fixtures. A Rust Pareto candidate exceeds it by
 \ablationFrontierRustExcessPct\%, so it is not a Rust timing upper bound.
 
 \subsection{Engine-tier frame times: C++ vs.\ Rust}
@@ -248,8 +250,8 @@ In the decomposition~\eqref{eq:decomp}, $P$ is the only multiplicative freedom: 
 per-iteration sum while leaving $N_{\mathrm{iter}}$, $K$, and $T_{\mathrm{solve}}$ untouched,
 predicting an \emph{affine} observed envelope $T_{\mathrm{obs,max}}(P) =
 \mathrm{slope}\cdot P + \mathrm{const}$. This is a fit to observed maxima, not a hard bound.
-We check this prediction with a controlled sweep: the shared counter-extremal geometry regenerated at $P \in
-[\psweepPmin{}, \psweepPmax{}]$ in six points with $\times 2$ steps. The counters verify
+We check this prediction with a controlled sweep: the Rust-search geometry is regenerated at
+$P \in [\psweepPmin{}, \psweepPmax{}]$ in six points with $\times 2$ steps. The counters verify
 that per-point work is exactly invariant: $N_{\mathrm{iter}} = 30$ and
 $\sumnbr = P \cdot 64 \cdot 31$ at every $P$. Within this constructed family, the modeled work therefore varies only through $P$; platform noise remains in the timing samples.
 Table~\ref{tab:psweep} and Fig.~\ref{fig:psweep} show the result: an affine line closely fits
@@ -267,7 +269,7 @@ point, plus the per-point and traversal terms.
 
 Inverting the fitted observed-maximum line against the 10\,Hz, \SI{100}{ms} budget gives an
 \emph{empirical budget crossover} at $P \approx \psweepCrossRust{}$ for Rust and
-\psweepCrossCpp{} for C++ under the shared counter-extremal geometry on this host. The Rust
+\psweepCrossCpp{} for C++ under the transferred Rust-search geometry on this host. The Rust
 value interpolates within the measured range, whereas the C++ value is a short extrapolation
 below its lower endpoint. These point estimates are neither hard admission limits nor WCET
 bounds. Table~\ref{tab:psweep-fit} reports the slope and intercept intervals and residuals;
@@ -288,7 +290,7 @@ shrinks. On \emph{legal-worst}, the hardest
 preprocessing-reachable input we constructed, the observed maximum drops to
 \SI{\legalWorstMaxRust}{ms} for Rust and \SI{\legalWorstMaxCpp}{ms} for C++. These are
 measured factors of \legalWorstRatioRust$\times$ and \legalWorstRatioCpp$\times$ below
-the shared counter-extremal witness in Table~\ref{tab:tails}. These are measured
+the transferred Rust-search fixture in Table~\ref{tab:tails}. These are measured
 witness-to-witness gaps.
 
 Two caveats scope this factor. It is a \emph{fixture-to-fixture measurement}, not a proven
@@ -463,7 +465,7 @@ scheduling, map-edge behavior, ground truth, and co-resident workloads.
 \subsection{Bridge experiment: Isolated and Replay configurations}
 \label{sec:eval-bridge}
 Our measurement policy links the two configurations through a mandatory bridge experiment. The
-same five frozen inputs replay under both configurations: the shared counter-extremal witness, both deployment-legal
+same five frozen inputs replay under both configurations: the transferred Rust-search fixture, both deployment-legal
 witnesses, and the slowest and median-cost real frames frozen from the drive capture. They
 use the same \SI{3.2}{GHz} reference clock and harness, differing only in the environment.
 Table~\ref{tab:bridge} reports medians, maxima, and the descriptive

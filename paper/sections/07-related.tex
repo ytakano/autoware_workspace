@@ -20,24 +20,24 @@ behaviors exercised by the measurement protocol, which has driven work on random
 measurement protocols~\cite{lima2017evt}, statistical estimation and validation
 procedures~\cite{hansen2009statistical}, and reusable tooling~\cite{reghenzani2018chronovise}.
 We attack representativity from the input side: instead of sampling ``representative'' inputs,
-we \emph{search} for adversarial ones with a deterministic, platform-independent fitness, and
+we \emph{search} for adversarial ones with deterministic, timing-independent Rust counters, and
 show for the dominant term that the search reached the analytic maximum. On the frozen
-extreme inputs we then run the POT/MLE machinery with its diagnostic checklist, and we report
+stress inputs we then run the POT/MLE machinery with its diagnostic checklist, and we report
 that diagnostics determine whether extrapolation is reported, as detailed in
 Sec.~\ref{sec:eval-evt}.
 
 Search-based generation of worst-case inputs for timing constraints dates to Wegener et
 al.~\cite{wegener1997testing,wegener2001comparison}, who evolve test data with \emph{measured
 execution time} as fitness and note the complementarity with static analysis. Wall-clock
-fitness is noisy, machine-specific, and unreproducible across platforms. Our fitness is a
-vector of deterministic algorithmic cost counters: the search result is a property of the
-algorithm rather than of the measurement machine, runs are exactly reproducible from a seed,
-and the outcome can be checked against the analytic bound. The saturation witness of
-Sec.~\ref{sec:eval-search} has no analogue under time-based fitness. The counters also
-enable cross-language transfer: a counter-extremal input found on the instrumented port is
-replayed on the production engine, and the replay checks work-trace conformance per input.
-Engine-specific traversal and timing remain separate, so the shared witness need not
-stress both implementations equally.
+fitness is noisy, machine-specific, and unreproducible across platforms. Our fitness
+combines a common kernel-work counter with a Rust-specific traversal counter. For a fixed
+port implementation, the resulting input ranking is reproducible and independent of timing
+noise, and the common kernel axis can be checked against the analytic bound. The saturation
+witness of Sec.~\ref{sec:eval-search} has no analogue under time-based fitness. The
+common kernel-work axis supports cross-language transfer: a Rust-search input is replayed
+on the production C++ engine, and the replay checks work-shape conformance per input. The
+Rust traversal counter does not transfer; C++ results are observations over those transferred
+inputs and do not establish a C++-specific traversal extremum.
 
 For ROS-based systems, Casini et al.~\cite{casini2019ros2} bound end-to-end response times of ROS~2 processing chains
 under reservation-based scheduling, treating per-callback WCETs as given inputs. Such analyses

@@ -13,8 +13,11 @@ Real replay is single-shot per frame, and parallel results omit worker schedulin
 interference, so neither supports a multi-core WCET claim.
 
 Search covers a parameterized generator, not all inputs. Kernel-evaluation saturation is
-exact, but kd traversal has only its $O(N_{\mathrm{leaves}})$ structural cap; a slower
-geometry may exist. The real-data evidence covers one vehicle, route, and cropped map, with
+exact, but the traversal objective is the Rust-specific kd-node count and has only its
+$O(N_{\mathrm{leaves}})$ structural cap; a slower Rust geometry may exist. No independent
+search uses the C++ FLANN distance or plane-evaluation counters, so C++ timing evidence is
+limited to observations over the transferred fixture set. The real-data evidence covers one
+vehicle, route, and cropped map, with
 only \realOnMap{} on-map frames in \realSegments{} short segments. The remaining
 \realOffMap{} frames are near-no-op aligns and therefore do not characterize localization
 work over the full recording. The degraded-prior track uses offline NDT odometry rather than
@@ -80,8 +83,9 @@ or memory-hierarchy interference on the Linux host.
 \label{sec:threats-epistemic}
 Loop guards, the neighbor cap, reserved buffers, and fixed-depth stack are enforced by
 construction; panic exclusion is statically checked; property, allocation, differential,
-and replay tests provide dynamic evidence. Nothing is formally proven. The kernel-evaluation
-maximum has an exact saturation witness, whereas kd traversal does not.
+and replay tests provide dynamic evidence. Nothing is formally proven. The shared
+kernel-evaluation maximum has an exact saturation witness, whereas neither a Rust traversal
+maximum nor a C++ traversal extremum is established.
 
 All times are platform-specific observations. POT/GPD extrapolation is rejected because
 serial dependence reaches $|\mathrm{ACF}|=\evtAcfWorst$, and the bridge experiment associates

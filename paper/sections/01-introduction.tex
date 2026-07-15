@@ -24,6 +24,11 @@ the standard library. Its radius query caps neighbors at \maxnn; the
 that limit. Per-input traces compare a defined work shape on evaluated inputs; leaf payloads,
 traversal, memory operations, and latency are assessed separately.
 
+The objective is to realize a real-time-oriented NDT engine through the Rust port, with
+explicit work limits and timing evidence for its critical path. The production C++ engine
+serves as the behavioral and timing baseline for the port. We do not attempt to search or
+establish the C++ implementation's worst traversal shape.
+
 Our contributions are:
 \begin{enumerate}
   \item A three-layer analysis combining a property-tested structural work bound,
@@ -36,8 +41,9 @@ Our contributions are:
     payload digest checks leaf means and inverse covariances. Neither establishes runtime
     membership in $D$ or full semantic equivalence.
   \item Search evidence that reaches
-    $P\maxnn(N_{\mathrm{iter}}{+}1)$ kernel evaluations and then raises kd traversal by
-    \searchKdGrowthPct\%, with frozen Pareto alternatives timed separately.
+    $P\maxnn(N_{\mathrm{iter}}{+}1)$ kernel evaluations and then raises the Rust
+    implementation's kd-node count by \searchKdGrowthPct\%, with frozen Pareto alternatives
+    timed separately.
   \item An industrial case study: Rust removes the C++ per-point allocation hazard within
     reserved capacities, has observed maxima no greater on the shared fixtures, and supports
     a two-tier work envelope whose deployment axes are backed by legal witnesses. One-drive

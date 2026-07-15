@@ -1,7 +1,7 @@
 \section{Methodology}
 \label{sec:methodology}
 
-Three analysis layers establish a work bound, search for counter-extremal inputs, and
+Three analysis layers establish a work bound, search for Rust-counter stress inputs, and
 measure frozen witnesses. Per-input cross-language traces check recorded work-shape
 conformance before timing, and a cross-ISA replay checks transfer to the deployment-class
 target.
@@ -17,16 +17,21 @@ Within the reserved envelope, a counting allocator verifies allocation freedom f
 first frame; linting and an explicit fixed-depth kd stack enforce panic- and
 recursion-freedom.
 
-\subsection{Analysis layer 2: Counter-guided extremal-input search}
+\subsection{Analysis layer 2: Rust counter-guided stress-input search}
 \label{sec:meth-search}
-Compile-time instrumentation counts passes, points, \sumnbr, and \kdnodes; disabled counters
-compile away. A seeded hill-climb mutates tile overlap and extent, centroid geometry, source
-composition, initial guess, and convergence threshold to maximize
-$(N_{\mathrm{iter}},\sumnbr,\kdnodes)$ lexicographically. $P$ remains a caller contract,
-not a search dimension. Deterministic fitness makes results reproducible and
-platform-independent. Because lexicographic order need not match time order, all
+Compile-time instrumentation in the Rust port counts passes, points, \sumnbr, and
+\kdnodes; disabled counters compile away. A seeded hill-climb mutates tile overlap and
+extent, centroid geometry, source composition, initial guess, and convergence threshold to
+maximize $(N_{\mathrm{iter}},\sumnbr,\kdnodes)$ lexicographically. $P$ remains a caller contract,
+not a search dimension. The fitness is independent of wall-clock timing and reproducible
+for the fixed Rust implementation. Because lexicographic order need not match time order, all
 non-dominated counter vectors are archived and their fixtures timed. Budget-matched random
 and wall-clock-fitness arms test search effectiveness.
+
+Only \sumnbr{} is a common work axis across the two engines. The \kdnodes{} objective is
+specific to the Rust kd tree; the search does not optimize the C++ FLANN distance or
+plane-evaluation counters. Replaying the resulting fixtures on C++ provides a port baseline
+and timing observations over the transferred set, not evidence of a C++ traversal extremum.
 
 \subsection{Cross-language transfer: Per-input work-shape conformance}
 \label{sec:meth-transfer}

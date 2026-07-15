@@ -51,7 +51,7 @@ LABEL = {
     "legal_osc": r"\emph{legal-osc}$^\dagger$",
 }
 # Shared table footnote for the tier markers.
-TIER_NOTE = (r"\emph{search-00} is the shared counter-extremal witness; "
+TIER_NOTE = (r"\emph{search-00} is the Rust-search champion transferred to both engines; "
              r"$^\dagger$\,deployment-tier fixtures.")
 
 # One-off side measurements quoted in the prose but not captured in data/*.json.
@@ -268,7 +268,8 @@ def ablation():
         r"mode & seed & at final \sumnbr & \sumnbr{} (\% of max) & \kdnodes",
         rows,
         note=r"Hill-climb saturates \sumnbr{} at the analytic maximum on every seed (the "
-        r"domain-informed seed genome already attains it; the search then grows \kdnodes); "
+        r"domain-informed seed genome already attains it; the search then grows the Rust "
+        r"traversal counter \kdnodes); "
         r"random sampling never reaches it. The random arms start from \emph{random} "
         r"genomes, so the comparison bundles seed quality with search strategy. The two "
         r"wall-clock-fitness runs share a seed yet return different champions --- counter "
@@ -1521,13 +1522,13 @@ def psweep():
         )
     write(
         "psweep.tex",
-        r"$P$-sweep on the shared counter-extremal geometry (\si{ms}; work invariance verified: "
+        r"$P$-sweep on the Rust-search geometry (\si{ms}; work invariance verified: "
         r"$N_{\mathrm{iter}}{=}30$, $\sumnbr = P \cdot 64 \cdot 31$ exactly at every $P$).",
         "tab:psweep",
         "rrrrr",
         r"$P$ & \multicolumn{2}{c}{C++ (p50 / max)} & \multicolumn{2}{c}{Rust (p50 / max)}",
         rows,
-        note=r"The sweep \emph{regenerates} the shared counter-extremal geometry at each $P$; its "
+        note=r"The sweep \emph{regenerates} the Rust-search geometry at each $P$; its "
         r"$P{=}2000$ row is a distinct fixture instance from --- and so differs slightly "
         r"from --- the frozen \emph{search-00} of Table~\ref{tab:tails}. Same host and "
         r"protocol as Table~\ref{tab:tails} (Sec.~\ref{sec:evaluation}).",
@@ -1648,8 +1649,8 @@ def psweep():
 \addlegendentry{{Rust fit ($R^2={fits['rust']['rmx']:.4f}$)}}
 \end{{axis}}
 \end{{tikzpicture}}
-\caption{{Observed maximum align latency vs.\ source-point count $P$ on the shared
-counter-extremal geometry
+\caption{{Observed maximum align latency vs.\ source-point count $P$ on the
+Rust-search geometry
 (work per point held invariant; counters verified). Dashed lines are descriptive affine fits
 through the six observed maxima, not hard latency bounds.}}
 \label{{fig:psweep}}

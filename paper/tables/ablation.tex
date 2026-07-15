@@ -20,5 +20,5 @@ hill (time) & \texttt{0x5f44556d} & 1 & 100.0 & \num{12009768} \\
 hill (time) & \texttt{0x5f44556d} & 1 & 100.0 & \num{12009329} \\
 \bottomrule
 \end{tabular}
-\par\smallskip\footnotesize Hill-climb saturates \sumnbr{} at the analytic maximum on every seed (the domain-informed seed genome already attains it; the search then grows \kdnodes); random sampling never reaches it. The random arms start from \emph{random} genomes, so the comparison bundles seed quality with search strategy. The two wall-clock-fitness runs share a seed yet return different champions --- counter fitness is bit-reproducible.
+\par\smallskip\footnotesize Hill-climb saturates \sumnbr{} at the analytic maximum on every seed (the domain-informed seed genome already attains it; the search then grows the Rust traversal counter \kdnodes); random sampling never reaches it. The random arms start from \emph{random} genomes, so the comparison bundles seed quality with search strategy. The two wall-clock-fitness runs share a seed yet return different champions --- counter fitness is bit-reproducible.
 \end{table}
