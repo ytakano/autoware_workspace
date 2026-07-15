@@ -1,10 +1,17 @@
 \section{Conclusion}
 \label{sec:conclusion}
 
-A high-fidelity port turns analysis of a data-dependent industrial kernel into three
-separable obligations: enforce and test a work envelope, search deterministic counters for
-stress witnesses, and measure frozen inputs. Per-input traces transfer common semantic work
-to unmodified C++ without equating implementation-specific traversal or latency. The search
+Within the evaluated scope, port fidelity is supported by the frozen synthetic fixtures and
+by the \realTraceOnMap{} trace-certified on-map frames, not by the full 57-minute recording.
+The open-loop real-data experiment is a cropped-map, degraded-prior stress replay: only
+\realOnMap{} frames perform meaningful matching, and \realIterationDivergent{} of them take
+different iteration paths. It exposes port-fidelity failures and map-boundary sensitivity
+but does not characterize representative nominal-localization behavior.
+
+The case study turns analysis of a data-dependent industrial kernel into three separable
+obligations: enforce and test a work envelope, search deterministic counters for stress
+witnesses, and measure frozen inputs. Per-input traces transfer common semantic work to
+unmodified C++ without equating implementation-specific traversal or latency. The search
 saturates the dominant kernel term; the Rust port removes the per-point allocation hazard
 within reserved capacities and has no larger observed maximum on shared fixtures. Timing
 remains empirical.
@@ -13,8 +20,10 @@ Rust is not necessary for these bounds. Its safe core narrows memory-safety and 
 obligations so validation can focus on equivalence, numerics, work, and timing; FFI, unsafe
 code, and dependencies remain trusted.
 
-The NDT--EKF replay does not establish production readiness: C++ stayed below 46.8 ms, yet
-same-engine runs diverged and did not recover after their maxima. Operational evaluation
+The NDT--EKF replay extends the evidence to rotation, quality gates, innovations, and
+feedback but does not establish production readiness: C++ stayed below 46.8 ms, yet
+same-engine runs diverged, left the available map, and did not recover after their maxima.
+Operational evaluation
 requires the production ECU, ground truth, co-resident loads, and end-to-end 10 Hz gate and
 innovation measurements. Host parallelism is feasibility, not multi-core WCET; stronger
 claims require a deployment cost bound or an independence-preserving protocol.

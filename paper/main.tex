@@ -67,7 +67,7 @@ Structural Work Bounds and Cross-Language Trace Certification}
 The execution time of Normal Distributions Transform (\ndt) scan matching is strongly
 input-dependent, complicating worst-case execution-time (WCET) analysis on the localization
 critical path. We analyze the align kernel of the industrial Autoware matcher; map loading,
-preprocessing, and ROS scheduling are outside scope. A high-fidelity Rust port reduces the
+preprocessing, and ROS scheduling are outside scope. The Rust port reduces the
 low-level verification surface of the safe core and supports \texttt{no\_std}, but bounded
 execution is not Rust-specific and the FFI, unsafe code, and dependencies remain trusted.
 Our three-layer method establishes a structural work bound, searches deterministic cost
@@ -78,9 +78,10 @@ remaining kd-traversal term. Per-input traces certify common semantic work acros
 C++ while keeping implementation-specific traversal and latency distinct. A two-tier model
 separates the bounded-neighbor engine domain from preprocessing-reachable inputs; their
 measured witnesses differ by $\legalWorstRatioRust\times$--$\legalWorstRatioCpp\times$.
-Among \realOnMap{} on-map frames from a 57-minute drive, \realTraceOnMap{} are
-trace-certified, \realBaseOnly{} pass only the base certificate, and
-\realIterationDivergent{} diverge in iteration count. On frozen synthetic fixtures, Rust
+In a cropped-map, degraded-prior stress replay drawn from a 57-minute drive, only
+\realOnMap{} frames perform on-map matching; \realTraceOnMap{} are trace-certified,
+\realBaseOnly{} pass only the base certificate, and \realIterationDivergent{} diverge in
+iteration count. On frozen synthetic fixtures, Rust
 meets or improves the C++ observed maximum and removes approximately \allocPerPtPass{}
 per-point heap allocations per derivative pass within its reserved envelope.
 \end{abstract}

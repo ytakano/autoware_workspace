@@ -14,8 +14,10 @@ interference, so neither supports a multi-core WCET claim.
 
 Search covers a parameterized generator, not all inputs. Kernel-evaluation saturation is
 exact, but kd traversal has only its $O(N_{\mathrm{leaves}})$ structural cap; a slower
-geometry may exist. The real-data evidence covers one vehicle and route, with only
-\realOnMap{} on-map frames. Its degraded-prior track uses offline NDT odometry rather than
+geometry may exist. The real-data evidence covers one vehicle, route, and cropped map, with
+only \realOnMap{} on-map frames in \realSegments{} short segments. The remaining
+\realOffMap{} frames are near-no-op aligns and therefore do not characterize localization
+work over the full recording. The degraded-prior track uses offline NDT odometry rather than
 the production filter, so it does not represent nominal cruising or closed-loop behavior.
 The NDT--EKF replay includes feedback but lacks ground truth, vehicle dynamics, and
 co-resident workloads. Same-engine repetitions also diverge, preventing whole-drive

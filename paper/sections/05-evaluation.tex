@@ -316,7 +316,7 @@ to \SI{\parRustLegalFitMaxMs}{ms}; contract enforcement plus two cores therefore
 deadline on this host. This is throughput feasibility, not multi-core WCET: deployment
 requires the same pinned-core protocol with platform-specific interference analysis.
 
-\subsection{Real-data replay: contract validation and degraded-prior behavior}
+\subsection{Real-data replay: cropped-map and degraded-prior stress}
 \label{sec:eval-realdata}
 To place the tiers against real inputs, we used an environment-gated hook at the engine's
 entry points to capture every NDT input: the map tile, per-align guess, and source cloud.
@@ -332,9 +332,10 @@ nominal cruising, which the converged node-level baseline shows at 3 iterations 
 
 One consequence of this open-loop track must be stated up front: the offline benchmark map
 is a cropped extract, and the reconstructed trajectory exits it after frame
-\realOnMapSeqMax{}, so only \realOnMap{} aligns, a prefix window covering ${\sim}2\%$ of the
-drive, perform meaningful matching work. We call a frame \emph{on-map} when at least one of
-its radius searches returns a neighbor, so $\sumnbr > 0$. On the remaining \realOffMap{}
+\realOnMapSeqMax{}. Only \realOnMap{} aligns, distributed across \realSegments{} short
+on-map segments within this prefix and covering ${\sim}2\%$ of the drive, perform meaningful
+matching work. We call a frame \emph{on-map} when at least one of its radius searches returns
+a neighbor, so $\sumnbr > 0$. On the remaining \realOffMap{}
 \emph{off-map} frames, every radius search returns empty and the align is a near-no-op.
 The median iteration count is \realOffMapIterMed{}, and C++ p50 is approximately
 \SI{\realOffMapCppMed}{ms}. Table~\ref{tab:realdata} separates populations explicitly.
@@ -342,6 +343,13 @@ Its first panel reports $P$, max-$K$, and certificate counts over all frames. It
 reports timing over all \realOnMap{} on-map frames as a system-level observation and over
 the \realTraceOnMap{}-frame $E_{\mathrm{trace}}$ subset as the strict common-work
 implementation comparison.
+
+Accordingly, this experiment is a \emph{cropped-map, degraded-prior stress replay}, not a
+representative 57-minute nominal-localization workload. It is useful for exposing numerical
+branching near the available-map boundary, stressing initialization and dropout priors, and
+finding port-fidelity failures. All-frame certificate counts provide capture context, but
+the near-no-op off-map majority does not characterize localization fidelity; the strict
+cross-language result is the \realTraceOnMap{}-frame on-map subset.
 
 Table~\ref{tab:realdata} shows the distributions; four observations from this replay. First, the observed
 inputs are consistent with the preprocessing contracts: $P \le \realPMax = 1500$ on all
@@ -406,8 +414,9 @@ The pose deltas in Table~\ref{tab:realdata} measure substitutability rather than
 error because only one engine runs in production and this replay has no ground truth.
 
 % DATA-CHECKED(2026-07-15): paper/data/stack_replay.json
-Stack-level replay adds the NDT--EKF interface. We replayed the same 57-minute cloud, twist,
-and GNSS streams twice per engine in C++--Rust--Rust--C++ order. A fixed timestamp offset
+Stack-level replay extends the comparison to the NDT--EKF interface, including rotation,
+quality-gate, innovation, and feedback behavior. We replayed the same 57-minute cloud,
+twist, and GNSS streams twice per engine in C++--Rust--Rust--C++ order. A fixed timestamp offset
 preserved recorded intervals; all runs used one initial pose, a 500-m tiled map loaded within
 150 m, and a 3.2 GHz governor. Unlike the serial offline comparison in
 Table~\ref{tab:realdata}, the stack used the deployed four-worker configuration: four OpenMP
@@ -429,7 +438,9 @@ ranges were 1,286--2,260 and 1,142--1,462. Cross-language p99 innovation differe
 (1.01--1.42 m) were comparable to same-engine values (0.84--1.32 m). Feedback reached
 kilometre-scale separation within one engine, and no pair recovered below 0.10 m and
 0.01 rad for five frames after its maximum. The replay neither demonstrates EKF absorption
-nor closed-loop equivalence; operational evaluation needs controlled initialization,
+nor closed-loop equivalence. Feedback-dependent trajectories repeatedly left the available
+differential map, so this result does not turn the recording into a full-map nominal
+workload. Operational evaluation needs controlled initialization,
 scheduling, map-edge behavior, ground truth, and co-resident workloads.
 
 \input{tables/realdata}
