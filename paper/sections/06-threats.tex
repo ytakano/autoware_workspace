@@ -58,9 +58,11 @@ No searched legal input combines $K=8$ with 30 production-parameter iterations:
 \emph{legal-osc} proves the cap reachable at shipped settings. The analytic $K\le27$
 ceiling has no witness and assumes boundary and floating-point behavior. A
 \legalKSearchSeeds{}-seed legal search reaches only $K=\legalKSearchMax$; this is evidence,
-not proof, that legal $K$ stays below the ceiling. The affine $P$ envelope is validated only
+not proof, that legal $K$ stays below the ceiling. The affine $P$ fit is validated only
 for $P\in[\psweepPmin{},\psweepPmax{}]$ on the host, and allocation freedom holds only
-inside pre-reserved capacities.
+inside pre-reserved capacities. Allocation freedom removes one kernel-level latency path;
+it does not bound interrupts, system-management interrupts, page faults, scheduler delays,
+or memory-hierarchy interference on the Linux host.
 
 \subsection{Evidence strength}
 \label{sec:threats-epistemic}

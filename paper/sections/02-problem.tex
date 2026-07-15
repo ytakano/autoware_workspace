@@ -42,6 +42,7 @@ time is platform-specific.
 \subsection{Why work bounds need timing evidence}
 Individual maxima need not be jointly reachable, so constructed inputs are witnesses, not
 upper bounds. Cache, allocator, and floating-point costs are absent from the work model.
-In particular, C++ performs about 11 heap allocations per point per derivative pass; under
-the evaluated allocator/system model this prevents a defensible finite latency bound for
-the inner loop.
+In particular, C++ performs about 11 heap allocations per point per derivative pass. This
+is a known input-proportional latency path whose cost is not bounded by the work model;
+removing it eliminates one such path but does not by itself establish a finite latency bound
+for the kernel or the surrounding Linux system.

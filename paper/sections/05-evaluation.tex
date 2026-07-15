@@ -118,9 +118,9 @@ ${\sim}\subnormalAllocSharePct\%$. The remainder is the per-query search machine
 around pcl/FLANN, including call indirection and result-container handling, that the Rust engine's direct,
 allocation-free kd query does not pay. This refines the allocation analysis of
 Sec.~\ref{sec:eval-alloc}: heap churn is inexpensive \emph{on average}, and its significance is
-the difficulty of establishing a finite latency bound under this allocator/system model,
-while the mean-cost gap on sparse inputs is search-machinery
-overhead. Hardware performance counters are unavailable in the measurement container, so
+that it is a known input-proportional latency path absent from the Rust kernel. Removing it
+does not bound the remaining platform effects; the mean-cost gap on sparse inputs is
+search-machinery overhead. Hardware performance counters are unavailable in the measurement container, so
 the final split is arithmetic over microbenchmarks rather than counter-attributed.
 Section~\ref{sec:threats} records this limitation.
 
@@ -239,23 +239,28 @@ predicting an \emph{affine} observed envelope $T_{\mathrm{obs,max}}(P) =
 We check this prediction with a controlled sweep: the shared counter-extremal geometry regenerated at $P \in
 [\psweepPmin{}, \psweepPmax{}]$ in six points with $\times 2$ steps. The counters certify
 that per-point work is exactly invariant: $N_{\mathrm{iter}} = 30$ and
-$\sumnbr = P \cdot 64 \cdot 31$ at every $P$. Time may therefore vary only through $P$ itself.
-Table~\ref{tab:psweep} and Fig.~\ref{fig:psweep} show the result: both engines are affine in
-$P$ on the \emph{max} series, with $R^2 = \psweepRsqCpp{}$ for C++ and
-$\psweepRsqRust{}$ for Rust;
-no cache knee is visible over the tested range. The fitted observed-maximum slope is
+$\sumnbr = P \cdot 64 \cdot 31$ at every $P$. Within this constructed family, the modeled work therefore varies only through $P$; platform noise remains in the timing samples.
+Table~\ref{tab:psweep} and Fig.~\ref{fig:psweep} show the result: an affine line closely fits
+the \emph{max} series, with $R^2 = \psweepRsqCpp{}$ for C++ and
+$\psweepRsqRust{}$ for Rust. The largest absolute residual is
+\SI{\psweepResidualCpp}{ms} for C++ at $P=\psweepResidualPCpp{}$ and
+\SI{\psweepResidualRust}{ms} for Rust at $P=\psweepResidualPRust{}$; no cache knee is
+visible over the tested range. The fitted
+observed-maximum slope is
 \SI{\psweepSlopeCpp}{\micro\second} for C++ versus
 \SI{\psweepSlopeRust}{\micro\second} for Rust
 per source point, consistent with the unit costs of
 Sec.~\ref{sec:eval-regression}: approximately 64 kernel evaluations across 31 passes per
 point, plus the per-point and traversal terms.
 
-Within the tested range, the affine envelope makes the result \emph{parametric in the caller's contract}: inverting it
-against the 10\,Hz, \SI{100}{ms} budget gives a maximum admissible downsampled-scan size of
-$P \approx \psweepPmaxRust{}$ points for the Rust engine and \psweepPmaxCpp{} for C++
-\emph{under the shared counter-extremal geometry on this host}, a number the localization node's
-voxel-filter configuration can be audited against directly. These values are host-relative;
-the same protocol yields the relevant slope on deployment hardware.
+Inverting the fitted observed-maximum line against the 10\,Hz, \SI{100}{ms} budget gives an
+\emph{empirical budget crossover} at $P \approx \psweepCrossRust{}$ for Rust and
+\psweepCrossCpp{} for C++ under the shared counter-extremal geometry on this host. The Rust
+value interpolates within the measured range, whereas the C++ value is a short extrapolation
+below its lower endpoint. These point estimates are neither hard admission limits nor WCET
+bounds. Table~\ref{tab:psweep-fit} reports the slope and intercept intervals and residuals;
+the same protocol is required to obtain a platform-specific crossover on deployment
+hardware.
 
 \input{tables/psweep}
 \input{figures/psweep}
