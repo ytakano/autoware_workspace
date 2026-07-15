@@ -409,8 +409,14 @@ error because only one engine runs in production and this replay has no ground t
 Stack-level replay adds the NDT--EKF interface. We replayed the same 57-minute cloud, twist,
 and GNSS streams twice per engine in C++--Rust--Rust--C++ order. A fixed timestamp offset
 preserved recorded intervals; all runs used one initial pose, a 500-m tiled map loaded within
-150 m, and a 3.2 GHz governor. Each consumed 34,375 clouds at 10.00 Hz. C++ NDT maxima were
-45.7--46.8 ms and Rust maxima 15.0--20.7 ms; no align exceeded 100 ms. Raw outputs ranged
+150 m, and a 3.2 GHz governor. Unlike the serial offline comparison in
+Table~\ref{tab:realdata}, the stack used the deployed four-worker configuration: four OpenMP
+threads for C++ and a four-worker Rayon pool for Rust. The workers remained under CFS without
+per-worker pinning, so this is a throughput observation rather than multi-core WCET evidence.
+Each run consumed 34,375 clouds at 10.00 Hz. C++ NDT maxima were 45.7--46.8 ms and Rust
+maxima 15.0--20.7 ms; no align exceeded 100 ms. The different parallelism and
+feedback-conditioned work distribution mean that this absence of overruns does not contradict
+the serial C++ overruns in Table~\ref{tab:realdata}. Raw outputs ranged
 from 14,779 to 21,334 for C++ and 18,096 to 30,711 for Rust because feedback trajectories
 left the differential map region. C++ therefore had per-align compute headroom for 10 Hz; missing
 outputs were predominantly map-availability failures, not deadline overruns.
