@@ -148,6 +148,13 @@ also records leaf means and regularized inverse covariances, agrees on
 \tracePayloadExactFixtures{} of \traceFixtures{} fixtures. The payload result demonstrates
 that shape conformance does not establish equality of all kernel operands.
 
+The C++ neighbor count is the complete result of an uncapped radius search, not a
+post-search prefix, whereas the Rust count is the at-most-64 list returned by its capped
+search. Shape conformance therefore confirms the bound along the C++ query trajectory.
+It does not confirm the counterfactual uncapped count at each Rust query coordinate, which
+may differ slightly from its C++ counterpart; that distinction prevents the trace result
+from being interpreted as membership in $D$.
+
 The per-pass score agrees to \traceUlpConvMax{} f64 ULP or better on the
 well-conditioned fixtures and is bit-identical on \emph{cache-hostile}, but drifts to
 $\traceUlpWorstTex$ ULP on the most ill-conditioned geometries. PCL/FLANN returns each

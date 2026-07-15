@@ -38,8 +38,11 @@ SHA-256 shape digest records leaf identity but not leaf parameters. The separate
 digest includes means and regularized inverse covariances, yet agrees on only
 \tracePayloadExactFixtures{} synthetic fixtures and \tracePayloadExactOnMap{} on-map
 frames. Consequently, neither digest establishes full semantic equivalence. SHA-256
-collisions remain computationally possible, and direct membership in $D$ was not recorded
-because Rust does not expose a 65th leaf.
+collisions remain computationally possible. The C++ trace records complete uncapped
+neighbor lists, so shape conformance confirms at most \maxnn{} leaves at the C++ query
+coordinates. Direct membership in $D$ was not recorded because the Rust and C++ query
+coordinates need not be bit-identical and the capped Rust search cannot reveal whether a
+65th leaf exists at its own coordinate.
 
 The Rust stream targets ISA stability through software \texttt{libm} and no FMA contraction;
 all \raspiTotal{} frozen fixtures match on the AArch64 target. This is a per-fixture check,
