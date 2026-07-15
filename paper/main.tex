@@ -85,9 +85,11 @@ In a cropped-map, degraded-prior stress replay drawn from a 57-minute drive, onl
 \realOnMap{} frames perform on-map matching; \realShapeOnMap{} satisfy both base agreement
 and work-shape conformance, \realBaseOnly{} satisfy base agreement only, and
 \realBaseDivergent{} fall outside the base criterion. Of the last group,
-\realIterationDivergent{} diverge in iteration count. On frozen synthetic fixtures, Rust
-meets or improves the C++ observed maximum and removes approximately \allocPerPtPass{}
-per-point heap allocations per derivative pass within its reserved envelope.
+\realIterationDivergent{} diverge in iteration count. Across the primary and counter-Pareto
+frontier frozen-fixture campaigns, the engine-specific observed maximum is
+\SI{\combinedFixtureMaxRust}{ms} for Rust and \SI{\combinedFixtureMaxCpp}{ms} for C++.
+The Rust port also removes approximately \allocPerPtPass{} per-point heap allocations per
+derivative pass within its reserved envelope.
 \end{abstract}
 
 \begin{IEEEkeywords}

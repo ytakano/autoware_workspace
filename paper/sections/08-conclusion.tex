@@ -19,8 +19,9 @@ target of the traversal search.
 
 The intended result is a real-time-oriented Rust NDT engine with explicit work limits and
 measured timing evidence for its critical path. The port removes the per-point allocation
-hazard within reserved capacities and has no larger observed maximum on the shared fixtures.
-Timing remains empirical.
+hazard within reserved capacities. Across the union of the primary and counter-Pareto
+frontier fixture campaigns, the engine-specific maxima are \SI{\combinedFixtureMaxCpp}{ms}
+for C++ and \SI{\combinedFixtureMaxRust}{ms} for Rust. Timing remains empirical.
 
 Rust is not necessary for these bounds. Its safe core narrows memory-safety and race
 obligations so validation can focus on equivalence, numerics, work, and timing; FFI, unsafe

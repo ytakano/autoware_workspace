@@ -4,7 +4,7 @@
 Inputs (paper/data/): wcet.json (replay timing, both engines), wcet_rust.json (counters),
 wcet_alloc.json (LD_PRELOAD allocation pass); optionally wcet_psweep.json + psweep_rust.json
 (the P-sweep replay + counters).
-Outputs (paper/tables/): counters.tex, tails.tex, alloc.tex, regression.tex;
+Outputs (paper/tables/): counters.tex, tails.tex, frontier_timing.tex, alloc.tex, regression.tex;
 prose-macro files (*_macros.tex: tails, regression, legal, realdata, psweep, env,
 oneoff) so no measurement number is ever hand-typed in the .tex sources; with psweep data
 also tables/psweep.tex and figures/psweep.tex (pgfplots).
@@ -287,6 +287,48 @@ def ablation():
                              "equal-work invariant violated; investigate before publishing")
     ratios = {eng: max(ft[n][eng]["max_ms"] / anchor[eng]["max_ms"] for n in cand_names)
               for eng in ("cpp", "rust")}
+    frontier_order = ["search_00", "pareto_01", "pareto_02"]
+    frontier_labels = {
+        "search_00": "search-00",
+        "pareto_01": "pareto-01",
+        "pareto_02": "pareto-02",
+    }
+    frontier_ns = {ft[n][eng]["n"] for n in frontier_order for eng in ("cpp", "rust")}
+    if len(frontier_ns) != 1:
+        raise SystemExit("frontier timing sample counts differ across fixtures or engines")
+    frontier_rows = []
+    for n in frontier_order:
+        cpp, rust_t = ft[n]["cpp"], ft[n]["rust"]
+        frontier_rows.append(
+            f"{frontier_labels[n]} & {cpp['p50_ms']:.1f} & {cpp['max_ms']:.1f} "
+            f"& {rust_t['p50_ms']:.1f} & {rust_t['max_ms']:.1f}"
+        )
+    write(
+        "frontier_timing.tex",
+        f"Counter-Pareto frontier timing (ms; {next(iter(frontier_ns))} samples per "
+        "fixture and engine; serial, isolated pinned core).",
+        "tab:frontier-timing",
+        "lrrrr",
+        "fixture & C++ p50 & C++ max & Rust p50 & Rust max",
+        frontier_rows,
+        note="The search-00 row is the same-session anchor for the frontier comparison; "
+        "it is separate from the larger pooled primary campaign.",
+    )
+
+    primary = json.loads((DATA / "wcet.json").read_text())["fixtures"]
+    primary_max = {
+        eng: max(max(fx[eng]["samples_ms"]) for fx in primary.values())
+        for eng in ("cpp", "rust")
+    }
+    frontier_max = {
+        eng: max(ft[n][eng]["max_ms"] for n in frontier_order)
+        for eng in ("cpp", "rust")
+    }
+    combined_max = {
+        eng: max(primary_max[eng], frontier_max[eng]) for eng in ("cpp", "rust")
+    }
+    if combined_max["rust"] != ft["pareto_01"]["rust"]["max_ms"]:
+        raise SystemExit("pareto-01 is no longer the Rust union maximum -- revise the prose")
     t1, t2 = doc["time_fitness_ablation"]["champion_kd"]
     if doc["time_fitness_ablation"]["reproducible"]:
         raise SystemExit("time-fitness runs reproduced identically -- the irreproducibility "
@@ -303,6 +345,10 @@ def ablation():
         rf"\newcommand{{\ablationFrontierCppRatio}}{{{ratios['cpp']:.3f}}}",
         rf"\newcommand{{\ablationFrontierRustRatio}}{{{ratios['rust']:.3f}}}",
         rf"\newcommand{{\ablationFrontierRustExcessPct}}{{{(ratios['rust'] - 1) * 100:.1f}}}",
+        f"{chr(92)}newcommand{{{chr(92)}primaryFixtureMaxCpp}}{{{primary_max['cpp']:.1f}}}",
+        f"{chr(92)}newcommand{{{chr(92)}primaryFixtureMaxRust}}{{{primary_max['rust']:.1f}}}",
+        f"{chr(92)}newcommand{{{chr(92)}combinedFixtureMaxCpp}}{{{combined_max['cpp']:.1f}}}",
+        f"{chr(92)}newcommand{{{chr(92)}combinedFixtureMaxRust}}{{{combined_max['rust']:.1f}}}",
         rf"\newcommand{{\ablationTimeKdA}}{{{num(t1)}}}",
         rf"\newcommand{{\ablationTimeKdB}}{{{num(t2)}}}",
         rf"\newcommand{{\ablationTimeKdDeltaPct}}{{{100.0 * abs(t1 - t2) / max(t1, t2):.3f}}}",

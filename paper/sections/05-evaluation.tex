@@ -79,6 +79,7 @@ being a Rust-traversal count, as discussed in Sec.~\ref{sec:eval-regression}. We
 \emph{search-00} as the common timing fixture because it remains C++ time-worst only among
 the evaluated transferred fixtures. A Rust Pareto candidate exceeds it by
 \ablationFrontierRustExcessPct\%, so it is not a Rust timing upper bound.
+\input{tables/frontier_timing}
 
 \subsection{Engine-tier frame times: C++ vs.\ Rust}
 \label{sec:eval-tails}
@@ -88,13 +89,19 @@ show identical \texttt{iteration\_num} per engine pair, final poses agreeing to 
 \certMaxTransDelta\,\si{m} of translation, and both convergence scores bit-identical on
 \certScoreExact{} of \certFixtures{} fixtures.
 The largest score delta is \certMaxScoreDelta{} on \emph{subnormal}, or one \texttt{f32} ULP.
-The timing comparison therefore uses inputs that satisfy the work-shape conformance criterion.
-The Rust port's observed maximum is at or below
-the C++ engine's on the measured fixtures in Table~\ref{tab:tails}. Ratios span
-\tailsRatioMin--\tailsRatioMax, and the union worst falls from
-\SI{\tailsSearchMaxCpp}{ms} to \SI{\tailsSearchMaxRust}{ms}.
+The primary timing comparison therefore uses inputs that satisfy the work-shape criterion.
+Table~\ref{tab:tails} is the primary eight-fixture campaign. Rust has no larger maximum
+than C++ on any paired fixture, and the per-fixture ratios span
+\tailsRatioMin--\tailsRatioMax. Within this primary set, the engine-specific fixture
+maxima are \SI{\primaryFixtureMaxCpp}{ms} for C++ and \SI{\primaryFixtureMaxRust}{ms} for Rust.
 
 \input{tables/tails}
+The two Pareto candidates are not rows in Table~\ref{tab:tails} because they belong to the
+separate same-session frontier campaign in Table~\ref{tab:frontier-timing}. Across the
+union of the primary and frontier fixture campaigns, the engine-specific maxima are
+\SI{\combinedFixtureMaxCpp}{ms} for C++ and \SI{\combinedFixtureMaxRust}{ms} for Rust.
+The Rust union maximum occurs on \emph{pareto-01}; thus
+\SI{\primaryFixtureMaxRust}{ms} is only the primary-campaign maximum.
 
 % Subnormal outlier: A/B-tested — NOT subnormals; per-point overhead on neighbor-sparse shape.
 The \emph{subnormal} fixture's outlier ratio of $\subnormalMedianRatio\times$ at p50 required
