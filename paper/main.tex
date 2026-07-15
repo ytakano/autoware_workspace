@@ -1,5 +1,5 @@
 % WCET analysis of the NDT scan-matching engine: C++ vs a high-fidelity Rust port
-% (common semantic work trace-certified on individually compared inputs).
+% (work-trace conformance checked on individually compared inputs).
 % Class: IEEEtran conference (switch to LIPIcs for the ECRTS WCET Workshop if accepted style differs).
 % Build: make  (latexmk -pdf main)
 \documentclass[conference]{IEEEtran}
@@ -53,7 +53,7 @@
 \begin{document}
 
 \title{Counter-Guided WCET Evidence for an Industrial \ndt{} Scan Matcher:\\
-Structural Work Bounds and Cross-Language Trace Certification}
+Structural Work Bounds and Cross-Language Work-Trace Conformance}
 
 \author{%
   \IEEEauthorblockN{Yuuki Takano}
@@ -74,13 +74,16 @@ Our three-layer method establishes a structural work bound, searches determinist
 counters for extremal inputs, and measures frozen witnesses. It separates algorithmic work
 from platform-specific time per unit work and does not claim a certified hard time bound.
 The search saturates the analytic maximum number of kernel evaluations and increases the
-remaining kd-traversal term. Per-input traces certify common semantic work across Rust and
-C++ while keeping implementation-specific traversal and latency distinct. A two-tier model
+remaining kd-traversal term. Per-input traces provide evidence that Rust and C++ perform the same
+recorded common-work
+structure on work-trace-conformant inputs, while implementation-specific traversal and
+latency remain distinct. A two-tier model
 separates the bounded-neighbor engine domain from preprocessing-reachable inputs; their
 measured witnesses differ by $\legalWorstRatioRust\times$--$\legalWorstRatioCpp\times$.
 In a cropped-map, degraded-prior stress replay drawn from a 57-minute drive, only
-\realOnMap{} frames perform on-map matching; \realTraceOnMap{} are trace-certified,
-\realBaseOnly{} pass only the base certificate, and \realIterationDivergent{} diverge in
+\realOnMap{} frames perform on-map matching; \realTraceOnMap{} are work-trace-conformant,
+\realBaseOnly{} satisfy only the base-agreement criterion, and \realIterationDivergent{}
+diverge in
 iteration count. On frozen synthetic fixtures, Rust
 meets or improves the C++ observed maximum and removes approximately \allocPerPtPass{}
 per-point heap allocations per derivative pass within its reserved envelope.

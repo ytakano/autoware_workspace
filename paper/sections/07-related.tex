@@ -21,7 +21,7 @@ measurement protocols~\cite{lima2017evt}, statistical estimation and validation
 procedures~\cite{hansen2009statistical}, and reusable tooling~\cite{reghenzani2018chronovise}.
 We attack representativity from the input side: instead of sampling ``representative'' inputs,
 we \emph{search} for adversarial ones with a deterministic, platform-independent fitness, and
-certify for the dominant term that the search reached the analytic maximum. On the frozen
+show for the dominant term that the search reached the analytic maximum. On the frozen
 extreme inputs we then run the POT/MLE machinery with its diagnostic checklist, and we report
 that diagnostics determine whether extrapolation is reported, as detailed in
 Sec.~\ref{sec:eval-evt}.
@@ -32,10 +32,10 @@ execution time} as fitness and note the complementarity with static analysis. Wa
 fitness is noisy, machine-specific, and unreproducible across platforms. Our fitness is a
 vector of deterministic algorithmic cost counters: the search result is a property of the
 algorithm rather than of the measurement machine, runs are exactly reproducible from a seed,
-and the outcome can be checked against the analytic bound. The saturation certificate of
+and the outcome can be checked against the analytic bound. The saturation witness of
 Sec.~\ref{sec:eval-search} has no analogue under time-based fitness. The counters also
 enable cross-language transfer: a counter-extremal input found on the instrumented port is
-replayed on the production engine, with common semantic work trace-certified per input.
+replayed on the production engine, and the replay checks work-trace conformance per input.
 Engine-specific traversal and timing remain separate, so the shared witness need not
 stress both implementations equally.
 
@@ -54,7 +54,7 @@ need to establish through its own design and verification evidence. This advanta
 establish WCET: panic-freedom, allocation-freedom, recursion-freedom, and bounded loops on
 the hot path remain separate requirements. We show these can be made lint- and test-enforced
 properties of a production kernel. In this case study, a high-fidelity,
-per-input-certified port is not just a migration artifact but an analysis instrument: its
+per-input-checked port is not just a migration artifact but an analysis instrument: its
 safe core narrows the verification surface while carrying the instrumentation burden for
 both languages.
 

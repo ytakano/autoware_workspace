@@ -283,7 +283,7 @@ def ablation():
     for n, fx in ft.items():
         if not fx["iter_match"]:
             raise SystemExit(f"frontier timing {n}: engine iteration mismatch -- "
-                             "equal-work certificate violated; investigate before publishing")
+                             "equal-work invariant violated; investigate before publishing")
     ratios = {eng: max(ft[n][eng]["max_ms"] / anchor[eng]["max_ms"] for n in cand_names)
               for eng in ("cpp", "rust")}
     t1, t2 = doc["time_fitness_ablation"]["champion_kd"]
@@ -405,7 +405,7 @@ def raspi4_timing():
     the frozen serial log data/raspi4_timing.txt (skipped if absent).
 
     Protocol (kernel app, FEATURES=ndt): per fixture, 3 warmups (the first is the counted
-    certificate align), 100 warm samples, 20 cold samples each preceded by an 8 MiB write
+    conformance-check align), 100 warm samples, 20 cold samples each preceded by an 8 MiB write
     sweep, the series bracketed by a fixed-work calibration spin (throttle guard). Guards
     recompute the counter transfer against wcet_rust.json, require the completion marker,
     and pin the no-throttling and spread claims the prose makes.
@@ -583,21 +583,21 @@ def interference():
 
 
 def cert_macros():
-    """Pose/score certificate macros from wcet_cert.json (skipped if absent).
+    """Pose/score agreement macros from wcet_cert.json (skipped if absent).
 
-    The certificate is deterministic per input (poses do not depend on the timing-run
+    The agreement check is deterministic per input (poses do not depend on the timing-run
     sample count), so it is re-runnable independently of the frozen timing data.
     """
     cj = DATA / "wcet_cert.json"
     if not cj.exists():
-        print("wcet_cert absent -- skipping certificate macros")
+        print("wcet_cert absent -- skipping agreement macros")
         return
     fx = json.loads(cj.read_text())["fixtures"]
     bad = [n for n, c in fx.items() if not c["pose_match"]]
     if bad:
         raise SystemExit(
-            f"pose/score certificate FAILED on {bad} -- "
-            "the Sec. III-C/V-B certificate claims no longer hold"
+            f"pose/score agreement FAILED on {bad} -- "
+            "the Sec. III-C/V-B agreement claims no longer hold"
         )
     max_trans = max(c["trans_delta_m"] for c in fx.values())
     max_score = max(max(c["tp_delta"], c["nvtl_delta"]) for c in fx.values())
@@ -671,8 +671,8 @@ def main():
         "tails.tex",
         r"Frame time per engine (\si{ms}; \envSessions{} sessions $\times$ "
         r"(\envItersWarmPerSession{} warm ${+}$ \envItersTailPerSession{} tail) samples "
-        r"per fixture per engine, pooled; serial, isolated pinned core). Equal common "
-        r"semantic work is trace-certified per fixture.",
+        r"per fixture per engine, pooled; serial, isolated pinned core). "
+        r"Each fixture satisfies work-trace conformance.",
         "tab:tails",
         "lrrrrr",
         r"fixture & \multicolumn{2}{c}{C++ (p50 / max)} "
@@ -720,7 +720,7 @@ def main():
     app = alloc["search_00"]["cpp"]["allocs_per_align"] / rust["search_00"]["counters"][
         "points_processed"
     ]
-    # B1a: the interposer counts double as an independent C++-side work certificate ---
+    # B1a: the interposer counts double as an independent C++-side work check ---
     # allocs/(pt.pass) must be constant wherever radius queries return neighbors, since the
     # numerator comes from the untouched C++ binary and the denominator from Rust counters.
     cert = {
@@ -736,7 +736,7 @@ def main():
     cert_lo, cert_hi = min(cert_dense), max(cert_dense)
     if (cert_hi - cert_lo) / cert_lo > 0.005:
         raise SystemExit(
-            f"alloc work-certificate spread {(cert_hi - cert_lo) / cert_lo:.3%} > 0.5% -- "
+            f"alloc work-check spread {(cert_hi - cert_lo) / cert_lo:.3%} > 0.5% -- "
             "the C++-side P*N_pass cross-check claim in Secs. III-C/V-C no longer holds"
         )
     # Intro spread claim: "from under 10 ms to nearly a second ... two orders of magnitude".
@@ -1097,7 +1097,7 @@ def _frames_by_seq(frames, source):
 
 
 def load_real_evidence():
-    """Join the base and trace replays by seq and derive certificate partitions."""
+    """Join the base and trace replays by seq and derive comparison partitions."""
     rj = DATA / "realdata.json"
     tj = DATA / "trace_real.json"
     if not (rj.exists() and tj.exists()):
@@ -1145,7 +1145,7 @@ def load_real_evidence():
         )
         divergent = sum(not base(pair) for pair in pairs)
         if trace_count + base_only + divergent != len(pairs):
-            raise SystemExit("real-data certificate partition is not exhaustive")
+            raise SystemExit("real-data comparison partition is not exhaustive")
         return trace_count, base_only, divergent
 
     all_partition = partition(joined)
@@ -1153,11 +1153,11 @@ def load_real_evidence():
     onmap_partition = partition(onmap_joined)
     if (len(joined), all_partition) != (22416, (22216, 172, 28)):
         raise SystemExit(
-            f"unexpected all-frame certificate partition: {len(joined)}, {all_partition}"
+            f"unexpected all-frame comparison partition: {len(joined)}, {all_partition}"
         )
     if (len(onmap_joined), onmap_partition) != (501, (301, 172, 28)):
         raise SystemExit(
-            f"unexpected on-map certificate partition: {len(onmap_joined)}, "
+            f"unexpected on-map comparison partition: {len(onmap_joined)}, "
             f"{onmap_partition}"
         )
     return rdoc, joined, onmap_joined, base, trace_certified
@@ -1252,7 +1252,7 @@ def realdata():
         if trace_certified((real, trace))
     ]
     if len(strict) != trace_onmap:
-        raise SystemExit("realdata: trace-certified timing count is inconsistent")
+        raise SystemExit("realdata: work-trace-conformant timing count is inconsistent")
     strict_cpp = sorted(x["cpp_ms"] for x in strict)
     strict_rust = sorted(x["rust_ms"] for x in strict)
     # Deadline overruns at 10 Hz (policy: report frames > 100 ms). The prose claims C++
@@ -1302,7 +1302,7 @@ def realdata():
         r"population & metric & $n$ & p50 & p99 & max",
         rows,
         note=rf"On-map means at least one radius query returned a neighbor; "
-        rf"\num{{{len(frames)}}} frames qualify. Their certificate partition is "
+        rf"\num{{{len(frames)}}} frames qualify. The on-map partition is "
         rf"$E_{{\mathrm{{trace}}}}={trace_onmap}$, base-only={base_only_onmap}, and "
         rf"iteration-divergent={divergent_onmap}. Strict cross-language timing uses only "
         rf"$E_{{\mathrm{{trace}}}}$; all-on-map timing is a system-level observation.",
@@ -1651,7 +1651,7 @@ through the six observed maxima, not hard latency bounds.}}
 
 
 def trace_cert():
-    """C1 trace-certificate table + macros from data/trace_cert.json (fixture leg) and
+    """C1 work-trace conformance table + macros from data/trace_cert.json (fixture leg) and
     data/trace_real.json (real-drive leg, optional until captured).
 
     Guards (regenerate-or-break): on every fixture the STRUCTURAL legs must be exact
@@ -1660,7 +1660,7 @@ def trace_cert():
     """
     tj = DATA / "trace_cert.json"
     if not tj.exists():
-        print("trace_cert absent -- skipping trace-certificate outputs")
+        print("trace_cert absent -- skipping work-trace conformance outputs")
         return
     doc = json.loads(tj.read_text())
     fixtures = doc["fixtures"]
@@ -1674,7 +1674,7 @@ def trace_cert():
             raise SystemExit(f"trace_cert: fixture {n} lacks a trace block -- rerun the traced replay")
         if not (tr["valid"] and tr["structural_match"]):
             raise SystemExit(f"trace_cert: structural leg broken on {n} -- the Sec. III/V "
-                             "common-work certificate claim is void; investigate before publishing")
+                             "common-work conformance claim is void; investigate before publishing")
         if tr["line_search_loops"] != 0:
             raise SystemExit(f"trace_cert: line-search entered on {n} -- N_pass = N_iter+1 is void")
         if tr["passes_cpp"] != fx["cpp"]["iteration_num"] + 1:
@@ -1689,7 +1689,7 @@ def trace_cert():
         )
     write(
         "tracecert.tex",
-        r"Per-input trace certificate (traced analysis build vs.\ the Rust engine's mirrored "
+        r"Per-input work-trace conformance (traced analysis build vs.\ the Rust engine's mirrored "
         r"trace; deterministic, environment-independent). \emph{structural} = pass count, "
         r"per-pass point/neighbor counts, and per-point FNV-1a hashes of leaf-mean bits. "
         r"Matching hashes are evidence of matching neighbor sets, subject to collision risk. "
@@ -1704,7 +1704,7 @@ def trace_cert():
         rows,
         note=r"Line-search entries: 0 on every input (measured); C++ passes = "
         r"$N_{\mathrm{iter}}{+}1$ exactly on every input. The 6 $P$-sweep instances (not "
-        r"shown) also pass the structural count/hash certificate. " + TIER_NOTE,
+        r"shown) also satisfy the structural count/hash criterion. " + TIER_NOTE,
         size=r"\scriptsize",
         tabcolsep="3pt",
     )

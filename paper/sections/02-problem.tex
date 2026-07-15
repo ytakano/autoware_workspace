@@ -34,7 +34,7 @@ all limits and violation behavior.
 
 We count total point--leaf evaluations as \sumnbr, total Rust kd nodes as \kdnodes, and
 $\bar K=\sumnbr/(P N_{\mathrm{pass}})$. C++ traversal instead uses FLANN distance and plane
-evaluations. Thus \sumnbr{} belongs to trace-certified common work, whereas traversal and
+evaluations. Thus \sumnbr{} is included in the work-trace conformance check, whereas traversal and
 its fitted cost are engine-specific. A diagnostic timing model adds fixed per-point and
 $6{\times}6$ solve terms, but Eq.~\eqref{eq:decomp} remains a work bound; conversion to
 time is platform-specific.

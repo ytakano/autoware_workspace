@@ -2,8 +2,9 @@
 \label{sec:methodology}
 
 Three analysis layers establish a work bound, search for counter-extremal inputs, and
-measure frozen witnesses. Cross-language traces certify common work before timing, and a
-cross-ISA replay checks transfer to the deployment-class target.
+measure frozen witnesses. Per-input cross-language traces check recorded common-work
+conformance before timing, and a cross-ISA replay checks transfer to the deployment-class
+target.
 
 \subsection{Analysis layer 1: Structural bound and property tests}
 Given caller contracts on $P$ and $N_{\mathrm{leaves}}$, loop guards, the \maxnn{} cap,
@@ -27,7 +28,7 @@ platform-independent. Because lexicographic order need not match time order, all
 non-dominated counter vectors are archived and their fixtures timed. Budget-matched random
 and wall-clock-fitness arms test search effectiveness.
 
-\subsection{Cross-language transfer: Per-input common-work certification}
+\subsection{Cross-language transfer: Per-input work-trace conformance}
 \label{sec:meth-transfer}
 The shipped C++ sources remain byte-identical. A local analysis build and the Rust port
 instead emit matched per-pass traces; the same fixture bytes then run on the unmodified C++
@@ -36,9 +37,9 @@ distance-sorted neighbors while Rust uses kd-visit order.
 
 Three definitions limit the comparison. The \textbf{bounded-neighbor domain} $D$ contains
 inputs whose uncapped queries return at most \maxnn{} leaves; the capped Rust query does not
-report a 65th leaf, so execution and certification do not prove membership in $D$. The
-\textbf{base-certified set} $E_{\mathrm{base}}$ requires equal iterations and recorded
-pose/score agreement. The stricter
+report a 65th leaf, so the trace check does not prove membership in $D$. The
+\textbf{base-agreement set} $E_{\mathrm{base}}$ requires equal iterations and recorded
+pose/score agreement. The stricter \textbf{work-trace-conformant set}
 $E_{\mathrm{trace}}\subseteq E_{\mathrm{base}}$ also requires equal pass structure,
 points per pass, neighbor-evaluation counts, and per-point FNV-1a hashes of neighbor-leaf
 mean bits. These fields define
@@ -48,17 +49,19 @@ mean bits. These fields define
  &\text{neighbor evaluations},\text{neighbor count/hash}).
  \end{aligned}
 \]
-Hash collisions remain possible, so equality is evidence rather than a formal set proof.
-C++ FLANN traversal, result containers, and allocation and Rust kd traversal and flat
-buffers are outside $W_{\mathrm{common}}$; each engine therefore has a separate work-model
-instance. A transferred fixture is a shared certified witness, not proof of equal total
-work or equal stress.
+For an evaluated input, work-trace conformance means equality of this recorded structure in
+addition to base agreement. It does not imply full semantic equivalence, membership in $D$,
+or equal total work. Hash collisions remain possible, so equality is evidence rather than a
+formal set proof. C++ FLANN traversal, result containers, and allocation and Rust kd
+traversal and flat buffers are outside $W_{\mathrm{common}}$; each engine therefore has a
+separate work-model instance. A conformant transferred fixture is a shared timing witness,
+not proof of equal stress.
 
-All synthetic fixtures pass the full trace. Real replay separates
-\realTraceAll{} trace-certified, \realBaseOnly{} base-only, and
+All synthetic fixtures satisfy the full work-trace criterion. Real replay separates
+\realTraceAll{} work-trace-conformant, \realBaseOnly{} base-only, and
 \realIterationDivergent{} iteration-divergent frames. An independent production-binary
 allocation count also reconstructs C++ point/pass work to \allocCertSpreadPct\% on every
-neighbor-returning fixture, but does not certify the full tuple.
+neighbor-returning fixture, but does not establish conformance of the full tuple.
 
 \subsection{Analysis layer 3: Measurement and \pwcet}
 Frozen little-endian fixtures feed both engines through one replay harness. An

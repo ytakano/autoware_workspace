@@ -29,22 +29,23 @@ Our contributions are:
   \item A three-layer analysis combining a property-tested structural work bound,
     deterministic counter-guided input search, and controlled timing with diagnostics-gated
     MBPTA. Failed diagnostics prohibit extrapolation.
-  \item A cross-language transfer certificate. $E_{\mathrm{base}}$ checks iteration,
-    pose, and score agreement; $E_{\mathrm{trace}}$ additionally checks per-pass common
-    semantic work. Neither establishes runtime membership in $D$.
+  \item A per-input cross-language work-trace conformance check. The base-agreement set
+    $E_{\mathrm{base}}$ checks iteration,
+    pose, and score agreement; $E_{\mathrm{trace}}$ additionally checks the recorded
+    per-pass common-work structure. Neither establishes runtime membership in $D$.
   \item Search evidence that reaches
     $P\maxnn(N_{\mathrm{iter}}{+}1)$ kernel evaluations and then raises kd traversal by
     \searchKdGrowthPct\%, with frozen Pareto alternatives timed separately.
   \item An industrial case study: Rust removes the C++ per-point allocation hazard within
     reserved capacities, has observed maxima no greater on the shared fixtures, and supports
     a two-tier work envelope whose deployment axes are backed by legal witnesses. One-drive
-    replay tests the contracts and exposes the residual certification boundary.
+    replay tests the contracts and exposes the residual conformance boundary.
 \end{enumerate}
 
 The remainder of this paper is organized as follows. Section~\ref{sec:problem}
 formulates the WCET problem and its structural work decomposition.
 Sections~\ref{sec:methodology} and~\ref{sec:implementation} present the three-layer
-method, cross-language transfer certificate, and implementation, while
+method, cross-language work-trace conformance check, and implementation, while
 Section~\ref{sec:evaluation} reports the search, timing, trace, real-data, and cross-ISA
 results. Sections~\ref{sec:threats} and~\ref{sec:related} discuss limitations and prior
 work, respectively; Section~\ref{sec:conclusion} presents the conclusions, and the appendix provides

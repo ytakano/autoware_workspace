@@ -35,7 +35,7 @@ manifests containing the environment, compiler flags, commits, and fixture and b
 \label{sec:eval-search}
 The frozen hill-climb champion saturates the analytic kernel-evaluation maximum:
 $\sumnbr = P \cdot \maxnn \cdot (N_{\mathrm{iter}}{+}1) = 2000 \cdot 64 \cdot 31 =
-\num{3968000}$, certifying that the hand-built \emph{dense-neighbors} construction is
+\num{3968000}$, showing that the hand-built \emph{dense-neighbors} construction is
 kernel-count-optimal. It then grows the remaining free term \kdnodes{} by a further
 \searchKdGrowthPct\%, from \oneoffKdGenZeroM\,M to \searchZeroKdM\,M, while increasing
 the map extent from 6 to 9 blocks. The generation-0 value comes from the recorded search
@@ -80,12 +80,13 @@ time-worst among the evaluated shared fixtures. A Rust Pareto candidate exceeds 
 
 \subsection{Engine-tier frame times: C++ vs.\ Rust}
 \label{sec:eval-tails}
-The full common-work trace certificate passes on every fixture. The base diagnostics also
+Every fixture satisfies the full work-trace criterion. The base diagnostics also
 show identical \texttt{iteration\_num} per engine pair, final poses agreeing to at most
 \certMaxTransDelta\,\si{m} of translation, and both convergence scores bit-identical on
 \certScoreExact{} of \certFixtures{} fixtures.
 The largest score delta is \certMaxScoreDelta{} on \emph{subnormal}, or one \texttt{f32} ULP.
-The comparison therefore uses trace-certified common semantic work. The Rust port's observed maximum is at or below
+The comparison therefore uses inputs that satisfy the work-trace conformance criterion.
+The Rust port's observed maximum is at or below
 the C++ engine's on the measured fixtures in Table~\ref{tab:tails}. Ratios span
 \tailsRatioMin--\tailsRatioMax, and the union worst falls from
 \SI{\tailsSearchMaxCpp}{ms} to \SI{\tailsSearchMaxRust}{ms}.
@@ -124,12 +125,12 @@ search-machinery overhead. Hardware performance counters are unavailable in the 
 the final split is arithmetic over microbenchmarks rather than counter-attributed.
 Section~\ref{sec:threats} records this limitation.
 
-\subsection{Per-input trace certificate}
+\subsection{Per-input work-trace conformance}
 \label{sec:eval-tracecert}
 \input{tables/tracecert}
 
-The trace certificate of Sec.~\ref{sec:meth-transfer} was executed on every frozen fixture
-and on all \realFrames{} captured real frames. The traced analysis build of the C++ engine
+The work-trace conformance check of Sec.~\ref{sec:meth-transfer} was applied to every frozen fixture
+and to all \realFrames{} captured real frames. The traced analysis build of the C++ engine
 uses an instrumented copy of the engine sources plus a counting FLANN distance functor;
 the shipped sources remain byte-identical. It emits a per-pass trace that the replay compares leg
 by leg against the Rust engine's mirrored trace. Every quantity is a deterministic function
@@ -141,7 +142,7 @@ pass count, per-pass point and neighbor counts, and each point's FNV-1a hash ove
 neighbor-leaf mean bits. Counts and hashes agree on all \traceFixtures{} inputs, the
 line-search loop is never entered, and the measured C++ pass count equals
 $N_{\mathrm{iter}}{+}1$ on every input: the common-work
-transfer previously certified indirectly through iteration, pose, score, and the allocation
+transfer previously inferred indirectly through iteration, pose, score, and the allocation
 leg of Sec.~\ref{sec:eval-alloc} is now measured directly on the C++ side, per input. The
 \emph{numeric} legs quantify the fidelity: the per-pass score agrees to
 \traceUlpConvMax{} f64 ULP or better on the well-conditioned fixtures and is bit-identical
@@ -149,8 +150,8 @@ on \emph{cache-hostile}, but drifts to $\traceUlpWorstTex$ ULP on the most ill-c
 mechanism is structural, not a defect: pcl/FLANN returns each point's neighbors sorted by
 distance while the port's kd walk returns them in visit order, so the two engines
 accumulate the count/hash-matched per-point neighbor sets in different orders; f64 bit-equality of the
-sums is unattainable by design, and equivalence is correctly claimed at the \emph{work}
-level. The hash has a non-zero collision probability, so this is not a formal proof of
+sums is unattainable by design, and conformance is correctly scoped to the recorded
+\emph{work} structure. The hash has a non-zero collision probability, so this is not a formal proof of
 literal set equality.
 
 The real-data leg turns the necessary-vs-sufficient distinction into measurement. The
@@ -164,7 +165,7 @@ $|\Delta\sumnbr|$ of \traceRealWorkGapNbrMed{} and a maximum of \traceRealWorkGa
 at most \traceRealWorkGapRelMaxPct\% of the frame's kernel evaluations. This is the same
 boundary mechanism as the iteration divergences, caught here below the iteration threshold.
 In this replay, equal iteration count is therefore measurably \emph{not} sufficient for
-common-work equivalence. The trace-certified set contains \realTraceAll{} of
+work-trace conformance. The work-trace-conformant set contains \realTraceAll{} of
 \realFrames{} frames overall and \realTraceOnMap{} of \realOnMap{} on-map frames. The
 \realIterationDivergent{}
 iteration-divergent frames all fork late, between passes
@@ -172,7 +173,7 @@ iteration-divergent frames all fork late, between passes
 then take different convergence paths, with iteration counts up to
 $\pm\traceRealDivIterDeltaMax$ apart and final poses up to
 \SI{\traceRealDivergentTransDeltaMax}{m} apart. Every fixture-level comparison
-in this paper carries the full trace certificate; real-data work statements are scoped to
+in this paper satisfies the full work-trace criterion; real-data work statements are scoped to
 $E_{\mathrm{trace}}$.
 
 \subsection{Heap allocations per align}
@@ -189,8 +190,8 @@ engine hoists all three allocation sites into a pre-reserved workspace and measu
 the same harness, consistent with the counting-allocator-verified allocation freedom shown
 in Table~\ref{tab:alloc}.
 
-Beyond the hazard reading, these counts double as the \emph{independent work certificate
-for the C++ side} defined in Sec.~\ref{sec:meth-transfer}. The numerator comes from the
+Beyond the hazard reading, these counts provide the \emph{independent C++-side work check}
+defined in Sec.~\ref{sec:meth-transfer}. The numerator comes from the
 untouched production binary via \texttt{LD\_PRELOAD}, while the denominator
 $P \cdot N_{\mathrm{pass}}$ comes from the Rust counters. The ratio is
 \allocCertMin--\allocCertMax{} on every fixture
@@ -237,7 +238,7 @@ per-iteration sum while leaving $N_{\mathrm{iter}}$, $K$, and $T_{\mathrm{solve}
 predicting an \emph{affine} observed envelope $T_{\mathrm{obs,max}}(P) =
 \mathrm{slope}\cdot P + \mathrm{const}$. This is a fit to observed maxima, not a hard bound.
 We check this prediction with a controlled sweep: the shared counter-extremal geometry regenerated at $P \in
-[\psweepPmin{}, \psweepPmax{}]$ in six points with $\times 2$ steps. The counters certify
+[\psweepPmin{}, \psweepPmax{}]$ in six points with $\times 2$ steps. The counters verify
 that per-point work is exactly invariant: $N_{\mathrm{iter}} = 30$ and
 $\sumnbr = P \cdot 64 \cdot 31$ at every $P$. Within this constructed family, the modeled work therefore varies only through $P$; platform noise remains in the timing samples.
 Table~\ref{tab:psweep} and Fig.~\ref{fig:psweep} show the result: an affine line closely fits
@@ -344,7 +345,8 @@ a neighbor, so $\sumnbr > 0$. On the remaining \realOffMap{}
 \emph{off-map} frames, every radius search returns empty and the align is a near-no-op.
 The median iteration count is \realOffMapIterMed{}, and C++ p50 is approximately
 \SI{\realOffMapCppMed}{ms}. Table~\ref{tab:realdata} separates populations explicitly.
-Its first panel reports $P$, max-$K$, and certificate counts over all frames. Its second
+Its first panel reports $P$, max-$K$, and counts for the two comparison criteria over all
+frames. Its second
 reports timing over all \realOnMap{} on-map frames as a system-level observation and over
 the \realTraceOnMap{}-frame $E_{\mathrm{trace}}$ subset as the strict common-work
 implementation comparison.
@@ -352,7 +354,7 @@ implementation comparison.
 Accordingly, this experiment is a \emph{cropped-map, degraded-prior stress replay}, not a
 representative 57-minute nominal-localization workload. It is useful for exposing numerical
 branching near the available-map boundary, stressing initialization and dropout priors, and
-finding port-fidelity failures. All-frame certificate counts provide capture context, but
+finding port-fidelity failures. All-frame criterion counts provide capture context, but
 the near-no-op off-map majority does not characterize localization fidelity; the strict
 cross-language result is the \realTraceOnMap{}-frame on-map subset.
 
@@ -388,10 +390,10 @@ measurements do not establish full-stack deadline compliance; Sec.~\ref{sec:conc
 specifies the operational evaluation required before deployment. The counter rows are
 environment-independent.
 
-Fourth, the certificate levels differ materially. Over all frames,
+Fourth, the comparison levels differ materially. Over all frames,
 $|E_{\mathrm{base}}|=\realBaseAll{}$ and
 $|E_{\mathrm{trace}}|=\realTraceAll{}$. The on-map partition is
-\realTraceOnMap{} trace-certified frames, \realBaseOnly{} base-only frames, and
+\realTraceOnMap{} work-trace-conformant frames, \realBaseOnly{} base-only frames, and
 \realIterationDivergent{} iteration-divergent frames. Thus only
 \realTraceOnMapPct\% of meaningful matches support strict common-work comparison;
 \realNotTraceOnMap{} frames, or \realNotTraceOnMapPct\%, do not.
@@ -505,7 +507,7 @@ against the host values in Table~\ref{tab:raspi4}. Every counter of every fixtur
 The first hardware run matched only 7 of 8 stored expectations. Bisection identified a
 stale pre-fidelity-fix host snapshot, not an ISA effect; re-baselining reconciled host,
 emulator, and hardware at \raspiDeviceOk{} of \raspiTotal{}. This incident demonstrates
-the certificate sensitivity and the need to commit-pin expected counters; the FMA, QEMU,
+the counter check's sensitivity and the need to commit-pin expected counters; the FMA, QEMU,
 and subnormal checks are documented in Appendix~\ref{app:crossisa-debug}.
 
 The timing columns of Table~\ref{tab:raspi4} report the \emph{Bare-metal} series, an amendment
