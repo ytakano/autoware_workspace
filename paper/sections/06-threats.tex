@@ -32,26 +32,27 @@ Two corrected port gaps reduced real-frame iteration-count divergence to
 (\realOnMapDivPct\%). The stricter $E_{\mathrm{base}}$ criterion excludes
 \realBaseDivergent{} on-map frames: \realOutputDivergent{} have equal iterations but exceed
 at least one output threshold, and \realIterationDivergent{} take different iteration
-paths. Residual differences arise from glibc versus \texttt{libm}, the eigensolver, and
-neighbor accumulation order.
+paths. Residual differences are consistent with glibc versus \texttt{libm}, eigensolver
+behavior, and neighbor accumulation order.
 
-Work-shape claims apply only to $E_{\mathrm{shape}}$; \realBaseOnly{} base-only frames
+Work-trace claims apply only to $E_{\mathrm{shape}}$; \realBaseOnly{} base-only frames
 still differ by up to \traceRealWorkGapRelMaxPct\% in kernel evaluations. The canonical
 SHA-256 shape digest records leaf identity but not leaf parameters. The separate payload
 digest includes means and regularized inverse covariances, yet agrees on only
 \tracePayloadExactFixtures{} synthetic fixtures and \tracePayloadExactOnMap{} on-map
 frames. Consequently, neither digest establishes full semantic equivalence. SHA-256
 collisions remain computationally possible. The C++ trace records complete uncapped
-neighbor lists, so shape conformance confirms at most \maxnn{} leaves at the C++ query
-coordinates. Direct membership in $D$ was not recorded because the Rust and C++ query
-coordinates need not be bit-identical and the capped Rust search cannot reveal whether a
-65th leaf exists at its own coordinate.
+neighbor lists, so shape agreement confirms at most \maxnn{} leaves at the C++ query
+coordinates. The current Rust search detects a 65th leaf at its own coordinate; the
+post-change \runtimeValidationFrames{}-frame replay triggered no such diagnostic. This
+does not remove the coordinate difference or retroactively add the diagnostic to the
+cross-language trace relation.
 
 The Rust stream targets ISA stability through software \texttt{libm} and no FMA contraction;
 all \raspiTotal{} frozen fixtures match on the AArch64 target. This is a per-fixture check,
 not a general ISA proof. The initial stale-baseline mismatch also shows that expected
 counters must be commit-pinned. The C++ leg remains x86/Linux-specific because it depends
-on pcl and ROS.
+on PCL and ROS.
 
 \subsection{Safety and contract scope}
 Rust reduces the verification surface but is not required for bounded execution; an
@@ -63,8 +64,10 @@ the C ABI, unsafe internals, and trusted dependencies remain in scope. Likewise,
 \input{tables/preconditions}
 Table~\ref{tab:preconditions} distinguishes enforced limits from assumptions. Engine-tier
 fixtures are API-legal but not preprocessing-reachable. Deployment contracts include tile
-geometry, downsampling, and $P\le1500$; the engine does not verify them. Production must
-validate static map conditions at load time and per-scan conditions before align, with a
+geometry, downsampling, and the tighter operational $P\le1500$ cap. The Rust engine now
+enforces $P\le\runtimePMax$ and $N_{\mathrm{leaves}}\le\runtimeLeavesMax$, but it does
+not verify the tighter preprocessing or geometry conditions. Production must
+validate static map conditions at load time and per-scan conditions before alignment, with a
 defined rejection or fallback. Validator execution must be bounded and included in the
 10\,Hz deadline analysis.
 
@@ -81,10 +84,11 @@ or memory-hierarchy interference on the Linux host.
 
 \subsection{Evidence strength}
 \label{sec:threats-epistemic}
-Loop guards, the neighbor cap, reserved buffers, and fixed-depth stack are enforced by
-construction; panic exclusion is statically checked; property, allocation, differential,
-and replay tests provide dynamic evidence. Nothing is formally proven. The shared
-kernel-evaluation maximum has an exact saturation witness, whereas neither a Rust traversal
+Loop guards, the neighbor cap, reserved buffers, and the fixed-depth stack are enforced by
+construction. Linting excludes explicit panic paths in project-owned code, while property,
+allocation, differential, and replay tests provide dynamic evidence. We claim no
+machine-checked formal proof. The Rust envelope's maximum for the common
+kernel-evaluation term has an exact saturation witness, whereas neither a Rust traversal
 maximum nor a C++ traversal extremum is established.
 
 All times are platform-specific observations. POT/GPD extrapolation is rejected because

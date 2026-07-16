@@ -27,15 +27,17 @@ For one align,
 \end{equation}
 The shipped configuration disables line-search derivative refinement, so one initial pass
 plus one pass per Newton step gives $N_{\mathrm{pass}}=N_{\mathrm{iter}}+1\le31$.
-The remaining freedoms are scan size $P$; neighbor count $K(p)\le\maxnn=64$ in Rust; and
-kd traversal, structurally $O(N_{\mathrm{leaves}})$ per query. Production preprocessing
-assumes $P\le1500$; engine stress fixtures use 2000. Table~\ref{tab:preconditions} records
-all limits and violation behavior.
+The bounded Rust engine fixes $P\le P_{\max}=\runtimePMax$,
+$N_{\mathrm{leaves}}\le L_{\max}=\runtimeLeavesMax$, and
+$K(p)\le\maxnn=64$. Its kd traversal is at most $N_{\mathrm{leaves}}$ node visits per
+query. Production replay observed at most 1500 scan points, while engine stress fixtures
+use 2000. The larger configured value covers both sets. Table~\ref{tab:preconditions}
+records the enforced limits and violation behavior.
 
 We count total point--leaf evaluations as \sumnbr, total Rust kd nodes as \kdnodes, and
 $\bar K=\sumnbr/(P N_{\mathrm{pass}})$. C++ traversal instead uses FLANN distance and plane
-evaluations. Thus \sumnbr{} is included in the work-trace conformance check, whereas traversal and
-its fitted cost are engine-specific. A diagnostic timing model adds fixed per-point and
+evaluations. Thus \sumnbr{} is included in the work-trace conformance check, whereas
+traversal and its fitted cost are engine-specific. A diagnostic timing model adds fixed per-point and
 $6{\times}6$ solve terms, but Eq.~\eqref{eq:decomp} remains a work bound; conversion to
 time is platform-specific.
 

@@ -2,37 +2,51 @@
 \label{sec:implementation}
 
 \subsection{Engines and real-time hardening}
-The baseline is serial pcl/OpenMP multigrid \ndt{}~\cite{autoware,ndtomp}. The Rust port
+The baseline is serial PCL/OpenMP multigrid \ndt{}~\cite{autoware,ndtomp}. The Rust port
 exposes the same C ABI and also builds as \texttt{no\_std}; ABI/API substitutability does
 not imply closed-loop equivalence. Differential tests cover voxel construction, align,
 engine, and node paths. Both engines use autoware\_core commit \texttt{\envCommit}.
 
 The following are explicit constraints, not automatic Rust or \texttt{no\_std} properties:
 \begin{itemize}
- \item buffers can be reserved from $P$, \maxnn, and $N_{\mathrm{iter}}+1$; a counting
- allocator verifies zero allocations from the first frame inside that envelope. Exceeding
- capacity grows a buffer rather than rejecting the input;
+ \item engine construction requires $P_{\max}=\runtimePMax$,
+ $L_{\max}=\runtimeLeavesMax$, and $I_{\max}=30$. Caller-owned align scratch reserves
+ \runtimeScratchBytes{} bytes in the serial build for $P_{\max}$, \maxnn, and
+ $I_{\max}+1$ result and convergence-history slots. A counting allocator verifies zero
+ allocations from the first frame; an undersized workspace or oversized scan returns an
+ error without growth;
  \item radius search uses a fixed 64-entry iterative stack, preserves near/far visit order,
- and is differential-tested against a recursive oracle;
+ and is differential-tested against a recursive oracle. Finding a 65th neighbor sets a
+ diagnostic while retaining the first 64;
  \item linting excludes panicking operations, align takes no locks, and disabled counters
- compile away.
+ compile away. Checked integer products reject an invalid envelope at construction. Map
+ assembly remains a control-plane operation: it may allocate, but it checks $L_{\max}$ and
+ publishes only a complete map.
 \end{itemize}
+
+The active-leaf limit was sized by replaying a complete map epoch. The observed map had
+\runtimeLeavesObserved{} leaves; adding 20\% and rounding upward gives
+$L_{\max}=\runtimeLeavesMax$. Real replay observed $P=1500$, while the configured
+$P_{\max}=\runtimePMax$ also admits the engine stress fixtures.
 
 \subsection{Neighbor cap and engine-tier fixtures}
 The \maxnn=64 cap makes the kernel term finite. Its deployment justification assumes one
 leaf per occupied voxel per tile, disjoint tiles, radius equal to voxel size, and centroids
 inside their voxels. A search ball then intersects at most $3^3=27$ cells, leaving a
 $2.4\times$ margin. Boundary inclusion and floating-point radius comparison remain
-assumptions. Real replay observes $K=\realKmaxMax$. Overlapping tiles can exceed 64 outside
-these conditions; Rust truncates without an overflow flag, so traces provide only
-retrospective evidence of $D$ membership.
+assumptions. A post-change replay of all \runtimeValidationFrames{} captured frames
+observed $K\le\runtimeObservedKMax$ and triggered the neighbor-limit diagnostic on
+\runtimeNeighborLimitFrames{} frames. Overlapping tiles can exceed 64 outside these
+conditions. Rust detects the 65th neighbor, returns the pose with a non-fatal
+diagnostic, and forces the convergence verdict to false. The node emits a warning and treats
+the frame as non-converged, allowing the existing downstream fallback policy to apply.
 
 \label{sec:impl-fixtures}
 Four hand-built engine fixtures isolate hazards: \emph{dense-neighbors} reaches 64 leaves
 with eight overlapping corner lattices; \emph{max-iterations} reaches the iteration cap;
 \emph{cache-hostile} spreads shuffled queries across a wide map; and \emph{subnormal}
-places kernel exponentials in the f64 subnormal range. Counter search composes and exceeds
-them. The per-tile $K=8$ value belongs only to the corner-lattice witness, not the analytic
+places kernel exponentials in the f64 subnormal range. The counter search combines these
+stressors and produces higher counter values. The per-tile $K=8$ value belongs only to the corner-lattice witness, not the analytic
 ceiling of 27.
 
 \subsection{Deployment-tier witnesses}

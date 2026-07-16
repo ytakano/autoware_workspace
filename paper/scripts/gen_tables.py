@@ -695,7 +695,8 @@ def main():
         r"fixture & $N_{\mathrm{iter}}$ & \sumnbr{} & \kdnodes{} & map pts & tiles",
         rows,
         note=r"$\sumnbr = \num{3968000} = 2000 \cdot 64 \cdot 31$ on "
-        r"\emph{search-00}: the analytic kernel-evaluation maximum, reached exactly. " + TIER_NOTE,
+        r"\emph{search-00}: the Rust envelope's analytic maximum for the common "
+        r"kernel-evaluation term, reached exactly. " + TIER_NOTE,
     )
 
     # ---- tails.tex ----
@@ -1772,7 +1773,7 @@ def trace_cert():
         rows,
         note=r"Line-search entries: 0 on every input (measured); C++ passes = "
         r"$N_{\mathrm{iter}}{+}1$ exactly on every input. The 6 $P$-sweep instances (not "
-        r"shown) also satisfy the work-shape criterion. " + TIER_NOTE,
+        r"shown) also satisfy the work-trace criterion. " + TIER_NOTE,
         size=r"\scriptsize",
         tabcolsep="3pt",
     )

@@ -1,0 +1,22 @@
+{
+  "experiment": "runtime work-envelope sizing",
+  "date": "2026-07-15",
+  "validation_replay": {
+    "frames": 22416,
+    "timing_repeats_per_frame": 1,
+    "observed_max_neighbors": 10,
+    "neighbor_limit_frames": 0,
+    "neighbor_limit_queries": 0
+  },
+  "source_points": {
+    "observed_max": 1500,
+    "configured_limit": 2000
+  },
+  "active_leaves": {
+    "full_map_epoch_observed": 347956,
+    "margin_percent": 20,
+    "unrounded_limit": 417547.2,
+    "configured_limit": 418000
+  },
+  "serial_scratch_payload_bytes": 27488
+}

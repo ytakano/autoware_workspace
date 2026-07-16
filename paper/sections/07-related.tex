@@ -8,9 +8,9 @@ methods excel on control-dominated code whose loop bounds are program constants 
 invariants. In our kernel, the Newton iteration count, per-point neighbor multiplicity, and
 kd-tree traversal length are properties of the \emph{input geometry}. Static analysis alone
 can only return the product of the individual maxima in Eq.~\eqref{eq:decomp}, with no
-evidence that any input realizes it. Our Layer~1 keeps the
-spirit of the static bound but enforces each term by construction and discharges it by
-property-based testing, while Layers~2--3 supply witness inputs and platform timing.
+evidence that any input realizes it. Our first analysis layer retains the structural bound,
+enforces its terms by construction, and checks them with property-based testing; the second
+and third layers supply witness inputs and platform timing.
 
 Measurement-based and probabilistic timing analysis (MBPTA) applies extreme value theory to
 measured execution times to extrapolate
@@ -19,9 +19,10 @@ survey. A central limitation is \emph{representativity}: EVT bounds only the
 behaviors exercised by the measurement protocol, which has driven work on randomized platforms and
 measurement protocols~\cite{lima2017evt}, statistical estimation and validation
 procedures~\cite{hansen2009statistical}, and reusable tooling~\cite{reghenzani2018chronovise}.
-We attack representativity from the input side: instead of sampling ``representative'' inputs,
-we \emph{search} for adversarial ones with deterministic, timing-independent Rust counters, and
-show for the dominant term that the search reached the analytic maximum. On the frozen
+We address representativity from the input side. Instead of sampling ``representative''
+inputs, we search for adversarial ones with deterministic, timing-independent Rust counters
+and show that the search reached the Rust envelope's analytic maximum for the common
+kernel-evaluation term. On the frozen
 stress inputs we then run the POT/MLE machinery with its diagnostic checklist, and we report
 that diagnostics determine whether extrapolation is reported, as detailed in
 Sec.~\ref{sec:eval-evt}.
@@ -33,16 +34,17 @@ fitness is noisy, machine-specific, and unreproducible across platforms. Our fit
 combines a common kernel-work counter with a Rust-specific traversal counter. For a fixed
 port implementation, the resulting input ranking is reproducible and independent of timing
 noise, and the common kernel axis can be checked against the analytic bound. The saturation
-witness of Sec.~\ref{sec:eval-search} has no analogue under time-based fitness. The
+witness of Sec.~\ref{sec:eval-search} cannot be established from time-based fitness alone. The
 common kernel-work axis supports cross-language transfer: a Rust-search input is replayed
-on the production C++ engine, and the replay checks work-shape conformance per input. The
+on the production C++ engine, and the replay checks work-trace conformance per input. The
 Rust traversal counter does not transfer; C++ results are observations over those transferred
 inputs and do not establish a C++-specific traversal extremum.
 
-For ROS-based systems, Casini et al.~\cite{casini2019ros2} bound end-to-end response times of ROS~2 processing chains
-under reservation-based scheduling, treating per-callback WCETs as given inputs. Such analyses
-are complementary to ours: we bound the dominant callback kernel, the \ndt{} align, that
-those chain analyses consume. We also remove per-point heap allocation and other structural
+For ROS-based systems, Casini et al.~\cite{casini2019ros2} bound end-to-end response times
+of ROS~2 processing chains under reservation-based scheduling, treating per-callback WCETs as given inputs. Such analyses
+are complementary to ours: we establish a structural work envelope and timing evidence for
+the dominant callback kernel, the \ndt{} align, that those chain analyses consume. We also
+remove per-point heap allocation and other structural
 hazards that would otherwise make the per-callback WCET assumption fragile.
 
 In real-time and safety-critical systems, Rust's ownership model underpins systems such as
@@ -53,13 +55,13 @@ memory-safety and data-race-freedom obligations that an equivalent C++ implement
 need to establish through its own design and verification evidence. This advantage does not
 establish WCET: panic-freedom, allocation-freedom, recursion-freedom, and bounded loops on
 the hot path remain separate requirements. We show these can be made lint- and test-enforced
-properties of a production kernel. In this case study, a high-fidelity,
-per-input-checked port is not just a migration artifact but an analysis instrument: its
-safe core narrows the verification surface while carrying the instrumentation burden for
-both languages.
+properties of a production kernel. In this case study, the high-fidelity,
+per-input-checked port also serves as an analysis instrument: its safe core narrows the
+verification surface while carrying the instrumentation burden for both languages.
 
-For \ndt{} scan matching, registration originates with Biber and Stra{\ss}er~\cite{biber2003ndt} and was extended
-to 3D by Magnusson~\cite{magnusson2009thesis}. The engine studied here is Autoware's
+For \ndt{} scan matching, registration originates with Biber and
+Stra{\ss}er~\cite{biber2003ndt} and was extended to 3D by
+Magnusson~\cite{magnusson2009thesis}. The engine studied here is Autoware's
 production localization matcher~\cite{autoware}, a multigrid variant of the multi-threaded
 \texttt{ndt\_omp} implementation~\cite{ndtomp}. Prior work on these implementations reports
 average-case throughput. We are not aware of a published WCET-oriented analysis of an \ndt{} engine.

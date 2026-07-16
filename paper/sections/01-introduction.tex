@@ -3,9 +3,10 @@
 
 Autoware~\cite{autoware} localizes a vehicle by aligning each LiDAR scan to a Gaussian
 voxel map with the Normal Distributions Transform (\ndt)~\cite{biber2003ndt}. At 10\,Hz,
-one align has a \SI{100}{ms} period before a late pose forces downstream estimation toward
+each alignment has a \SI{100}{ms} period before a late pose forces downstream estimation toward
 dead reckoning. Yet input geometry changes Newton iterations, neighbor multiplicity, and
-kd-tree traversal: legal synthetic inputs span under \SI{10}{ms} to nearly one second on
+kd-tree traversal. Measured latencies for legal synthetic inputs range from under
+\SI{10}{ms} to nearly one second on
 the same core. Nominal replay therefore cannot answer whether the deadline has defensible
 margin.
 
@@ -21,10 +22,10 @@ numerics, work bounds, and timing. The reduction excludes the FFI, unsafe code, 
 dependencies. The port also builds as \texttt{no\_std} for real-time environments without
 the standard library. Its radius query caps neighbors at \maxnn; the
 \emph{bounded-neighbor domain} $D$ contains inputs whose uncapped queries already satisfy
-that limit. Per-input traces compare a defined work shape on evaluated inputs; leaf payloads,
-traversal, memory operations, and latency are assessed separately.
+that limit. Per-input work traces compare a defined work shape on evaluated inputs; leaf
+payloads, traversal, memory operations, and latency are assessed separately.
 
-The objective is to realize a real-time-oriented NDT engine through the Rust port, with
+The objective is to realize a real-time-oriented \ndt{} engine through the Rust port, with
 explicit work limits and timing evidence for its critical path. The production C++ engine
 serves as the behavioral and timing baseline for the port. We do not attempt to search or
 establish the C++ implementation's worst traversal shape.
@@ -33,30 +34,30 @@ Our contributions are:
 \begin{enumerate}
   \item A three-layer analysis combining a property-tested structural work bound,
     deterministic counter-guided input search, and controlled timing with diagnostics-gated
-    MBPTA. Failed diagnostics prohibit extrapolation.
-  \item A per-input cross-language work-shape conformance check. The base-agreement set
-    $E_{\mathrm{base}}$ checks iteration,
-    pose, and score tolerances; $E_{\mathrm{shape}}$ additionally checks the recorded
+    MBPTA, with extrapolation prohibited when the diagnostics fail.
+  \item A per-input cross-language work-trace conformance check. The base-agreement set
+    $E_{\mathrm{base}}$ checks iteration equality and pose and score tolerances;
+    $E_{\mathrm{shape}}$ additionally checks the recorded
     pass structure, point and neighbor counts, and canonical leaf identities. A separate
     payload digest checks leaf means and inverse covariances. Neither establishes runtime
     membership in $D$ or full semantic equivalence.
-  \item Search evidence that reaches
-    $P\maxnn(N_{\mathrm{iter}}{+}1)$ kernel evaluations and then raises the Rust
-    implementation's kd-node count by \searchKdGrowthPct\%, with frozen Pareto alternatives
-    timed separately.
+  \item Search evidence that reaches the Rust envelope's
+    $P\maxnn(N_{\mathrm{iter}}{+}1)$ maximum for the common kernel-evaluation term and then
+    raises the Rust implementation's kd-node count by \searchKdGrowthPct\%, with frozen
+    Pareto alternatives timed separately.
   \item An industrial case study in which Rust removes the C++ per-point allocation hazard
     within reserved capacities. Across the primary and counter-Pareto frontier campaigns,
-    its engine-specific observed maximum is \SI{\combinedFixtureMaxRust}{ms}, versus
-    \SI{\combinedFixtureMaxCpp}{ms} for C++. A two-tier work envelope has deployment
-    axes backed by legal witnesses, while one-drive replay exposes the residual conformance
-    boundary.
+    the observed maxima are \SI{\combinedFixtureMaxRust}{ms} for Rust and
+    \SI{\combinedFixtureMaxCpp}{ms} for C++. Legal witnesses support the deployment axes
+    of a two-tier work envelope, while a single-drive replay exposes the residual
+    conformance boundary.
 \end{enumerate}
 
 The remainder of this paper is organized as follows. Section~\ref{sec:problem}
 formulates the WCET problem and its structural work decomposition.
 Sections~\ref{sec:methodology} and~\ref{sec:implementation} present the three-layer
-method, cross-language work-shape conformance check, and implementation, while
+method, cross-language work-trace conformance check, and implementation, while
 Section~\ref{sec:evaluation} reports the search, timing, trace, real-data, and cross-ISA
 results. Sections~\ref{sec:threats} and~\ref{sec:related} discuss limitations and prior
-work, respectively; Section~\ref{sec:conclusion} presents the conclusions, and the appendix provides
-detailed regression, EVT, and cross-ISA diagnostics.
+work, respectively. Section~\ref{sec:conclusion} presents the conclusions, and the appendix
+provides detailed regression, EVT, and cross-ISA diagnostics.

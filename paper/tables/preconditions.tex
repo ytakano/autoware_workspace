@@ -1,7 +1,7 @@
 % HAND-MAINTAINED (structural facts, not measurements) -- not touched by gen_tables.py.
 \begin{table}[t]
 \centering
-\caption{Preconditions of the work bound~\eqref{eq:decomp}: each limit, its enforcer, and the
+\caption{Preconditions of the conditional Rust work envelope~\eqref{eq:rust-envelope}: each limit, its enforcer, and the
 behavior on violation. ``assumed'' rows are not runtime-checked by the engine.}
 \label{tab:preconditions}
 \scriptsize
@@ -10,14 +10,17 @@ behavior on violation. ``assumed'' rows are not runtime-checked by the engine.}
 \toprule
 quantity & limit & enforced by & on violation \\
 \midrule
-$P$ & 1500 & preprocessing (assumed) & engine accepts any $P$ \\
-$N_{\mathrm{iter}}$ & 30 & static loop guard & stop at cap \\
-line-search passes & 0 extra & flag off (shipped) & $\le$10/iter if enabled \\
-$K$ (Rust) & 64 & hard search cap & truncate; overflow unreported \\
+$P$ & \runtimePMax & engine limit & return source-limit error \\
+$N_{\mathrm{iter}}$ & 30 & engine and loop guards & reject larger setting \\
+line-search passes & 0 extra & shipped flag off & outside proposition if enabled \\
+$K$ (Rust) & 64 & hard search cap & warn; force non-converged \\
 $K$ (C++) & none & --- & grows with tile overlap \\
-$K$ (deployment) & 27 & map pipeline (assumed) & back to engine tier \\
-$N_{\mathrm{leaves}}$ & memory & map loader & \kdnodes{} bound parametric \\
-buffer capacity & envelope max & pre-reservation (Rust) & growth allocation \\
+$K$ (deployment) & 27 & map pipeline (assumed) & deployment-tier bound invalid \\
+$N_{\mathrm{leaves}}$ & \runtimeLeavesMax & map finalization & reject; keep old map \\
+kd query stack & 64 entries & build-depth guard & return map-build error \\
+serial scratch & \runtimeScratchBytes{} B & startup reservation & reject undersized scratch \\
+integer products & counter range & checked construction & return arithmetic error \\
+numeric inputs & finite & align entry checks & return non-finite error \\
 \bottomrule
 \end{tabular}
 \end{table}

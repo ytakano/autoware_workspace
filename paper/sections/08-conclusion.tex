@@ -1,36 +1,33 @@
 \section{Conclusion}
 \label{sec:conclusion}
 
-Within the evaluated scope, the frozen synthetic fixtures establish work-shape conformance
-but not payload equality. In the cropped-map, degraded-prior stress replay, only
-\realOnMap{} frames perform meaningful matching; \realShapeOnMap{} satisfy both the base
-and work-shape criteria, while \realBaseDivergent{} fall outside the base criterion.
-Among the latter, \realIterationDivergent{} take different iteration paths. These results
-expose port-fidelity and map-boundary sensitivity but do not characterize representative
-nominal-localization behavior over the full 57-minute recording.
-
-The case study turns analysis of a data-dependent industrial kernel into three separable
+The case study separates analysis of a data-dependent industrial kernel into three
 obligations: enforce and test a work envelope, search deterministic counters for stress
-witnesses, and measure frozen inputs. Per-input traces compare a precisely defined work
-shape without equating leaf payloads, implementation-specific traversal, or latency. The
-search saturates the shared kernel term and separately stresses Rust kd traversal. C++
-serves as the port-conformance and timing baseline on transferred fixtures; it is not the
-target of the traversal search.
+witnesses, and measure frozen inputs. The search saturates the Rust envelope's maximum for
+the common kernel-evaluation term and separately stresses Rust kd-tree traversal. The port
+removes the per-point allocation hazard within reserved capacities. Across the union of the
+primary and counter-Pareto frontier campaigns, the engine-specific observed maxima are
+\SI{\combinedFixtureMaxCpp}{ms} for C++ and \SI{\combinedFixtureMaxRust}{ms} for Rust;
+these timing results remain empirical.
 
-The intended result is a real-time-oriented Rust NDT engine with explicit work limits and
-measured timing evidence for its critical path. The port removes the per-point allocation
-hazard within reserved capacities. Across the union of the primary and counter-Pareto
-frontier fixture campaigns, the engine-specific maxima are \SI{\combinedFixtureMaxCpp}{ms}
-for C++ and \SI{\combinedFixtureMaxRust}{ms} for Rust. Timing remains empirical.
+Per-input traces compare a precisely defined work shape without equating leaf payloads,
+implementation-specific traversal, or latency. All frozen synthetic fixtures satisfy the
+work-trace criterion, although their payload digests differ. The cropped-map,
+degraded-prior replay provides a more restrictive result: only \realOnMap{} frames perform
+meaningful matching, \realShapeOnMap{} satisfy both the base and work-trace criteria, and
+\realBaseDivergent{} fall outside the base criterion. Among the latter,
+\realIterationDivergent{} take different iteration paths. The replay therefore exposes
+port-fidelity and map-boundary sensitivity but does not characterize representative nominal
+localization over the complete recording.
 
 Rust is not necessary for these bounds. Its safe core narrows memory-safety and race
 obligations so validation can focus on equivalence, numerics, work, and timing; FFI, unsafe
 code, and dependencies remain trusted.
 
 The NDT--EKF replay extends the evidence to rotation, quality gates, innovations, and
-feedback but does not establish production readiness: C++ stayed below 46.8 ms, yet
+feedback but does not establish production readiness: C++ stayed below \SI{46.8}{ms}, yet
 same-engine runs diverged, left the available map, and did not recover after their maxima.
-Operational evaluation
-requires the production ECU, ground truth, co-resident loads, and end-to-end 10 Hz gate and
-innovation measurements. Host parallelism is feasibility, not multi-core WCET; stronger
-claims require a deployment cost bound or an independence-preserving protocol.
+Operational evaluation requires the production ECU, ground truth, co-resident loads, and
+end-to-end \SI{10}{Hz} gate and innovation measurements. Host parallelism establishes
+feasibility rather than multi-core WCET; stronger timing claims require either a deployment
+cost bound or an independence-preserving measurement protocol.

@@ -7,6 +7,7 @@ Table~\ref{tab:regression} reports both models over $n=\regN$ points per engine.
 counts are engine-specific, regressor correlation reaches \regCorr, and wide intervals
 plus leave-one-out error make coefficient-level attribution unsupported.
 \input{tables/regression}
+\FloatBarrier
 
 \subsection{$P$-sweep fit diagnostics}
 \label{app:psweep-fit}
@@ -14,16 +15,18 @@ Table~\ref{tab:psweep-fit} reports descriptive uncertainty for the affine line t
 six observed maxima. The intervals rely on ordinary least-squares residual assumptions and
 do not bound unobserved maxima or worst-case latency.
 \input{tables/psweep_fit}
+\FloatBarrier
 
 \subsection{EVT diagnostics}
 \label{app:evt}
-\input{tables/evt}
-Table~\ref{tab:evt} retains the fitted tails only to document rejection: serial dependence
-invalidates their quantiles and intervals. A pooled Gumbel estimate only
+Table~\ref{tab:evt} reports the fitted tails only to document rejection: serial dependence
+invalidates their quantiles and intervals. A pooled Gumbel estimate that lies only
 \evtGumbelExtraPct\% above the observed maximum illustrates why fit appearance is insufficient.
+\input{tables/evt}
+\FloatBarrier
 
 \subsection{Cross-ISA discrepancy diagnosis}
 \label{app:crossisa-debug}
 The initial AArch64 mismatch on \emph{search-01} reproduced under QEMU and hardware.
-Bisection found a stored expectation predating the pcl f32 fidelity fix, not an ISA effect;
+Bisection found a stored expectation predating the PCL \texttt{f32} fidelity fix, not an ISA effect;
 re-baselining made host, emulator, and hardware counters bit-identical.
