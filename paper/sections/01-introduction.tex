@@ -33,8 +33,9 @@ establish the C++ implementation's worst traversal shape.
 Our contributions are:
 \begin{enumerate}
   \item A three-layer analysis combining a property-tested structural work bound,
-    deterministic counter-guided input search, and controlled timing with diagnostics-gated
-    MBPTA, with extrapolation prohibited when the diagnostics fail.
+    deterministic counter-guided input search, and controlled timing of frozen witnesses.
+    Mandatory tail diagnostics determine whether extrapolation is admissible and reject it
+    for these measurements.
   \item A per-input cross-language work-trace conformance check. The base-agreement set
     $E_{\mathrm{base}}$ checks iteration equality and pose and score tolerances;
     $E_{\mathrm{shape}}$ additionally checks the recorded
@@ -61,4 +62,5 @@ method, cross-language work-trace conformance check, and implementation, while
 Section~\ref{sec:evaluation} reports the search, timing, trace, real-data, and cross-ISA
 results. Sections~\ref{sec:threats} and~\ref{sec:related} discuss limitations and prior
 work, respectively. Section~\ref{sec:conclusion} presents the conclusions, and the appendix
-provides detailed regression, EVT, and cross-ISA diagnostics.
+provides detailed regression and cross-ISA diagnostics, together with the tail-model
+rejection details.

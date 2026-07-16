@@ -66,7 +66,7 @@ strategy and supports no claim that hill-climbing is intrinsically superior.
 \input{tables/ablation}
 
 \paragraph{Rust-counter Pareto frontier.} A lexicographic order can in principle mis-rank the
-\emph{time}-worst input: a candidate trading kernel evaluations for heavier traversal could
+slowest input: a candidate trading kernel evaluations for heavier traversal could
 be slower. The union of all counter-based evaluations leaves exactly
 \ablationFrontierSize{} non-dominated points: \emph{search-00} plus two candidates with
 fewer kernel evaluations but more \kdnodes{}, representing the anticipated trade. We timed both
@@ -76,11 +76,12 @@ $\ablationFrontierCppRatio\times$. These C++ measurements compare Rust-generated
 candidates and are not an independent FLANN-counter search. On Rust the kd-heaviest
 candidate marginally \emph{exceeds} it by $\ablationFrontierRustRatio\times$ at the
 maximum, with a consistent result at p50:
-the port's cheaper kernel evaluation shifts time-weight toward traversal, so the two
-engines' time-worst inputs need not coincide. This result is consistent with \kdnodes{}
+the port's cheaper kernel evaluation shifts time-weight toward traversal, so the slowest
+evaluated input need not be the same for both engines. This result is consistent with
+\kdnodes{}
 being a Rust-traversal count, as discussed in Sec.~\ref{sec:eval-regression}. We retain
-\emph{search-00} as the common timing fixture because it remains C++ time-worst only among
-the evaluated transferred fixtures. A Rust Pareto candidate exceeds it by
+\emph{search-00} as the common timing fixture because it is the slowest C++ fixture within
+the evaluated transferred set. A Rust Pareto candidate exceeds it by
 \ablationFrontierRustExcessPct\%, so it is not a Rust timing upper bound.
 \input{tables/frontier_timing}
 
@@ -103,7 +104,7 @@ The two Pareto candidates are not rows in Table~\ref{tab:tails} because they bel
 separate same-session frontier campaign in Table~\ref{tab:frontier-timing}. Across the
 union of the primary and frontier fixture campaigns, the engine-specific maxima are
 \SI{\combinedFixtureMaxCpp}{ms} for C++ and \SI{\combinedFixtureMaxRust}{ms} for Rust.
-The Rust union maximum occurs on \emph{pareto-01}; thus
+The Rust maximum over this union occurs on \emph{pareto-01}; thus
 \SI{\primaryFixtureMaxRust}{ms} is only the primary-campaign maximum.
 
 % Subnormal outlier: A/B-tested — NOT subnormals; per-point overhead on neighbor-sparse shape.
@@ -206,7 +207,7 @@ derivative pass on every fixture. For example,
 $\allocWorstPerAlign{} / (31 \cdot 2000) = \allocPerPtPassExact$. This locates the
 source in the per-point inner loop: a fresh neighbor
 vector constructed inside the parallel loop body, two fresh index/distance vectors per
-radius-search call, and approximately 8 per-query result containers per point inside PCL/FLANN.
+radius-search call, and approximately eight per-query result containers per point inside PCL/FLANN.
 These allocations use the allocator's thread-cache fast path and have low mean cost, but
 each is a
 potential lock, page fault, or fragmentation stall inside the innermost loop. The Rust
@@ -423,8 +424,9 @@ fixtures could not reveal. Fixing both reduced the iteration-count divergence to
 the iteration and equal-iteration output residuals. The traced replay of
 Sec.~\ref{sec:eval-tracecert} records their per-engine outputs and work shape.
 The \realIterationDivergent{} divergences cluster in \realDivSegments{} of
-\realSegments{} on-map segments but have ordinary work: $\bar{K}$ spans
-\realDivKbarMin{}--\realDivKbarMax{} and iterations \realDivIterMin--\realDivIterMax{}.
+\realSegments{} on-map segments but do not exhibit unusually large work counts:
+$\bar{K}$ spans \realDivKbarMin{}--\realDivKbarMax{}, and the iteration count spans
+\realDivIterMin--\realDivIterMax{}.
 At the maximum-delta frame Rust stops after 17 iterations while C++ reaches 30, amplifying
 a small numerical perturbation to \SI{\traceRealDivergentTransDeltaMax}{m}. Such sensitivity
 is not language-specific: C++ library, compiler, contraction, or ISA changes can also perturb
@@ -560,13 +562,14 @@ $P$-sweep. Potential mechanisms for meeting the deadline include reducing $P$, a
 SIMD or algorithmic changes, and parallelizing the kernel. Section~\ref{sec:eval-parallel} measures approximately
 \parRustSpeedupFour$\times$ at four host cores.
 
-\subsection{Extreme-value analysis: what the diagnostics permit}
+\subsection{Tail diagnostic and rejection of extrapolation}
 \label{sec:eval-evt}
 For each tail fixture we fitted per-session POT/GPD models to $3{\times}1000$ Isolated
 samples and applied the full diagnostic gate. Lag-1--10 autocorrelation reaches
 \evtAcfWorst{} rather than the ${\sim}0.03$ expected under independence; consequently the
-bootstrap resamples dependent exceedances and its $q_{10^{-9}}$ intervals are invalid. We
+bootstrap treats dependent exceedances as independent, invalidating its $q_{10^{-9}}$
+intervals. We
 therefore report no extrapolated exceedance probabilities and retain only the empirical
 maxima in Table~\ref{tab:tails}. Table~\ref{tab:evt} in Appendix~\ref{app:evt} gives the
-fixture-level ACF and POT/GPD diagnostics and illustrates why plausible-looking fits do
-not override failed assumptions.
+fixture-level diagnostics solely to document this rejection; plausible-looking fits do not
+override failed assumptions.

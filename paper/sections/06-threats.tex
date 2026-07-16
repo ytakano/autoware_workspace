@@ -93,8 +93,9 @@ machine-checked formal proof. The Rust envelope's maximum for the common
 kernel-evaluation term has an exact saturation witness, whereas neither a Rust traversal
 maximum nor a C++ traversal extremum is established.
 
-All times are platform-specific observations. POT/GPD extrapolation is rejected because
-serial dependence reaches $|\mathrm{ACF}|=\evtAcfWorst$, and the bridge experiment associates
+All times are platform-specific observations. Tail extrapolation is withheld because the
+diagnostic finds serial dependence reaching $|\mathrm{ACF}|=\evtAcfWorst$. Separately, the
+bridge experiment associates
 the controlled configuration with a \SI{\bridgeCppTaxMinMs}--\SI{\bridgeCppTaxMaxMs}{ms}
 unresolved C++ shift. The result is therefore a structurally enforced and property-tested
 work envelope plus observed maxima, not a certified hard timing bound. On a predictable

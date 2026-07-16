@@ -140,12 +140,13 @@ $W_{\mathrm{shape}}$; each engine therefore
 has a separate work-model instance. A conformant transferred fixture is a shared timing
 witness, not proof of equal stress.
 
-\subsection{Analysis layer 3: Measurement and diagnostic-gated \pwcet{} analysis}
-Frozen little-endian fixtures feed both engines through one replay harness. An
-\texttt{LD\_PRELOAD} interposer counts C++ allocations without source changes. Regression
-against engine-specific counters is diagnostic only. Per-session POT/GPD fitting uses
-maximum likelihood, bootstrap intervals, and a mandatory diagnostic gate; extrapolation is
-reported only when assumptions hold.
+\subsection{Analysis layer 3: Controlled measurement of frozen witnesses}
+Frozen little-endian fixtures feed both engines through one replay harness in documented
+host configurations. An \texttt{LD\_PRELOAD} interposer counts C++ allocations without
+source changes. Regression against engine-specific counters is diagnostic only. Tail-model
+fitting is also secondary to the observed timing results: per-session POT/GPD fits use
+maximum likelihood and bootstrap intervals, but a mandatory gate requires independence and
+stability before any extrapolation may be reported.
 
 \subsection{Cross-ISA transfer: Deployment-target validation}
 \label{sec:meth-crossisa}
