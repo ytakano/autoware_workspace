@@ -18,28 +18,43 @@ kernel.
 
 \subsection{Execution-time decomposition and notation}
 \label{sec:decomposition}
-For one align,
+For one align invocation, we use the following parametric decomposition of the modeled
+kernel time:
 \begin{equation}
- T\le N_{\mathrm{pass}}\sum_{p=1}^{P}
+ T_{\mathrm{model}}\le N_{\mathrm{pass}}\sum_{p=1}^{P}
  \bigl(T_{\mathrm{search}}(p)+K(p)T_{\mathrm{kernel}}\bigr)
  +N_{\mathrm{iter}}T_{\mathrm{solve}}.
  \label{eq:decomp}
 \end{equation}
+Here, $p$ indexes the $P$ source points, $N_{\mathrm{iter}}$ is the number of completed
+Newton updates, and $N_{\mathrm{pass}}$ is the number of derivative-evaluation passes.
+$T_{\mathrm{search}}(p)$ bounds one radius search for point $p$, $K(p)$ bounds the number
+of leaves returned by that search, $T_{\mathrm{kernel}}$ bounds one point--leaf score,
+gradient, and Hessian evaluation, and $T_{\mathrm{solve}}$ bounds one Newton solve and pose
+update. The pass index is suppressed by taking $T_{\mathrm{search}}(p)$ and $K(p)$ as
+maxima over the passes of the invocation. These $T_*$ terms are symbolic unit-cost bounds,
+not coefficients inferred from the timing measurements.
+
 The shipped configuration disables line-search derivative refinement, so one initial pass
 plus one pass per Newton step gives $N_{\mathrm{pass}}=N_{\mathrm{iter}}+1\le31$.
-The bounded Rust engine fixes $P\le P_{\max}=\runtimePMax$,
+The bounded Rust engine enforces $P\le P_{\max}=\runtimePMax$,
 $N_{\mathrm{leaves}}\le L_{\max}=\runtimeLeavesMax$, and
-$K(p)\le\maxnn=64$. Its kd traversal is at most $N_{\mathrm{leaves}}$ node visits per
-query. Production replay observed at most 1500 scan points, while engine stress fixtures
-use 2000. The larger configured value covers both sets. Table~\ref{tab:preconditions}
-records the enforced limits and violation behavior.
+$K(p)\le\maxnn=64$. Here, $P_{\max}$ is the configured source-point limit,
+$N_{\mathrm{leaves}}$ is the number of active map leaves indexed by the kd-tree,
+$L_{\max}$ is its configured limit, and \maxnn{} is the per-query neighbor cap. A kd
+traversal visits at most $N_{\mathrm{leaves}}$ nodes per query. Production replay
+observed at most 1500 scan points, while engine stress fixtures use 2000. The larger
+configured value covers both sets. Table~\ref{tab:preconditions} records the enforced
+limits and violation behavior.
 
 We count total point--leaf evaluations as \sumnbr, total Rust kd nodes as \kdnodes, and
 $\bar K=\sumnbr/(P N_{\mathrm{pass}})$. C++ traversal instead uses FLANN distance and plane
 evaluations. Thus \sumnbr{} is included in the work-trace conformance check, whereas
 traversal and its fitted cost are engine-specific. A diagnostic timing model adds fixed per-point and
-$6{\times}6$ solve terms, but Eq.~\eqref{eq:decomp} remains a work bound; conversion to
-time is platform-specific.
+$6{\times}6$ solve terms. Equation~\eqref{eq:decomp} is therefore a parametric envelope for
+the modeled kernel work, not a bound on total elapsed time: fixed setup, point
+transformation, memory-system interference, and operating-system delay require separate
+platform-specific bounds.
 
 \subsection{Why work bounds need timing evidence}
 Individual maxima need not be jointly reachable, so constructed inputs are witnesses, not
