@@ -50,9 +50,12 @@ configured value covers both sets. Table~\ref{tab:preconditions} records the enf
 limits and violation behavior.
 
 We count total point--leaf evaluations as \sumnbr, total Rust kd nodes as \kdnodes, and
-$\bar K=\sumnbr/(P N_{\mathrm{pass}})$. C++ traversal instead uses FLANN distance and plane
-evaluations. Thus \sumnbr{} is included in the work-trace conformance check, whereas
-traversal and its fitted cost are engine-specific. A diagnostic timing model adds fixed per-point and
+$\bar K=\sumnbr/(P N_{\mathrm{pass}})$. For C++, we aggregate the FLANN traversal
+events as
+$\flannevals=\Sigma_{\mathrm{dist}}^{C}+\Sigma_{\mathrm{plane}}^{C}$, the sum of
+distance and split-plane evaluations. Thus \sumnbr{} is included in the work-trace
+conformance check, whereas \kdnodes{} and \flannevals{} count different events and their
+fitted costs are engine-specific. A diagnostic timing model adds fixed per-point and
 $6{\times}6$ solve terms. Equation~\eqref{eq:decomp} is therefore a parametric envelope for
 the modeled kernel work, not a bound on total elapsed time: fixed setup, point
 transformation, memory-system interference, and operating-system delay require separate

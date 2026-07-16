@@ -16,9 +16,11 @@ has been reserved for $(P_{\max},I_{\max})$. Checked construction also requires 
 integer products below to fit in their counter types. Then the serial Rust align kernel
 satisfies
 \begin{equation}
- N_{\mathrm{pass}}\le31,\quad
- \sumnbr\le31P_{\max}\maxnn,\quad
- \kdnodes\le31P_{\max}L_{\max}.
+ \begin{aligned}
+ N_{\mathrm{pass}}&\le31,\qquad
+ \sumnbr\le31P_{\max}\maxnn,\\
+ \kdnodes&\le31P_{\max}L_{\max}.
+ \end{aligned}
  \label{eq:rust-envelope}
 \end{equation}
 For the configured limits, these bounds are 3,968,000 kernel evaluations and

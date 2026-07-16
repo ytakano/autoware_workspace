@@ -237,12 +237,14 @@ and shifts medians by at most \coldWorstPct\% across the whole fixture set: the
 worst-case-shaped inputs are already cache-hostile, so eviction adds little. The
 \emph{co-runner} series stresses one hardware resource at a time from an L3-sharing core
 and produces different effects across the two tiers. On \emph{search-00}, whose cost is
-kernel-evaluation-bound and cache-resident, no co-runner moves the maximum by more than
-${\sim}\coWorstSearch\%$. On \emph{legal-worst}, whose cost is kd-traversal/memory-bound
-as described in Sec.~\ref{sec:eval-twotier}, the memory-bandwidth co-runner inflates the
-Rust observed maximum by up to $+\coWorstLegal\%$, while the LLC and FP co-runners have
-negligible effects. The deployment-tier witness is therefore more interference-sensitive
-than the engine-tier witness, consistent with its kd-dominated cost structure.
+kernel-evaluation-bound and cache-resident, the largest positive change in the observed
+maximum is $+\coMaxIncreaseSearch\%$; changes across the separately measured co-runner
+series range from $\coMinChangeSearch\%$ to $+\coMaxIncreaseSearch\%$. On
+\emph{legal-worst}, whose cost is kd-traversal/memory-bound as described in
+Sec.~\ref{sec:eval-twotier}, the memory-bandwidth co-runner inflates the Rust observed
+maximum by up to $+\coMaxIncreaseLegal\%$, while the LLC and FP co-runners have negligible
+effects. The deployment-tier witness is therefore more interference-sensitive than the
+engine-tier witness, consistent with its kd-dominated cost structure.
 
 \subsection{Unit-cost regression}
 \label{sec:eval-regression}
