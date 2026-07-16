@@ -33,7 +33,9 @@ of leaves returned by that search, $T_{\mathrm{kernel}}$ bounds one point--leaf 
 gradient, and Hessian evaluation, and $T_{\mathrm{solve}}$ bounds one Newton solve and pose
 update. The pass index is suppressed by taking $T_{\mathrm{search}}(p)$ and $K(p)$ as
 maxima over the passes of the invocation. These $T_*$ terms are symbolic unit-cost bounds,
-not coefficients inferred from the timing measurements.
+not coefficients inferred from the timing measurements. We write
+$K=\max_{1\le p\le P}K(p)$ for the maximum neighbor multiplicity over the complete
+invocation.
 
 The shipped configuration disables line-search derivative refinement, so one initial pass
 plus one pass per Newton step gives $N_{\mathrm{pass}}=N_{\mathrm{iter}}+1\le31$.
