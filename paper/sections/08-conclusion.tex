@@ -2,13 +2,14 @@
 \label{sec:conclusion}
 
 The case study separates analysis of a data-dependent industrial kernel into three
-obligations: enforce and test a work envelope, search deterministic counters for stress
-witnesses, and measure frozen inputs. The search saturates the Rust envelope's maximum for
-the common kernel-evaluation term and separately stresses Rust kd-tree traversal. The port
-removes the per-point allocation hazard within reserved capacities. Across the union of the
-primary and counter-Pareto frontier campaigns, the engine-specific observed maxima are
-\SI{\combinedFixtureMaxCpp}{ms} for C++ and \SI{\combinedFixtureMaxRust}{ms} for Rust;
-these timing results remain empirical.
+obligations: enforce and test a work envelope, generate stress witnesses with deterministic
+counters, and measure frozen inputs. A domain-informed construction saturates the Rust
+envelope's maximum for the common kernel-evaluation term; subsequent counter-guided search
+stresses Rust kd-tree traversal. The port
+removes the per-point allocation hazard within reserved capacities. The largest recorded
+values across the primary and smaller counter-Pareto frontier campaigns are
+\SI{\combinedFixtureMaxCpp}{ms} for C++ and \SI{\combinedFixtureMaxRust}{ms} for Rust.
+The campaigns use different sample counts, and these timing results remain empirical.
 
 Per-input traces compare a precisely defined work shape without equating leaf payloads,
 implementation-specific traversal, or latency. All frozen synthetic fixtures satisfy the

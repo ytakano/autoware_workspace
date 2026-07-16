@@ -55,8 +55,8 @@
 
 \begin{document}
 
-\title{Counter-Guided Timing Evidence for an Industrial \ndt{} Scan Matcher:\\
-Conditional Work Bounds and Cross-Language Work-Trace Conformance}
+\title{Conditional Work Bounds and Timing Evidence for an Industrial \ndt{} Scan Matcher:\\
+Cross-Language Work-Trace Conformance}
 
 \author{%
   \IEEEauthorblockN{Yuuki Takano}
@@ -73,12 +73,13 @@ critical path. We analyze the align kernel of the industrial Autoware matcher; m
 preprocessing, and ROS scheduling are outside the scope. The Rust port reduces the
 low-level verification surface of the safe core and supports \texttt{no\_std}, but bounded
 execution is not Rust-specific and the FFI, unsafe code, and dependencies remain trusted.
-Our three-layer method establishes a conditional structural work bound, searches Rust
-instrumentation counters for stress inputs, and measures frozen witnesses. It separates
+Our three-layer method establishes a conditional structural work bound, generates stress
+witnesses using Rust instrumentation counters, and measures frozen witnesses. It separates
 algorithmic work from platform-specific time per unit work and does not claim a certified
 hard time bound.
-The search saturates the Rust envelope's analytic maximum for the common
-kernel-evaluation term and increases the Rust implementation's kd-node count. C++ timing
+A domain-informed construction saturates the Rust envelope's analytic maximum for the
+common kernel-evaluation term; subsequent counter-guided search increases the Rust
+implementation's kd-node count. C++ timing
 remains an observation over the transferred fixture set, not a search for a C++ traversal
 extremum. Per-input traces provide evidence that Rust and C++ perform the same recorded work
 shape on trace-conformant inputs.
@@ -90,9 +91,10 @@ In a cropped-map, degraded-prior stress replay drawn from a 57-minute drive, onl
 \realOnMap{} frames perform on-map matching; \realShapeOnMap{} satisfy both base agreement
 and work-trace conformance, \realBaseOnly{} satisfy base agreement only, and
 \realBaseDivergent{} fall outside the base criterion. Of the last group,
-\realIterationDivergent{} diverge in iteration count. Across the primary and counter-Pareto
-frontier frozen-fixture campaigns, the engine-specific observed maxima are
-\SI{\combinedFixtureMaxRust}{ms} for Rust and \SI{\combinedFixtureMaxCpp}{ms} for C++.
+\realIterationDivergent{} diverge in iteration count. The largest recorded values across
+the primary and smaller counter-Pareto frontier campaigns are
+\SI{\combinedFixtureMaxRust}{ms} for Rust and
+\SI{\combinedFixtureMaxCpp}{ms} for C++; the campaigns use different sample counts.
 The Rust port also removes approximately \allocPerPtPass{} heap allocations per point per
 derivative pass within its reserved envelope.
 \end{abstract}

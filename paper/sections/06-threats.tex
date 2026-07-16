@@ -14,9 +14,13 @@ interference, so neither supports a multi-core WCET claim.
 
 Search covers a parameterized generator, not all inputs. Kernel-evaluation saturation is
 exact, but the traversal objective is the Rust-specific kd-node count and has only its
-$O(N_{\mathrm{leaves}})$ structural cap; a slower Rust geometry may exist. No independent
-search uses the C++ FLANN distance or plane-evaluation counters, so C++ timing evidence is
-limited to observations over the transferred fixture set. The real-data evidence covers one
+$O(N_{\mathrm{leaves}})$ structural cap; a slower Rust geometry may exist. The ablation
+compares four informed-seed hill runs, three random-genome runs, and two wall-clock runs.
+The unequal initial distributions and small replicate counts prevent a strategy-level
+ranking. The counter vector also omits empty-query frequency, fixed per-point overhead,
+solver branches, and numerical regime. No independent search uses the C++ FLANN distance or
+plane-evaluation counters, so C++ timing evidence is limited to observations over the
+transferred fixture set. The real-data evidence covers one
 vehicle, route, and cropped map, with
 only \realOnMap{} on-map frames in \realSegments{} short segments. The remaining
 \realOffMap{} frames are near-no-op aligns and therefore do not characterize localization

@@ -19,10 +19,10 @@ survey. A central limitation is \emph{representativity}: EVT bounds only the beh
 exercised by the measurement protocol. This limitation has motivated randomized platforms
 and measurement protocols~\cite{lima2017evt}, statistical estimation and validation
 procedures~\cite{hansen2009statistical}, and reusable tooling~\cite{reghenzani2018chronovise}.
-We address representativity from the input side. Instead of sampling ``representative''
-inputs, we search for adversarial ones with deterministic, timing-independent Rust counters
-and show that the search reached the Rust envelope's analytic maximum for the common
-kernel-evaluation term. A secondary POT/GPD diagnostic on the frozen stress measurements
+We address representativity from the input side by constructing stress inputs and evaluating
+them with deterministic, timing-independent Rust counters. The domain-informed construction
+reaches the Rust envelope's analytic maximum for the common kernel-evaluation term. A
+secondary POT/GPD diagnostic on the frozen stress measurements
 fails its independence gate, so we withhold tail extrapolation as detailed in
 Sec.~\ref{sec:eval-evt}. The timing evidence therefore consists of observed maxima, not an
 MBPTA estimate.
@@ -32,10 +32,10 @@ al.~\cite{wegener1997testing,wegener2001comparison}, who evolve test data with \
 execution time} as fitness and note the complementarity with static analysis. Wall-clock
 fitness is noisy, machine-specific, and unreproducible across platforms. Our fitness
 combines a common kernel-work counter with a Rust-specific traversal counter. For a fixed
-port implementation, the resulting input ranking is reproducible and independent of timing
-noise, and the common kernel axis can be checked against the analytic bound. The saturation
-witness of Sec.~\ref{sec:eval-search} cannot be established from time-based fitness alone. The
-common kernel-work axis supports cross-language transfer: a Rust-search input is replayed
+port implementation, the resulting input ranking is deterministic and independent of timing
+noise. Analytic saturation is established by checking the common counter against its bound,
+not by a comparative advantage of the counter fitness. The common kernel-work axis supports
+cross-language transfer: a Rust-search input is replayed
 on the production C++ engine, and the replay checks work-trace conformance per input. The
 Rust traversal counter does not transfer; C++ results are observations over those transferred
 inputs and do not establish a C++-specific traversal extremum.

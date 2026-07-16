@@ -267,20 +267,18 @@ def ablation():
                     f"& {num(r['best']['kd'])}")
     write(
         "ablation.tex",
-        r"Search ablation: hill-climb vs budget-matched random sampling "
-        rf"({meta['budget_evaluations']} evaluations each) and wall-clock fitness, per seed. "
+        r"Limited search ablation: hill-climb and budget-matched random sampling "
+        rf"({meta['budget_evaluations']} evaluations each), plus wall-clock fitness. "
         r"``at final \sumnbr{}'' = first evaluation reaching the run's final \sumnbr{}.",
         "tab:ablation",
         "llrrr",
         r"mode & seed & at final \sumnbr & \sumnbr{} (\% of max) & \kdnodes",
         rows,
-        note=r"Hill-climb saturates \sumnbr{} at the analytic maximum on every seed (the "
-        r"domain-informed seed genome already attains it; the search then grows the Rust "
-        r"traversal counter \kdnodes); "
-        r"random sampling never reaches it. The random arms start from \emph{random} "
-        r"genomes, so the comparison bundles seed quality with search strategy. The two "
-        r"wall-clock-fitness runs share a seed yet return different champions --- counter "
-        r"fitness is bit-reproducible.",
+        note=r"The domain-informed seed genome already saturates \sumnbr{}; hill-climb then "
+        r"grows the Rust traversal counter \kdnodes{}. The four hill runs, three "
+        r"random-genome runs, and two same-seed wall-clock runs do not share an initial "
+        r"distribution or provide enough replication for a strategy ranking. The last pair "
+        r"returns different champions, whereas fixed-seed counter fitness is deterministic.",
         tabcolsep="3pt",
     )
 
@@ -318,8 +316,9 @@ def ablation():
         "lrrrr",
         "fixture & C++ p50 & C++ max & Rust p50 & Rust max",
         frontier_rows,
-        note="The search-00 row is the same-session anchor for the frontier comparison; "
-        "it is separate from the larger pooled primary campaign.",
+        note="The search-00 row is the same-session anchor for the frontier comparison. "
+        r"This 100-sample campaign is separate from the pooled $3{\times}1000$-sample "
+        "primary campaign; maxima across them are descriptive record values.",
     )
 
     primary = json.loads((DATA / "wcet.json").read_text())["fixtures"]

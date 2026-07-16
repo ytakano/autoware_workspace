@@ -41,7 +41,7 @@ allocations from the first frame inside the declared envelope. Linting excludes 
 panic paths in project code, and differential tests compare the fixed-stack query against
 a recursive test oracle.
 
-\subsection{Analysis layer 2: Rust counter-guided stress search}
+\subsection{Analysis layer 2: Stress-witness generation with Rust counters}
 \label{sec:meth-search}
 Compile-time instrumentation in the Rust port counts passes, points, \sumnbr, and
 \kdnodes; disabled counters compile away. A seeded hill-climb mutates tile overlap and
@@ -51,10 +51,12 @@ maximize $(N_{\mathrm{iter}},\sumnbr,\kdnodes)$ lexicographically. This
 it is not an input-only search under shipped parameters. $P$ remains a caller contract,
 not a search dimension. A separate \emph{shipped-configuration stress} search fixes
 $\epsilon=0.01$ and enforces the production preprocessing input contracts. The counter
-fitness is independent of wall-clock timing and reproducible for the fixed Rust
-implementation. Because lexicographic order need not match time order, all non-dominated
-counter vectors are archived and their fixtures timed. Budget-matched random and
-wall-clock-fitness arms test search effectiveness.
+fitness is independent of wall-clock timing and deterministic for the fixed Rust
+implementation. Because lexicographic order need not match time order, all
+non-dominated counter vectors are archived and their fixtures timed. Budget-matched random
+and wall-clock-fitness arms provide limited diagnostic comparisons; their different initial
+distributions and small replicate counts do not support a general ranking of search
+strategies.
 
 Only \sumnbr{} is a common work axis across the two engines. The \kdnodes{} objective is
 specific to the Rust kd-tree; the search does not optimize the C++ FLANN distance or

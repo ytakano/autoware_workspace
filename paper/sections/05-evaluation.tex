@@ -31,14 +31,14 @@ manifests containing the environment, compiler flags, commits, and fixture and b
 % TODO(artifact): add the archive DOI/URL for the data files, fixtures, generators/seeds,
 % and scripts before submission.
 
-\subsection{Search effectiveness}
+\subsection{Search outcomes and ablation limits}
 \label{sec:eval-search}
-The frozen hill-climb champion saturates the Rust envelope's analytic maximum for the
-common kernel-evaluation term:
+The domain-informed seed represented by the hand-built \emph{dense-neighbors} construction
+saturates the Rust envelope's analytic maximum for the common kernel-evaluation term:
 $\sumnbr = P \cdot \maxnn \cdot (N_{\mathrm{iter}}{+}1) = 2000 \cdot 64 \cdot 31 =
-\num{3968000}$. The hand-built \emph{dense-neighbors} construction is therefore
-kernel-count-optimal under the configured $P_{\max}$, \maxnn, and $I_{\max}$. The climb
-then increases the Rust-specific traversal term \kdnodes{} by a further
+\num{3968000}$. This construction is therefore kernel-count-optimal under the configured
+$P_{\max}$, \maxnn, and $I_{\max}$. The climb then increases the Rust-specific traversal
+term \kdnodes{} by a further
 \searchKdGrowthPct\%, from \oneoffKdGenZeroM\,M to \searchZeroKdM\,M, while increasing
 the map extent from 6 to 9 blocks. The generation-0 value comes from the recorded search
 log and the final value from the frozen fixture's counters.
@@ -50,18 +50,23 @@ frozen set.
 
 \input{tables/counters}
 
-Table~\ref{tab:ablation} reports the search ablation results. The design supports three claims.
-First, the analytic construction, not the climb, reaches the kernel-count axis: across \ablationSeeds{}
-seeds the domain-informed seed genome attains the \sumnbr{} maximum already at
-evaluation~1. Second, the climb contributes the
-${+}$\searchKdGrowthPct\% increase in the Rust traversal term \kdnodes{}. Third, counter
-fitness is reproducible where wall-clock fitness is not: two wall-clock-fitness runs with an
-identical seed return \emph{different} champions whose \kdnodes{} differ by only \ablationTimeKdDeltaPct\%:
-\ablationTimeKdA{} versus \ablationTimeKdB. Timing noise ranks these two near-identical
-maxima differently. Budget-matched random sampling uses \ablationBudget{} evaluations and
-spans \ablationRandomWorstPct--\ablationRandomBestPct\% of the \sumnbr{} maximum. Because
-those arms start from random genomes, this comparison bundles seed quality with search
-strategy and supports no claim that hill-climbing is intrinsically superior.
+Table~\ref{tab:ablation} reports a limited search ablation. It supports three scoped
+observations rather than a ranking of search strategies. First, the analytic construction,
+not the climb, reaches the kernel-count axis: across \ablationSeeds{} seeds the
+domain-informed seed genome attains the \sumnbr{} maximum at evaluation~1. Second, the
+climb contributes the ${+}$\searchKdGrowthPct\% increase in the Rust traversal term
+\kdnodes{}. Third, the fixed-seed counter search is deterministic, whereas the two recorded
+wall-clock-fitness runs with one shared seed return different champions:
+\ablationTimeKdA{} versus \ablationTimeKdB{} \kdnodes{}, a difference of only
+\ablationTimeKdDeltaPct\%. This pair illustrates sensitivity to timing noise but does not
+estimate its frequency.
+
+The ablation has four informed-seed hill runs, three random-genome runs, and two
+wall-clock-fitness runs. Budget-matched random sampling uses \ablationBudget{} evaluations
+and spans \ablationRandomWorstPct--\ablationRandomBestPct\% of the \sumnbr{} maximum.
+Because its initial distribution differs from the hill runs, the comparison confounds seed
+quality with search strategy and supports no general claim that hill-climbing or
+counter-guided search outperforms the alternatives.
 
 \input{tables/ablation}
 
@@ -82,7 +87,11 @@ evaluated input need not be the same for both engines. This result is consistent
 being a Rust-traversal count, as discussed in Sec.~\ref{sec:eval-regression}. We retain
 \emph{search-00} as the common timing fixture because it is the slowest C++ fixture within
 the evaluated transferred set. A Rust Pareto candidate exceeds it by
-\ablationFrontierRustExcessPct\%, so it is not a Rust timing upper bound.
+\ablationFrontierRustExcessPct\%, so it is not a Rust timing upper bound. This update also
+shows that the lexicographic counter ordering does not guarantee a latency ordering. Timing
+every
+archived non-dominated vector covers tradeoffs among the recorded counters, but not omitted
+features such as empty-query frequency, fixed per-point overhead, or solver behavior.
 \input{tables/frontier_timing}
 
 \subsection{Engine-tier frame times: C++ vs.\ Rust}
@@ -101,11 +110,14 @@ maxima are \SI{\primaryFixtureMaxCpp}{ms} for C++ and \SI{\primaryFixtureMaxRust
 
 \input{tables/tails}
 The two Pareto candidates are not rows in Table~\ref{tab:tails} because they belong to the
-separate same-session frontier campaign in Table~\ref{tab:frontier-timing}. Across the
-union of the primary and frontier fixture campaigns, the engine-specific maxima are
-\SI{\combinedFixtureMaxCpp}{ms} for C++ and \SI{\combinedFixtureMaxRust}{ms} for Rust.
-The Rust maximum over this union occurs on \emph{pareto-01}; thus
-\SI{\primaryFixtureMaxRust}{ms} is only the primary-campaign maximum.
+separate same-session frontier campaign in Table~\ref{tab:frontier-timing}. The primary
+campaign has $3{\times}1000$ samples per fixture and engine, whereas the frontier campaign
+has 100. Their maxima are therefore descriptive record values, not equal-sample estimates.
+Across the two campaigns, those records are \SI{\combinedFixtureMaxCpp}{ms} for C++ and
+\SI{\combinedFixtureMaxRust}{ms} for Rust. The Rust record occurs on \emph{pareto-01};
+its p50 also exceeds the same-session \emph{search-00} anchor, so the ordering does not
+depend only on the unequal maximum sample counts. The
+\SI{\primaryFixtureMaxRust}{ms} value remains the primary-campaign maximum.
 
 % Subnormal outlier: A/B-tested — NOT subnormals; per-point overhead on neighbor-sparse shape.
 The \emph{subnormal} fixture's p50 ratio of $\subnormalMedianRatio\times$ motivated a
@@ -251,11 +263,12 @@ the engine-configuration stress run, consistent with its kd-dominated cost struc
 \label{sec:eval-regression}
 Regression is diagnostic, not unit-cost identification. Across the fixtures and $P$-sweep
 points, the worst regressor correlation is \regCorr, bootstrap intervals are wide, and the
-adopted Rust model has a \regLooMaxRust\% worst leave-one-out error. Moreover, each engine
-uses a different traversal counter. We therefore base the implementation comparison on the
-direct fixture maxima in Table~\ref{tab:tails}, not coefficient attribution; the models,
-coefficients, and intervals appear in Table~\ref{tab:regression} of
-Appendix~\ref{app:regression}.
+adopted Rust model has a \regLooMaxRust\% worst leave-one-out error. The current counter
+vector therefore does not support general latency prediction. Moreover, each engine uses a
+different traversal counter. We use the counters to target structural work and base the
+implementation comparison on direct fixture maxima in Table~\ref{tab:tails}, not
+coefficient attribution. The models, coefficients, and intervals appear in
+Table~\ref{tab:regression} of Appendix~\ref{app:regression}.
 
 \subsection{Scaling with the input size $P$}
 \label{sec:eval-psweep}

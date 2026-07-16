@@ -45,9 +45,10 @@ the frame as non-converged, allowing the existing downstream fallback policy to 
 Four hand-built engine fixtures isolate hazards: \emph{dense-neighbors} reaches 64 leaves
 with eight overlapping corner lattices; \emph{max-iterations} reaches the iteration cap;
 \emph{cache-hostile} spreads shuffled queries across a wide map; and \emph{subnormal}
-places kernel exponentials in the f64 subnormal range. The counter search combines these
-stressors and produces higher counter values. The per-tile $K=8$ value belongs only to the corner-lattice witness, not the analytic
-ceiling of 27.
+places kernel exponentials in the f64 subnormal range. The search generator exposes these
+stressor dimensions. Its domain-informed seed saturates the common kernel count, and
+subsequent counter-guided search increases the Rust traversal count. The per-tile $K=8$
+value belongs only to the corner-lattice witness, not the analytic ceiling of 27.
 
 \subsection{Production-input stress classes}
 \label{sec:impl-legal}
