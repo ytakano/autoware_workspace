@@ -15,9 +15,9 @@ fixture & C++ / align & C++ / (pt$\cdot$pass) & Rust / align \\
 \emph{max-iters} & \num{409403} & 11.0 & 0 \\
 \emph{cache-hostile} & \num{88032} & 11.0 & 0 \\
 \emph{subnormal} & \num{292038} & 9.4 & 0 \\
-\emph{legal-worst}$^\dagger$ & \num{511748} & 11.0 & 0 \\
-\emph{legal-osc}$^\dagger$ & \num{511748} & 11.0 & 0 \\
+\emph{geom-stress} & \num{511748} & 11.0 & 0 \\
+\emph{shipped-osc} & \num{511748} & 11.0 & 0 \\
 \bottomrule
 \end{tabular}
-\par\smallskip\footnotesize The constant ${\approx}11$ per point per pass locates the source in the per-point inner loop (Sec.~\ref{sec:eval-alloc}). Rust: zero, matching the counting-allocator-verified allocation-freedom contract. \emph{search-00} is the Rust-search champion transferred to both engines; $^\dagger$\,deployment-tier fixtures. Isolated: 3 session(s), 2026-07-12/2026-07-13, isolated pinned core (\texttt{taskset -c 2}), 300+3000 pooled across sessions aligns/fixture.
+\par\smallskip\footnotesize The constant ${\approx}11$ per point per pass locates the source in the per-point inner loop (Sec.~\ref{sec:eval-alloc}). Rust: zero, matching the counting-allocator-verified allocation-freedom contract. \emph{search-00} jointly stresses engine input and configuration; \emph{geom-stress} uses production-contract geometry with non-shipped $\epsilon$; \emph{shipped-osc} also fixes shipped $\epsilon$. Isolated: 3 session(s), 2026-07-12/2026-07-13, isolated pinned core (\texttt{taskset -c 2}), 300+3000 pooled across sessions aligns/fixture.
 \end{table}

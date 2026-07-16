@@ -41,16 +41,20 @@ allocations from the first frame inside the declared envelope. Linting excludes 
 panic paths in project code, and differential tests compare the fixed-stack query against
 a recursive test oracle.
 
-\subsection{Analysis layer 2: Rust counter-guided stress-input search}
+\subsection{Analysis layer 2: Rust counter-guided stress search}
 \label{sec:meth-search}
 Compile-time instrumentation in the Rust port counts passes, points, \sumnbr, and
 \kdnodes; disabled counters compile away. A seeded hill-climb mutates tile overlap and
 extent, centroid geometry, source composition, initial guess, and convergence threshold to
-maximize $(N_{\mathrm{iter}},\sumnbr,\kdnodes)$ lexicographically. $P$ remains a caller contract,
-not a search dimension. The fitness is independent of wall-clock timing and reproducible
-for the fixed Rust implementation. Because lexicographic order need not match time order, all
-non-dominated counter vectors are archived and their fixtures timed. Budget-matched random
-and wall-clock-fitness arms test search effectiveness.
+maximize $(N_{\mathrm{iter}},\sumnbr,\kdnodes)$ lexicographically. This
+\emph{engine-configuration stress} search jointly varies input geometry and configuration;
+it is not an input-only search under shipped parameters. $P$ remains a caller contract,
+not a search dimension. A separate \emph{shipped-configuration stress} search fixes
+$\epsilon=0.01$ and enforces the production preprocessing input contracts. The counter
+fitness is independent of wall-clock timing and reproducible for the fixed Rust
+implementation. Because lexicographic order need not match time order, all non-dominated
+counter vectors are archived and their fixtures timed. Budget-matched random and
+wall-clock-fitness arms test search effectiveness.
 
 Only \sumnbr{} is a common work axis across the two engines. The \kdnodes{} objective is
 specific to the Rust kd-tree; the search does not optimize the C++ FLANN distance or
@@ -102,7 +106,7 @@ trace for one engine is
 \[
  W_{\mathrm{shape}}=
  \left(N_{\mathrm{pass}},
- \left(P_i,S_{\mathrm{nbr},i},\mathbf H_{\mathrm{ID},i}\right)_
+ \left(P_i,S_{\mathrm{nbr},i},\mathbf H_{\mathrm{ID},i}\right){}_
  {i=1}^{N_{\mathrm{pass}}}\right).
 \]
 Here $i$ indexes derivative-evaluation passes, $P_i$ is the number of source points

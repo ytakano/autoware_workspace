@@ -5,7 +5,7 @@ Autoware~\cite{autoware} localizes a vehicle by aligning each LiDAR scan to a Ga
 voxel map with the Normal Distributions Transform (\ndt)~\cite{biber2003ndt}. At 10\,Hz,
 each alignment has a \SI{100}{ms} period before a late pose forces downstream estimation toward
 dead reckoning. Yet input geometry changes Newton iterations, neighbor multiplicity, and
-kd-tree traversal. Measured latencies for legal synthetic inputs range from under
+kd-tree traversal. Measured latencies for synthetic stress inputs range from under
 \SI{10}{ms} to nearly one second on
 the same core. Nominal replay therefore cannot answer whether the deadline has defensible
 margin.
@@ -48,9 +48,10 @@ Our contributions are:
   \item An industrial case study in which Rust removes the C++ per-point allocation hazard
     within reserved capacities. Across the primary and counter-Pareto frontier campaigns,
     the observed maxima are \SI{\combinedFixtureMaxRust}{ms} for Rust and
-    \SI{\combinedFixtureMaxCpp}{ms} for C++. Legal witnesses support the deployment axes
-    of a two-tier work envelope, while a single-drive replay exposes the residual
-    conformance boundary.
+    \SI{\combinedFixtureMaxCpp}{ms} for C++. Contract-geometry and
+    shipped-configuration witnesses separate production input constraints from
+    configuration effects, while a single-drive replay exposes the residual conformance
+    boundary.
 \end{enumerate}
 
 The remainder of this paper is organized as follows. Section~\ref{sec:problem}

@@ -35,8 +35,8 @@ OUT = ROOT / "tables"
 TAIL_FIXTURES = ["search_00", "legal_worst", "legal_osc"]
 LABEL = {
     "search_00": r"\emph{search-00}",
-    "legal_worst": r"\emph{legal-worst}$^\dagger$",
-    "legal_osc": r"\emph{legal-osc}$^\dagger$",
+    "legal_worst": r"\emph{geom-stress}",
+    "legal_osc": r"\emph{shipped-osc}",
 }
 N_SESSIONS = 3
 WORK_Q = 0.95  # working threshold quantile
@@ -326,7 +326,9 @@ def main():
         r"\end{tabular}",
         r"\par\smallskip\footnotesize ACF: largest lag-1--10 magnitude over three sessions"
         r" (i.i.d.: ${\sim}0.03$). The last column is the worst bootstrap CI upper end;"
-        r" dependence makes it non-inferential.",
+        r" dependence makes it non-inferential. \emph{geom-stress} uses production-contract"
+        r" geometry with non-shipped $\epsilon$; \emph{shipped-osc} also fixes shipped"
+        r" $\epsilon$.",
         r"\end{table}",
     ]
     (OUT / "evt.tex").write_text("\n".join(lines) + "\n", encoding="utf-8")

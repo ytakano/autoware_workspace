@@ -28,6 +28,7 @@ The NDT--EKF replay extends the evidence to rotation, quality gates, innovations
 feedback but does not establish production readiness: C++ stayed below \SI{46.8}{ms}, yet
 same-engine runs diverged, left the available map, and did not recover after their maxima.
 Operational evaluation requires the production ECU, ground truth, co-resident loads, and
-end-to-end \SI{10}{Hz} gate and innovation measurements. Host parallelism establishes
-feasibility rather than multi-core WCET; stronger timing claims require either a deployment
-cost bound or an independence-preserving measurement protocol.
+end-to-end \SI{10}{Hz} gate and innovation measurements. Host parallelism places the
+non-shipped \emph{geom-stress} run below the period with two cores; it establishes neither
+shipped deadline compliance nor multi-core WCET. Stronger timing claims require either a
+deployment cost bound or an independence-preserving measurement protocol.

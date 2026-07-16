@@ -47,16 +47,19 @@ LABEL = {
     "max_iterations": r"\emph{max-iters}",
     "cache_hostile": r"\emph{cache-hostile}",
     "subnormal": r"\emph{subnormal}",
-    "legal_worst": r"\emph{legal-worst}$^\dagger$",
-    "legal_osc": r"\emph{legal-osc}$^\dagger$",
+    "legal_worst": r"\emph{geom-stress}",
+    "legal_osc": r"\emph{shipped-osc}",
     "pareto_01": r"\emph{pareto-01}",
     "pareto_02": r"\emph{pareto-02}",
     "real_median": r"\emph{real-median}",
     "real_slowest": r"\emph{real-slowest}",
 }
 # Shared table footnote for the tier markers.
-TIER_NOTE = (r"\emph{search-00} is the Rust-search champion transferred to both engines; "
-             r"$^\dagger$\,deployment-tier fixtures.")
+STRESS_CLASS_NOTE = (
+    r"\emph{search-00} jointly stresses engine input and configuration; "
+    r"\emph{geom-stress} uses production-contract geometry with non-shipped $\epsilon$; "
+    r"\emph{shipped-osc} also fixes shipped $\epsilon$."
+)
 
 # One-off side measurements quoted in the prose but not captured in data/*.json.
 # Each entry documents its source; C1 of plan/paper_fix.md re-measures or archives them.
@@ -80,7 +83,7 @@ ONEOFF = {
     "malloc_pair_ns": 11.3,
     # Iterative vs recursive kd radius search (port development, same day / same core), %.
     "kd_iter_speedup_pct": 12,
-    # legal-worst rerun at the shipped epsilon = 0.01: converges in this many iterations
+    # geom-stress rerun at the shipped epsilon = 0.01: converges in this many iterations
     # (2026-07-10 session; motivates the epsilon-pinned iteration axis).
     "legal_worst_prod_eps_iters": 2,
     # Differential-test bound on the eigensolver deviation over the inverse covariances
@@ -534,7 +537,8 @@ def raspi4_timing():
         "lrrrl",
         r"fixture & warm p50 & warm max & cold max (\si{ms}) & counters",
         rows,
-        note=r"Counters match the host reference for all eight fixtures. A fixed-work "
+        note=STRESS_CLASS_NOTE
+        + r" Counters match the host reference for all eight fixtures. A fixed-work "
         r"calibration spin brackets every series: "
         r"worst drift \raspiCalibDriftPct\% over the sustained run --- no thermal "
         r"throttling. Firmware-default clock; single core active, no interrupts routed to "
@@ -556,7 +560,7 @@ def raspi4_timing():
     ]
     if factor is not None:
         macros.append(rf"\newcommand{{\raspiHostFactor}}{{{factor:.1f}}}")
-    # Review2 #9 / A7 framing: the 10 Hz budget multiple of the deployment-tier witness on
+    # Review2 #9 / A7 framing: the 10 Hz budget multiple of geom-stress on
     # this target, and the per-fixture host-vs-A72 per-unit-work factor range (Rust max
     # over Rust max on the same frozen inputs).
     if "legal_worst" in counters:
@@ -616,8 +620,8 @@ def interference():
         rows,
         tabcolsep="2pt",
         note=r"Positive = slower than warm. \emph{search-00} is kernel-evaluation-bound "
-        r"(cache-resident); \emph{legal-worst} is kd-traversal/memory-bound --- the "
-        r"deployment tier is the interference-sensitive one.",
+        r"(cache-resident); \emph{geom-stress} is kd-traversal/memory-bound and more "
+        r"interference-sensitive.",
     )
     # Cold worst across ALL fixtures (prose macro).
     cold_worst = 0.0
@@ -703,7 +707,7 @@ def main():
         rows,
         note=r"$\sumnbr = \num{3968000} = 2000 \cdot 64 \cdot 31$ on "
         r"\emph{search-00}: the Rust envelope's analytic maximum for the common "
-        r"kernel-evaluation term, reached exactly. " + TIER_NOTE,
+        r"kernel-evaluation term, reached exactly. " + STRESS_CLASS_NOTE,
     )
 
     # ---- tails.tex ----
@@ -733,7 +737,7 @@ def main():
         r"fixture & \multicolumn{2}{c}{C++ (p50 / max)} "
         r"& \multicolumn{2}{c}{Rust (p50 / max)} & ratio",
         rows,
-        note=r"ratio = Rust max / C++ max; $<1$ everywhere. " + TIER_NOTE + " " + prov,
+        note=r"ratio = Rust max / C++ max; $<1$ everywhere. " + STRESS_CLASS_NOTE + " " + prov,
     )
 
     # ---- tails_macros.tex: timing/counter/alloc-derived prose numbers ----
@@ -868,7 +872,7 @@ def main():
         rows,
         note=r"The constant ${\approx}11$ per point per pass locates the source in the "
         r"per-point inner loop (Sec.~\ref{sec:eval-alloc}). Rust: zero, matching the "
-        r"counting-allocator-verified allocation-freedom contract. " + TIER_NOTE + " " + prov,
+        r"counting-allocator-verified allocation-freedom contract. " + STRESS_CLASS_NOTE + " " + prov,
     )
 
     # ---- regression.tex ----
@@ -1451,8 +1455,8 @@ def bridge():
     doc = json.loads(bj.read_text())
     inputs = doc["inputs"]
     order = ["search_00", "legal_worst", "legal_osc", "real_slowest", "real_median"]
-    label = {"search_00": r"\emph{search-00}", "legal_worst": r"\emph{legal-worst}",
-             "legal_osc": r"\emph{legal-osc}", "real_slowest": r"\emph{real-slowest}",
+    label = {"search_00": r"\emph{search-00}", "legal_worst": r"\emph{geom-stress}",
+             "legal_osc": r"\emph{shipped-osc}", "real_slowest": r"\emph{real-slowest}",
              "real_median": r"\emph{real-median}"}
     rows = []
     infl = {"cpp": [], "rust": []}
@@ -1782,7 +1786,7 @@ def trace_cert():
         rows,
         note=r"Line-search entries: 0 on every input (measured); C++ passes = "
         r"$N_{\mathrm{iter}}{+}1$ exactly on every input. The 6 $P$-sweep instances (not "
-        r"shown) also satisfy the work-trace criterion. " + TIER_NOTE,
+        r"shown) also satisfy the work-trace criterion. " + STRESS_CLASS_NOTE,
         size=r"\scriptsize",
         tabcolsep="3pt",
     )
@@ -1911,9 +1915,8 @@ def subnormal_ab():
 def parallel():
     """C8 parallel-feasibility table + macros from data/parallel.json (skipped if absent).
 
-    Guards (regenerate-or-break): the Rust deployment witness must fit the 100 ms budget at
-    the k the prose names, and Rust must scale (k=4 speedup > 1.5x) so the "closes the gap"
-    claim cannot go stale.
+    Guards (regenerate-or-break): the Rust geom-stress run must fit the 100 ms period at
+    the k the prose names, and Rust must scale (k=4 speedup > 1.5x).
     """
     pj = DATA / "parallel.json"
     if not pj.exists():
@@ -1921,8 +1924,8 @@ def parallel():
         return
     doc = json.loads(pj.read_text())
     inputs = doc["inputs"]
-    label = {"search_00": r"\emph{search-00}", "legal_worst": r"\emph{legal-worst}",
-             "legal_osc": r"\emph{legal-osc}$^\dagger$"}
+    label = {"search_00": r"\emph{search-00}", "legal_worst": r"\emph{geom-stress}",
+             "legal_osc": r"\emph{shipped-osc}"}
     rows = []
     for fx in ("legal_worst",):
         cells = inputs[fx]
@@ -1935,8 +1938,9 @@ def parallel():
             )
     write(
         "parallel.tex",
-        r"Host parallel feasibility for the deployment-tier witness (maximum align \si{ms}; "
-        r"one pinned worker per isolated physical core). Not a multi-core WCET result.",
+        r"Host scaling of \emph{geom-stress} at non-shipped $\epsilon=10^{-10}$ "
+        r"(maximum align \si{ms}; one pinned worker per isolated physical core). "
+        r"Not evidence of shipped deadline compliance or multi-core WCET.",
         "tab:parallel",
         "llrrr",
         r"fixture & engine & $k{=}1$ & $k{=}2$ & $k{=}4$",
@@ -1945,11 +1949,11 @@ def parallel():
         r"\parCalibDriftPct\% (no throttling).",
     )
     lw = inputs["legal_worst"]
-    # First k at which the Rust deployment witness fits the 100 ms budget.
+    # First k at which the Rust geom-stress run fits the 100 ms period.
     fit_k = next((k for k in (1, 2, 4) if lw[str(k)]["rust"]["max_ms"] < 100.0), None)
     if fit_k is None:
-        raise SystemExit("parallel: Rust legal-worst never fits 100 ms in {1,2,4} -- the "
-                         "Sec. V-parallel 'closes the gap' claim is stale; update the prose")
+        raise SystemExit("parallel: Rust geom-stress never fits 100 ms in {1,2,4} -- "
+                         "update the Sec. V host-scaling observation")
     if inputs["search_00"]["4"]["rust"]["speedup_max"] < 1.5:
         raise SystemExit("parallel: Rust k=4 speedup < 1.5x -- the scaling claim is stale")
     macros = [

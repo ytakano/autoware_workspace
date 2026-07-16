@@ -83,9 +83,9 @@ remains an observation over the transferred fixture set, not a search for a C++ 
 extremum. Per-input traces provide evidence that Rust and C++ perform the same recorded work
 shape on trace-conformant inputs.
 We call this relation work-trace conformance; leaf payloads, implementation-specific
-traversal, and latency remain distinct. A two-tier model
-separates the bounded-neighbor engine domain from preprocessing-reachable inputs; their
-measured witnesses differ by $\legalWorstRatioRust\times$--$\legalWorstRatioCpp\times$.
+traversal, and latency remain distinct. The input-domain analysis separates the
+bounded-neighbor engine contract from the production preprocessing contract, while the
+experiments separately identify engine-configuration and shipped-configuration stress.
 In a cropped-map, degraded-prior stress replay drawn from a 57-minute drive, only
 \realOnMap{} frames perform on-map matching; \realShapeOnMap{} satisfy both base agreement
 and work-trace conformance, \realBaseOnly{} satisfy base agreement only, and

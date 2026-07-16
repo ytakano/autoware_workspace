@@ -15,9 +15,9 @@ fixture & $N_{\mathrm{iter}}$ & \sumnbr{} & \kdnodes{} & map pts & tiles \\
 \emph{max-iters} & 30 & \num{101760} & \num{1319894} & \num{3200} & 1 \\
 \emph{cache-hostile} & 3 & \num{23776} & \num{540048} & \num{28800} & 1 \\
 \emph{subnormal} & 30 & \num{21198} & \num{493644} & \num{1200} & 1 \\
-\emph{legal-worst}$^\dagger$ & 30 & \num{372000} & \num{4474819} & \num{92256} & 1 \\
-\emph{legal-osc}$^\dagger$ & 30 & \num{139772} & \num{3221237} & \num{26908} & 1 \\
+\emph{geom-stress} & 30 & \num{372000} & \num{4474819} & \num{92256} & 1 \\
+\emph{shipped-osc} & 30 & \num{139772} & \num{3221237} & \num{26908} & 1 \\
 \bottomrule
 \end{tabular}
-\par\smallskip\footnotesize $\sumnbr = \num{3968000} = 2000 \cdot 64 \cdot 31$ on \emph{search-00}: the Rust envelope's analytic maximum for the common kernel-evaluation term, reached exactly. \emph{search-00} is the Rust-search champion transferred to both engines; $^\dagger$\,deployment-tier fixtures.
+\par\smallskip\footnotesize $\sumnbr = \num{3968000} = 2000 \cdot 64 \cdot 31$ on \emph{search-00}: the Rust envelope's analytic maximum for the common kernel-evaluation term, reached exactly. \emph{search-00} jointly stresses engine input and configuration; \emph{geom-stress} uses production-contract geometry with non-shipped $\epsilon$; \emph{shipped-osc} also fixes shipped $\epsilon$.
 \end{table}

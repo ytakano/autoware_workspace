@@ -29,8 +29,8 @@ The active-leaf limit was sized by replaying a complete map epoch. The observed 
 $L_{\max}=\runtimeLeavesMax$. Real replay observed $P=1500$, while the configured
 $P_{\max}=\runtimePMax$ also admits the engine stress fixtures.
 
-\subsection{Neighbor cap and engine-tier fixtures}
-The \maxnn=64 cap makes the kernel term finite. Its deployment justification assumes one
+\subsection{Neighbor cap and engine-configuration fixtures}
+The \maxnn=64 cap makes the kernel term finite. Its production-input justification assumes one
 leaf per occupied voxel per tile, disjoint tiles, radius equal to voxel size, and centroids
 inside their voxels. A search ball then intersects at most $3^3=27$ cells, leaving a
 $2.4\times$ margin. Boundary inclusion and floating-point radius comparison remain
@@ -49,16 +49,20 @@ places kernel exponentials in the f64 subnormal range. The counter search combin
 stressors and produces higher counter values. The per-tile $K=8$ value belongs only to the corner-lattice witness, not the analytic
 ceiling of 27.
 
-\subsection{Deployment-tier witnesses}
+\subsection{Production-input stress classes}
 \label{sec:impl-legal}
 Production preprocessing downsamples and crops scans, rejects duplicates, limits $P$ to
-1500, and assumes disjoint voxel-aligned map tiles. The constructed \emph{legal-worst}
-witness satisfies these geometry conditions with $K=8$ and uses non-production
-$\epsilon=10^{-10}$ to reach 30 iterations; it is a stress witness, not the $K\le27$
-ceiling. An independent legality verifier checks each candidate.
+1500, and assumes disjoint voxel-aligned map tiles. The \emph{contract-geometry stress}
+fixture, displayed as \emph{geom-stress}, satisfies these input conditions with $K=8$ but
+uses non-shipped $\epsilon=10^{-10}$ to reach 30 iterations. At the shipped
+$\epsilon=0.01$, the same fixture converges in \oneoffLegalWorstProdEpsIters{} iterations.
+It is therefore neither a shipped-configuration execution nor a witness for the analytic
+$K\le27$ ceiling. An independent input-contract verifier checks each candidate.
 
-A separate shipped-parameter search produces \emph{legal-osc}, which reaches 30 iterations
-at $\epsilon=0.01$ but has $\bar K=\legalOscKbar$. Smooth high-$K$ geometry converges
-quickly, while oscillatory rough geometry has fewer neighbors, so no searched input combines
-both axes. \emph{legal-worst} remains the slowest measured deployment witness and
-\emph{legal-osc} establishes reachability of the iteration cap.
+A separate shipped-configuration search produces \emph{shipped-osc}, which satisfies the
+same input contracts and reaches 30 iterations at $\epsilon=0.01$ but has
+$\bar K=\legalOscKbar$. Smooth high-$K$ geometry converges quickly, while oscillatory rough
+geometry has fewer neighbors, so no searched shipped-configuration input combines both
+axes. \emph{geom-stress} is the slower measured run, but only \emph{shipped-osc}
+establishes reachability of the iteration cap under shipped parameters. Neither is claimed
+to be the worst input of its class.

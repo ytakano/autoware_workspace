@@ -15,9 +15,9 @@ fixture & \multicolumn{2}{c}{C++ (p50 / max)} & \multicolumn{2}{c}{Rust (p50 / m
 \emph{max-iters} & 148.3 & 152.9 & 31.2 & 31.5 & \textbf{0.21} \\
 \emph{cache-hostile} & 31.9 & 32.1 & 7.6 & 7.9 & \textbf{0.25} \\
 \emph{subnormal} & 102.2 & 102.7 & 7.9 & 8.1 & \textbf{0.08} \\
-\emph{legal-worst}$^\dagger$ & 236.3 & 243.4 & 120.1 & 120.8 & \textbf{0.50} \\
-\emph{legal-osc}$^\dagger$ & 191.1 & 194.2 & 64.5 & 64.9 & \textbf{0.33} \\
+\emph{geom-stress} & 236.3 & 243.4 & 120.1 & 120.8 & \textbf{0.50} \\
+\emph{shipped-osc} & 191.1 & 194.2 & 64.5 & 64.9 & \textbf{0.33} \\
 \bottomrule
 \end{tabular}
-\par\smallskip\footnotesize ratio = Rust max / C++ max; $<1$ everywhere. \emph{search-00} is the Rust-search champion transferred to both engines; $^\dagger$\,deployment-tier fixtures. Isolated: 3 session(s), 2026-07-12/2026-07-13, isolated pinned core (\texttt{taskset -c 2}), 300+3000 pooled across sessions aligns/fixture.
+\par\smallskip\footnotesize ratio = Rust max / C++ max; $<1$ everywhere. \emph{search-00} jointly stresses engine input and configuration; \emph{geom-stress} uses production-contract geometry with non-shipped $\epsilon$; \emph{shipped-osc} also fixes shipped $\epsilon$. Isolated: 3 session(s), 2026-07-12/2026-07-13, isolated pinned core (\texttt{taskset -c 2}), 300+3000 pooled across sessions aligns/fixture.
 \end{table}

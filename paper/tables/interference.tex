@@ -10,8 +10,8 @@
 fixture & \multicolumn{4}{c}{C++ (cold/membw/llc/fp)} & \multicolumn{4}{c}{Rust (cold/membw/llc/fp)} \\
 \midrule
 \emph{search-00} & -0.4 & +0.3 & -1.2 & -0.3 & -0.4 & -1.3 & -1.8 & +0.1 \\
-\emph{legal-worst}$^\dagger$ & +1.1 & +4.2 & -1.9 & -3.0 & -0.5 & +8.9 & -0.3 & -0.4 \\
+\emph{geom-stress} & +1.1 & +4.2 & -1.9 & -3.0 & -0.5 & +8.9 & -0.3 & -0.4 \\
 \bottomrule
 \end{tabular}
-\par\smallskip\footnotesize Positive = slower than warm. \emph{search-00} is kernel-evaluation-bound (cache-resident); \emph{legal-worst} is kd-traversal/memory-bound --- the deployment tier is the interference-sensitive one.
+\par\smallskip\footnotesize Positive = slower than warm. \emph{search-00} is kernel-evaluation-bound (cache-resident); \emph{geom-stress} is kd-traversal/memory-bound and more interference-sensitive.
 \end{table}

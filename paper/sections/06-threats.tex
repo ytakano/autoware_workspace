@@ -62,21 +62,23 @@ the C ABI, unsafe internals, and trusted dependencies remain in scope. Likewise,
 \texttt{no\_std} removes a library dependency rather than guaranteeing real-time behavior.
 
 \input{tables/preconditions}
-Table~\ref{tab:preconditions} distinguishes enforced limits from assumptions. Engine-tier
-fixtures are API-legal but not preprocessing-reachable. Deployment contracts include tile
-geometry, downsampling, and the tighter operational $P\le1500$ cap. The Rust engine now
+Table~\ref{tab:preconditions} distinguishes enforced limits from assumptions.
+Engine-configuration stress fixtures are API-legal but need not satisfy production
+preprocessing contracts. Those contracts include tile geometry, downsampling, and the
+tighter operational $P\le1500$ cap. The Rust engine now
 enforces $P\le\runtimePMax$ and $N_{\mathrm{leaves}}\le\runtimeLeavesMax$, but it does
 not verify the tighter preprocessing or geometry conditions. Production must
 validate static map conditions at load time and per-scan conditions before alignment, with a
 defined rejection or fallback. Validator execution must be bounded and included in the
 10\,Hz deadline analysis.
 
-No searched legal input combines $K=8$ with 30 production-parameter iterations:
-\emph{legal-worst} pins the latter through non-production $\epsilon$, while
-\emph{legal-osc} proves the cap reachable at shipped settings. The analytic $K\le27$
+No searched contract-conforming input combines $K=8$ with 30 shipped-parameter iterations:
+\emph{geom-stress} pins the latter through non-shipped $\epsilon$, while
+\emph{shipped-osc} establishes a cap-reaching witness at shipped settings. The analytic $K\le27$
 ceiling has no witness and assumes boundary and floating-point behavior. A
-\legalKSearchSeeds{}-seed legal search reaches only $K=\legalKSearchMax$; this is evidence,
-not proof, that legal $K$ stays below the ceiling. The affine $P$ fit is validated only
+\legalKSearchSeeds{}-seed contract-conforming search reaches only
+$K=\legalKSearchMax$; this is evidence, not proof, that reachable $K$ stays below the
+ceiling. The affine $P$ fit is validated only
 for $P\in[\psweepPmin{},\psweepPmax{}]$ on the host, and allocation freedom holds only
 inside pre-reserved capacities. Allocation freedom removes one kernel-level latency path;
 it does not bound interrupts, system-management interrupts, page faults, scheduler delays,

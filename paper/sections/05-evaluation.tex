@@ -6,7 +6,7 @@
 We use three named measurement configurations. \emph{Isolated} denotes controlled engine
 characterization on a pinned core, \emph{Replay} denotes real-data replay under normal CFS
 scheduling, and \emph{Bare-metal} denotes evaluation on the AArch64 \texttt{no\_std} target.
-All engine-tier timing follows the Isolated configuration of our measurement policy. The
+All synthetic-fixture timing follows the Isolated configuration of our measurement policy. The
 host uses \envCpu{} and \envKernel{}. The benchmark core is
 isolated with \texttt{isolcpus} and \texttt{nohz\_full}; IRQ affinities are moved, with
 three immovable IRQs remaining. Its SMT sibling is offline, and the \envGovernor{}
@@ -232,19 +232,19 @@ mostly-empty radius searches skip the per-result containers.
 \input{tables/interference}
 
 Table~\ref{tab:interference} reports two further Isolated series that probe the
-warm-series results. The \emph{cold} series uses between-sample software cache eviction
-and shifts medians by at most \coldWorstPct\% across the whole fixture set: the
+warm-series results. The \emph{cold} series uses between-sample software cache eviction;
+the largest positive median change is $+\coldWorstPct\%$ across the whole fixture set. The
 worst-case-shaped inputs are already cache-hostile, so eviction adds little. The
 \emph{co-runner} series stresses one hardware resource at a time from an L3-sharing core
-and produces different effects across the two tiers. On \emph{search-00}, whose cost is
+and produces different effects across the stress classes. On \emph{search-00}, whose cost is
 kernel-evaluation-bound and cache-resident, the largest positive change in the observed
 maximum is $+\coMaxIncreaseSearch\%$; changes across the separately measured co-runner
 series range from $\coMinChangeSearch\%$ to $+\coMaxIncreaseSearch\%$. On
-\emph{legal-worst}, whose cost is kd-traversal/memory-bound as described in
+\emph{geom-stress}, whose cost is kd-traversal/memory-bound as described in
 Sec.~\ref{sec:eval-twotier}, the memory-bandwidth co-runner inflates the Rust observed
 maximum by up to $+\coMaxIncreaseLegal\%$, while the LLC and FP co-runners have negligible
-effects. The deployment-tier witness is therefore more interference-sensitive than the
-engine-tier witness, consistent with its kd-dominated cost structure.
+effects. The contract-geometry stress run is therefore more interference-sensitive than
+the engine-configuration stress run, consistent with its kd-dominated cost structure.
 
 \subsection{Unit-cost regression}
 \label{sec:eval-regression}
@@ -292,29 +292,29 @@ hardware.
 \input{tables/psweep}
 \input{figures/psweep}
 
-\subsection{Two-tier work-envelope analysis}
+\subsection{Two-tier input-domain analysis}
 \label{sec:eval-twotier}
 The adversarial fixtures are constructed stress witnesses for the engine API over the
 bounded-neighbor domain $D$; they are not upper bounds on that domain.
-This is the bounded-neighbor engine tier defined in Sec.~\ref{sec:meth-transfer}. It is the
+This is the bounded-neighbor engine-input domain defined in Sec.~\ref{sec:meth-transfer}. It is the
 relevant contract for a \texttt{no\_std} kernel deployment in which inputs cross a trust
 boundary without production preprocessing validation. When the production
 preprocessing contracts of Sec.~\ref{sec:impl-legal} hold, the reachable input space
-shrinks. On \emph{legal-worst}, the hardest
-preprocessing-reachable input we constructed, the observed maximum drops to
+shrinks. The input geometry of \emph{geom-stress} satisfies those contracts, but its run
+uses non-shipped $\epsilon=10^{-10}$ to force 30 iterations. Its observed maximum is
 \SI{\legalWorstMaxRust}{ms} for Rust and \SI{\legalWorstMaxCpp}{ms} for C++. These are
 measured factors of \legalWorstRatioRust$\times$ and \legalWorstRatioCpp$\times$ below
 the transferred Rust-search fixture in Table~\ref{tab:tails}. These are measured
-witness-to-witness gaps.
+witness-to-witness gaps under stress configurations, not shipped-configuration performance
+ratios.
 
 Two caveats scope this factor. It is a \emph{fixture-to-fixture measurement}, not a proven
-tightening: \emph{legal-worst} realizes the voxel-center heuristic $K = 8$ per point, while
-the tier's analytic ceiling is $K \le 27$ under the assumptions of
-Sec.~\ref{sec:implementation}.
-The tightening
-the contracts alone guarantee on the kernel term is the parametric $64/27 \approx
-2.4\times$, and a legal input between our witness and that ceiling may exist. The result is
-also conditional on the contracts because the engine does not check them.
+tightening: \emph{geom-stress} realizes the voxel-center heuristic $K = 8$ per point, while
+the production-input domain's analytic ceiling is $K \le 27$ under the assumptions of
+Sec.~\ref{sec:implementation}. The contracts alone reduce the parametric neighbor factor
+from 64 to 27, a $64/27 \approx 2.4\times$ contraction; a contract-conforming input between
+our witness and that ceiling may exist.
+The bound is also conditional on the contracts because the engine does not check them.
 Table~\ref{tab:preconditions} lists these assumptions.
 
 The mechanism is the $K$ ceiling: disjoint voxel-aligned map tiles cap leaf multiplicity at
@@ -324,30 +324,28 @@ $P \le 1500$. The cost structure also shifts: kernel evaluations drop
 $\twoTierKernelDrop\times$, with $\sumnbr$ falling
 from $\searchZeroSumNbrM\,\mathrm{M}$ to $\legalWorstSumNbrK\,\mathrm{k}$, but time
 drops less, because kd-tree traversal, unaffected by the $K$ ceiling, becomes the dominant
-term of the deployment tier. For these witnesses, the pair quantifies the effect of
-\emph{enforcing input contracts at the component boundary}: validating tile disjointness
-and scan-downsample invariants before alignment yields a measured observed-maximum gap of
-$\legalWorstRatioRust\times$. The kernel term improves by a provable factor of at least
-$2.4\times$, without touching
-the kernel itself. The iteration axis of the tier is not an artifact of the $\epsilon$ pin:
-the production-parameterized legal search of Sec.~\ref{sec:impl-legal} reaches the full
-30-iteration cap on \emph{legal-osc}. It costs \SI{\legalOscMaxRust}{ms} in Rust and
-\SI{\legalOscMaxCpp}{ms} in C++, with $\bar{K} = \legalOscKbar$. This remains below
-\emph{legal-worst}, which
-therefore remains the tier's hardest measured witness in our search family.
+term. The counter reduction illustrates the contraction in modeled work, whereas the timing
+gap also reflects fixture geometry and configuration and cannot be attributed solely to
+input-contract enforcement. Independently, the shipped-configuration search of
+Sec.~\ref{sec:impl-legal} reaches the full 30-iteration cap on \emph{shipped-osc}. It costs
+\SI{\legalOscMaxRust}{ms} in Rust and \SI{\legalOscMaxCpp}{ms} in C++, with
+$\bar{K} = \legalOscKbar$. This establishes iteration-cap reachability under shipped
+parameters, not a worst-case timing input. At the same shipped $\epsilon$, the
+\emph{geom-stress} input converges in \oneoffLegalWorstProdEpsIters{} iterations.
 
-\subsection{Host throughput scaling and deadline feasibility}
+\subsection{Host scaling of contract-geometry stress}
 \label{sec:eval-parallel}
 \input{tables/parallel}
 
-Table~\ref{tab:parallel} reports host scaling for the \emph{legal-worst} witness. The
+Table~\ref{tab:parallel} reports host scaling for the \emph{geom-stress} run at
+$\epsilon=10^{-10}$. The
 serial Rust result costs \SI{\parRustLegalSerialMs}{ms}, missing the
 \SI{100}{ms} budget. We therefore ran both engines on $k\in\{1,2,4\}$ isolated physical
 cores with one pinned worker per core. The Rust Rayon reduction preserves point order and
 is bit-identical to serial for every $k$. At $k=\parRustLegalFitK$, it reduces the witness
-to \SI{\parRustLegalFitMaxMs}{ms}; contract enforcement plus two cores therefore meets the
-deadline on this host. This is throughput feasibility, not multi-core WCET: deployment
-requires the same pinned-core protocol with platform-specific interference analysis.
+to \SI{\parRustLegalFitMaxMs}{ms}. Thus this non-shipped stress run falls below the period
+on this host with two cores. This is a throughput observation, not evidence of shipped
+deadline compliance or multi-core WCET.
 
 \subsection{Real-data replay: cropped-map and degraded-prior stress}
 \label{sec:eval-realdata}
@@ -385,8 +383,8 @@ on all \realFrames{} frames. The per-point neighbor count reaches at most
 $\realKmaxMax$, which is within the geometric bound of 27 but one above the voxel-center
 heuristic of 8. Real centroids can deviate from voxel centers and bring a ninth leaf into
 range; 27, rather than 8, is the applicable bound. Under degraded priors, the iteration cap
-is reached on \realIterCapPct\% of on-map frames, corroborating the deployment tier's
-iteration axis on real geometry.
+is reached on \realIterCapPct\% of on-map frames, showing that the iteration cap is
+reachable on captured production-preprocessed geometry under this degraded-prior replay.
 
 The timing rows report the \emph{Replay} configuration. They use
 normal CFS scheduling, no pinning, one align per frame in production order, and a pinned
@@ -396,9 +394,9 @@ normal CFS scheduling, no pinning, one align per frame in production order, and 
 aligns exceed the \SI{100}{ms} budget. They represent
 \realOverrunsCppOnMapPct\% of the on-map frames, whose C++ median is
 \SI{\realCppMedOnMap}{ms}. Rust has no overruns. The Rust maximum sits
-$\realMarginDeploy\times$ below the deployment-tier witness and
-${\sim}\realMarginEngine\times$ below the engine tier. These tier maxima are Isolated
-values. For Rust, the bridge experiment justifies the comparison with
+$\realMarginDeploy\times$ below the \emph{geom-stress} run and
+${\sim}\realMarginEngine\times$ below \emph{search-00}. These reference maxima are
+Isolated values. For Rust, the bridge experiment justifies the comparison with
 Replay-to-Isolated ratios of
 $\bridgeRustInflMin$--$\bridgeRustInflMax\times$, as reported in
 Sec.~\ref{sec:eval-bridge}.
@@ -473,8 +471,8 @@ workload.
 \label{sec:eval-bridge}
 Our measurement policy links the two configurations through a mandatory bridge experiment.
 The same five frozen inputs are replayed under both configurations: the transferred
-Rust-search fixture, both deployment-legal witnesses, and the slowest and median-cost real
-frames frozen from the drive capture. They
+Rust-search fixture, \emph{geom-stress}, \emph{shipped-osc}, and the slowest and
+median-cost real frames frozen from the drive capture. They
 use the same \SI{3.2}{GHz} reference clock and harness, differing only in the environment.
 Table~\ref{tab:bridge} reports medians, maxima, and the descriptive
 interference-inflation ratio, defined as the Replay maximum divided by the Isolated maximum.
@@ -493,7 +491,7 @@ For the \textbf{C++} engine, the ratio is \emph{uniformly below one}, spanning
 $\bridgeCppInflMin$--$\bridgeCppInflMax\times$. The controlled environment is not
 engine-neutral. A same-boot control provides partial localization of the difference. Pinned
 to the isolated core, the C++
-\emph{legal-osc} align costs \SI{194.9}{ms}, compared with \SI{165.8}{ms} on a
+\emph{shipped-osc} align costs \SI{194.9}{ms}, compared with \SI{165.8}{ms} on a
 non-isolated core in the same boot under the same affinity policy; Rust is unchanged in the
 same binary. The Isolated
 configuration is thus
@@ -509,7 +507,7 @@ tests across the two configurations; a fixed-work calibration spin runs marginal
 Consequently the Isolated C++ maxima are \emph{conservative} for this production
 configuration, and the direction of every cross-engine comparison in
 Table~\ref{tab:tails} remains unchanged under Replay, although the relative gap narrows.
-The \emph{legal-worst} maximum ratio changes
+The \emph{geom-stress} maximum ratio changes
 from \bridgeGapBLegalWorst{} under Isolated to \bridgeGapALegalWorst{} under Replay. The
 policy's caution
 that scheduler and interference costs must not be assumed additive or constant is
@@ -547,16 +545,15 @@ firmware-fixed clock. This platform provides conditions favorable to the factori
 Sec.~\ref{sec:threats}: the work bound transfers exactly through the counters, and the
 measured per-unit cost has sub-percent spread. These observations support deriving a
 platform-specific unit-cost bound, but do not themselves establish one. In
-absolute terms the serial configuration is not schedulable at 10\,Hz on this target: the
-engine-tier worst costs \SI{\raspiSearchWarmMaxS}{s}, or $\raspiHostFactor\times$ the
-x86 host's Isolated maximum. Even the deployment-tier witness \emph{legal-worst} costs
-$\raspiLegalWorstBudgetX\times$ the \SI{100}{ms} budget; Table~\ref{tab:raspi4} gives
-the per-fixture values. The Pi~4 is the evaluation target rather than the production ECU,
-so we read this as a requirement on the production platform: roughly
-$\raspiLegalWorstBudgetX\times$ the A72's per-unit-work speed is needed on the deployment
-witness alone, and the measured x86 desktop host, at
+absolute terms the serial configuration is not schedulable at 10\,Hz on this target:
+\emph{search-00} costs \SI{\raspiSearchWarmMaxS}{s}, or $\raspiHostFactor\times$ the
+x86 host's Isolated maximum. The non-shipped \emph{geom-stress} run costs
+$\raspiLegalWorstBudgetX\times$ the \SI{100}{ms} budget, and Table~\ref{tab:raspi4}
+separately reports \emph{shipped-osc}. These observations show that the A72 is inadequate
+for the measured serial stress runs; they do not define a production-ECU speed requirement
+or a shipped-input worst case. The x86 host, at
 $\raspiHostFactorMin$--$\raspiHostFactorMax\times$ the A72 per unit work on these fixtures,
-still misses that witness by $\legalWorstBudgetXRust\times$, as shown in
+also misses the \emph{geom-stress} period by $\legalWorstBudgetXRust\times$, as shown in
 Sec.~\ref{sec:eval-twotier}. The affine $T_{\mathrm{obs,max}}(P)$ envelope of
 Sec.~\ref{sec:eval-psweep} lets any candidate platform be audited with a single on-target
 $P$-sweep. Potential mechanisms for meeting the deadline include reducing $P$, applying
