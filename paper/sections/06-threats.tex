@@ -2,11 +2,12 @@
 \label{sec:threats}
 
 \subsection{Measurement and coverage}
-Isolated timing uses a pinned core, \envSessions{} randomized sessions spanning a reboot,
-separate warm/cold/co-runner series, and a calibration guard that rejected two transient
-frequency clamps. Worst-fixture session medians agree within \sessMedSpreadWorstPct\%, and
-Rust/C++ max ratios within $\pm\sessRatioSpreadWorst$. Nevertheless, all timing comes from
-one machine. The campaign compares complete deployable implementations under recorded
+Isolated timing uses a pinned core, \envSessions{} randomized sessions from distinct boots,
+separate warm, cold, and co-runner series, and a calibration guard that excludes cells with
+more than 10\% sustained speed drift. Across fixture--engine cells, the largest
+cross-session median spread is \sessMedSpreadWorstPct\%. The largest within-fixture range
+of session-level Rust/C++ median ratios is \sessRatioSpreadWorst{}. Nevertheless, all timing
+comes from one machine. The campaign compares complete deployable implementations under recorded
 release settings, not languages in isolation; compiler flags have no exact cross-toolchain
 mapping, and allocators, layouts, kd-trees, libraries, and compiler choices all contribute.
 Real replay is single-shot per frame, and parallel results omit worker scheduling and

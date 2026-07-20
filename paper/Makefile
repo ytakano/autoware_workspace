@@ -13,6 +13,7 @@ main.pdf: main.tex references.bib $(wildcard sections/*.tex) $(wildcard tables/*
 
 tables:
 	python3 scripts/gen_tables.py
+	python3 scripts/evt.py
 
 clean:
 	latexmk -c main 2>/dev/null || true

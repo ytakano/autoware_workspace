@@ -56,6 +56,10 @@ def manifest_of(doc, path):
     if manifest.get("measurement_profile") != "B":
         raise SystemExit(
             f"{path}: measurement_profile {manifest.get('measurement_profile')!r} != 'B'")
+    compiler_flags = manifest.get("compiler_flags") or {}
+    if compiler_flags.get("NDT_BUILD_TRACED") != "OFF":
+        raise SystemExit(
+            f"{path}: timing campaign requires NDT_BUILD_TRACED=OFF")
     return manifest
 
 

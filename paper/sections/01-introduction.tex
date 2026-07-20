@@ -46,12 +46,13 @@ Our contributions are:
   \item A domain-informed construction that reaches the Rust envelope's
     $P\maxnn(N_{\mathrm{iter}}{+}1)$ maximum for the common kernel-evaluation term,
     followed by a counter-guided search that raises the Rust implementation's kd-node count
-    by \searchKdGrowthPct\%; frozen Pareto alternatives are timed separately.
+    by \searchKdGrowthPct\%; frozen Pareto alternatives use the same timing protocol.
   \item An industrial case study in which Rust removes the C++ per-point allocation hazard
     within reserved capacities. In the unified three-boot campaign, the largest recorded
-    values are \SI{\combinedFixtureMaxRust}{ms} for Rust and
-    \SI{\combinedFixtureMaxCpp}{ms} for C++.
-    Contract-geometry and
+    values are \SI{\unifiedFixtureMaxCpp}{ms} for C++ and
+    \SI{\unifiedFixtureMaxRust}{ms} for Rust, with a smaller Rust maximum on all
+    \tailsRustFasterCount{}
+    fixtures. Contract-geometry and
     shipped-configuration witnesses separate production input constraints from
     configuration effects, while a single-drive replay exposes the residual conformance
     boundary.

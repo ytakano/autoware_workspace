@@ -9,12 +9,12 @@
 \toprule
 fixture & engine & max & $|\mathrm{ACF}|_{\max}$ & $\xi$ range & $q_{10^{-9}}$ CI hi \\
 \midrule
-\emph{search-00} & C++ & 999.9 & 0.11--0.26 & -0.56..-0.40 & 1000 \\
- & Rust & 1771.9 & 0.22--0.76 & -0.28..1.32 & 423546580115827 \\
-\emph{geom-stress} & C++ & 237.1 & 0.25--0.80 & -0.55..0.78 & 30575026 \\
- & Rust & 191.3 & 0.22--0.41 & 0.24..0.72 & 66604888 \\
-\emph{shipped-osc} & C++ & 193.0 & 0.77--0.92 & -0.38..0.25 & 1788 \\
- & Rust & 108.4 & 0.53--0.92 & 0.42..0.96 & 16172310400 \\
+\emph{search-00} & C++ & 969.8 & 0.11--0.53 & -0.52..0.08 & 8552 \\
+ & Rust & 609.3 & 0.12--0.60 & -0.17..0.25 & 2705 \\
+\emph{geom-stress} & C++ & 241.5 & 0.59--0.73 & -0.21..0.39 & 15709 \\
+ & Rust & 122.7 & 0.50--0.59 & -0.08..0.45 & 135313 \\
+\emph{shipped-osc} & C++ & 194.4 & 0.60--0.86 & -0.07..0.21 & 1742 \\
+ & Rust & 65.3 & 0.15--0.46 & 0.10..0.22 & 410 \\
 \bottomrule
 \end{tabular}
 \par\smallskip\footnotesize ACF: largest lag-1--10 magnitude over three sessions (i.i.d.: ${\sim}0.03$). The last column is the worst bootstrap CI upper end; dependence makes it non-inferential. \emph{geom-stress} uses production-contract geometry with non-shipped $\epsilon$; \emph{shipped-osc} also fixes shipped $\epsilon$.

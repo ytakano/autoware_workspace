@@ -31,6 +31,7 @@ class IntegrateCampaignTest(unittest.TestCase):
             "cpp_commit": "commit",
             "rust_commit": "commit",
             "fixture_hashes": {"a": "hash-a", "b": "hash-b"},
+            "compiler_flags": {"NDT_BUILD_TRACED": "OFF"},
             "boot_id": boot,
             "experiment_id": f"session-{number}/warm/a__cpp",
         }
@@ -63,6 +64,17 @@ class IntegrateCampaignTest(unittest.TestCase):
             root = pathlib.Path(temp)
             directories = [self.write_session(root, i, "same-boot") for i in range(1, 4)]
             with self.assertRaisesRegex(SystemExit, "distinct boot IDs"):
+                INTEGRATE.pool_series("warm", directories, self.config())
+
+    def test_pool_rejects_traced_timing_binary(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = pathlib.Path(temp)
+            directories = [self.write_session(root, i, f"boot-{i}") for i in range(1, 4)]
+            path = directories[1] / "warm.json"
+            document = json.loads(path.read_text())
+            document["meta"]["manifest"]["compiler_flags"]["NDT_BUILD_TRACED"] = "ON"
+            path.write_text(json.dumps(document))
+            with self.assertRaisesRegex(SystemExit, "NDT_BUILD_TRACED=OFF"):
                 INTEGRATE.pool_series("warm", directories, self.config())
 
 

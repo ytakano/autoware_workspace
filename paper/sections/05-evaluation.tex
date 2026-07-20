@@ -15,7 +15,8 @@ governor pins its frequency at \SI{3.2}{GHz}. We compile C++ with \envCppCompile
 \envRustCompiler{} with Cargo release defaults \texttt{opt-level=3},
 \texttt{lto=false}, and \texttt{codegen-units=16}, plus the workspace override
 \texttt{overflow-checks=true}. No target CPU is explicitly selected, and the manifests
-record no experiment-specific \texttt{RUSTFLAGS}.
+record no experiment-specific \texttt{RUSTFLAGS}. Timing binaries use
+\texttt{NDT\_BUILD\_TRACED=OFF}; traced analysis binaries are never timed.
 
 The campaign comprises \envSessions{} sessions from distinct boots, with randomized
 fixture and engine order. For each fixture and engine, every session records
@@ -24,8 +25,8 @@ fixture and engine order. For each fixture and engine, every session records
 sessions for the warm series; Sec.~\ref{sec:eval-interference} reports matched-size cold
 and co-runner series. A \texttt{steady\_clock} measures only the align loop, after the map
 and kd-tree have been built once per engine and fixture. A fixed-work calibration guard
-rejects a cell whose sustained speed shifts by more than 10\%; it fired once, and the
-affected cell was excluded and remeasured. Engines were measured at
+rejects a cell whose sustained speed shifts by more than 10\%. Rejected cells are
+remeasured, and the pooled data contain accepted cells only. Engines were measured at
 autoware\_core commit \texttt{\envCommit}. The released data files embed per-run
 manifests containing the environment, compiler flags, commits, and fixture and binary hashes.
 % TODO(artifact): add the archive DOI/URL for the data files, fixtures, generators/seeds,
@@ -42,11 +43,10 @@ term \kdnodes{} by a further
 \searchKdGrowthPct\%, from \oneoffKdGenZeroM\,M to \searchZeroKdM\,M, while increasing
 the map extent from 6 to 9 blocks. The generation-0 value comes from the recorded search
 log and the final value from the frozen fixture's counters.
-Thus \emph{search-00} is the Rust-search champion transferred to both engines. Among the
-primary transferred fixtures in Table~\ref{tab:tails}, it is slower for both engines at
-every reported percentile. This ordering applies only to the evaluated fixture set. The
-frontier ablation below refines the Rust result, and Table~\ref{tab:counters} lists the
-frozen set.
+Thus \emph{search-00} is the Rust-search champion transferred to both engines. In the
+unified campaign it has the largest observed maximum for both engines and the largest C++
+p50. Rust p50 is instead largest on \emph{pareto-01}, as analyzed below. These orderings
+apply only to the evaluated fixture set. Table~\ref{tab:counters} lists the frozen set.
 
 \input{tables/counters}
 
@@ -71,28 +71,26 @@ counter-guided search outperforms the alternatives.
 \input{tables/ablation}
 
 \paragraph{Rust-counter Pareto frontier.} A lexicographic order can in principle mis-rank the
-slowest input: a candidate trading kernel evaluations for heavier traversal could
-be slower. The union of all counter-based evaluations leaves exactly
+slowest input: a candidate trading kernel evaluations for heavier traversal could be
+slower. The union of all counter-based evaluations leaves exactly
 \ablationFrontierSize{} non-dominated points: \emph{search-00} plus two candidates with
-fewer kernel evaluations but more \kdnodes{}, representing the anticipated trade. We timed both
-under the protocol of Sec.~\ref{sec:eval-tails} against a same-series re-measurement of
-\emph{search-00}. On C++ neither approaches \emph{search-00}; the maximum ratio is
-$\ablationFrontierCppRatio\times$. These C++ measurements compare Rust-generated
-candidates and are not an independent FLANN-counter search. On Rust the kd-heaviest
-candidate marginally \emph{exceeds} it by $\ablationFrontierRustRatio\times$ at the
-maximum, with a consistent result at p50:
-the port's cheaper kernel evaluation shifts time-weight toward traversal, so the slowest
-evaluated input need not be the same for both engines. This result is consistent with
-\kdnodes{}
-being a Rust-traversal count, as discussed in Sec.~\ref{sec:eval-regression}. We retain
-\emph{search-00} as the common timing fixture because it is the slowest C++ fixture within
-the evaluated transferred set. A Rust Pareto candidate exceeds it by
-\ablationFrontierRustExcessPct\%, so it is not a Rust timing upper bound. This update also
-shows that the lexicographic counter ordering does not guarantee a latency ordering. Timing
-every
-archived non-dominated vector covers tradeoffs among the recorded counters, but not omitted
-features such as empty-query frequency, fixed per-point overhead, or solver behavior.
-\input{tables/frontier_timing}
+fewer kernel evaluations but more \kdnodes{}, representing the anticipated trade. All
+three fixtures use the unified protocol of Sec.~\ref{sec:eval-tails}. On C++, neither
+Pareto candidate approaches the \emph{search-00} maximum; the largest ratio is
+$\ablationFrontierCppMaxRatio\times$. These measurements compare Rust-generated candidates
+and are not an independent FLANN-counter search.
+
+On Rust, \emph{pareto-01} has a p50 that is
+$\ablationFrontierRustMedianRatio\times$ the \emph{search-00} p50, an increase of
+\ablationFrontierRustMedianExcessPct\%. Its observed maximum is nevertheless only
+$\ablationFrontierRustMaxRatio\times$ the \emph{search-00} maximum, or
+\ablationFrontierRustMaxShortfallPct\% lower. Thus \emph{search-00} remains the observed
+maximum for both engines, while the Rust median ordering differs. This result is consistent
+with \kdnodes{} being a Rust-traversal count, as discussed in
+Sec.~\ref{sec:eval-regression}, and shows that the lexicographic counter ordering does not
+guarantee a latency ordering. Timing every archived non-dominated vector covers tradeoffs
+among the recorded counters, but not omitted features such as empty-query frequency, fixed
+per-point overhead, or solver behavior.
 
 \subsection{Engine-tier frame times: C++ vs.\ Rust}
 \label{sec:eval-tails}
@@ -102,17 +100,17 @@ show identical \texttt{iteration\_num} per engine pair, final poses agreeing to 
 \certMaxTransDelta\,\si{m} of translation, and both convergence scores bit-identical on
 \certScoreExact{} of \certFixtures{} fixtures.
 The largest score delta is \certMaxScoreDelta{} on \emph{subnormal}, or one \texttt{f32} ULP.
-The primary timing comparison therefore uses trace-conformant inputs.
+The timing comparison therefore uses trace-conformant inputs.
 Table~\ref{tab:tails} reports the unified ten-fixture campaign, including the two archived
-Pareto candidates. Rust has a smaller maximum on \tailsRustFasterCount{} fixtures and a
-larger maximum on \tailsRustSlowerCount{}, with per-fixture ratios spanning
-\tailsRatioMin--\tailsRatioMax. The engine-specific fixture maxima are
-\SI{\combinedFixtureMaxCpp}{ms} for C++ and \SI{\combinedFixtureMaxRust}{ms} for Rust.
+Pareto candidates. Rust has a smaller observed maximum on all \tailsRustFasterCount{}
+fixtures, with per-fixture ratios spanning \tailsRatioMin--\tailsRatioMax. The
+engine-specific fixture maxima are \SI{\unifiedFixtureMaxCpp}{ms} for C++ and
+\SI{\unifiedFixtureMaxRust}{ms} for Rust; both occur on \emph{search-00}.
 
 \input{tables/tails}
-The Pareto rows use the same $3{\times}1000$ protocol as every other fixture. The Rust
-record occurs on \emph{pareto-01}; its p50 also exceeds the \emph{search-00} anchor, so the
-ordering is not an artifact of unequal sample counts.
+The Pareto rows use the same $3{\times}1000$ protocol as every other fixture. Their Rust
+p50 and maximum orderings differ as described above, so neither the observed maximum alone
+nor the recorded counter order establishes a general latency ordering.
 
 % Subnormal outlier: A/B-tested — NOT subnormals; per-point overhead on neighbor-sparse shape.
 The \emph{subnormal} fixture's p50 ratio of $\subnormalMedianRatio\times$ motivated a
@@ -239,20 +237,23 @@ mostly-empty radius searches skip the per-result containers.
 \label{sec:eval-interference}
 \input{tables/interference}
 
-Table~\ref{tab:interference} reports two further Isolated series that probe the
+Table~\ref{tab:interference} reports matched-size Isolated series that probe the
 warm-series results. The \emph{cold} series uses between-sample software cache eviction;
-the largest positive median change is $+\coldWorstPct\%$ across the whole fixture set. The
-worst-case-shaped inputs are already cache-hostile, so eviction adds little. The
-\emph{co-runner} series stresses one hardware resource at a time from an L3-sharing core
-and produces different effects across the stress classes. On \emph{search-00}, whose cost is
-kernel-evaluation-bound and cache-resident, the largest positive change in the observed
-maximum is $+\coMaxIncreaseSearch\%$; changes across the separately measured co-runner
-series range from $\coMinChangeSearch\%$ to $+\coMaxIncreaseSearch\%$. On
-\emph{geom-stress}, whose cost is kd-traversal/memory-bound as described in
-Sec.~\ref{sec:eval-twotier}, the memory-bandwidth co-runner inflates the Rust observed
-maximum by up to $+\coMaxIncreaseLegal\%$, while the LLC and FP co-runners have negligible
-effects. The contract-geometry stress run is therefore more interference-sensitive than
-the engine-configuration stress run, consistent with its kd-dominated cost structure.
+the largest positive median change is only $+\coldWorstPct\%$ across the fixture set. The
+co-runner series stresses one hardware resource at a time from an L3-sharing core. Its
+largest positive observed-maximum changes are $+\coWorstCppPct\%$ for C++ on
+\coWorstCppFixture{} with the \coWorstCppMode{} co-runner and $+\coWorstRustPct\%$ for
+Rust on \coWorstRustFixture{} with the \coWorstRustMode{} co-runner.
+
+The response is fixture- and engine-specific. For example, the memory-bandwidth co-runner
+changes the \emph{geom-stress} maximum by $\coGeomMembwCppPct\%$ for C++ but
+$\coGeomMembwRustPct\%$ for Rust, so the campaign does not support a claim that this
+fixture is uniformly more interference-sensitive in Rust. Negative
+changes are differences between separately measured empirical maxima, not evidence that
+interference improves execution time. Across the warm, cold, and three co-runner series,
+Rust has the smaller observed maximum in \coRustLowerCells{} of \coPairedCells{} equal-sample
+engine--fixture--series comparisons. These remain empirical comparisons rather than
+additive interference bounds.
 
 \subsection{Unit-cost regression}
 \label{sec:eval-regression}

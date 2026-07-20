@@ -7,8 +7,11 @@ counters, and measure frozen inputs. A domain-informed construction saturates th
 envelope's maximum for the common kernel-evaluation term; subsequent counter-guided search
 stresses Rust kd-tree traversal. The port
 removes the per-point allocation hazard within reserved capacities. In the unified
-three-boot campaign, the largest recorded values are \SI{\combinedFixtureMaxCpp}{ms} for
-C++ and \SI{\combinedFixtureMaxRust}{ms} for Rust. These timing results remain empirical.
+three-boot campaign, the largest recorded values are \SI{\unifiedFixtureMaxCpp}{ms} for
+C++ and \SI{\unifiedFixtureMaxRust}{ms} for Rust, both on \emph{search-00}. Rust has the
+smaller observed maximum on all \tailsRustFasterCount{} warm-series fixtures and in
+\coRustLowerCells{} of \coPairedCells{} equal-sample comparisons across the warm, cold,
+and co-runner series. These timing results remain empirical.
 
 Per-input traces compare a precisely defined work shape without equating leaf payloads,
 implementation-specific traversal, or latency. All frozen synthetic fixtures satisfy the

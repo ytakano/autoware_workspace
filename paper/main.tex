@@ -92,8 +92,9 @@ In a cropped-map, degraded-prior stress replay drawn from a 57-minute drive, onl
 and work-trace conformance, \realBaseOnly{} satisfy base agreement only, and
 \realBaseDivergent{} fall outside the base criterion. Of the last group,
 \realIterationDivergent{} diverge in iteration count. In the unified three-boot synthetic
-campaign, the largest recorded values are \SI{\combinedFixtureMaxRust}{ms} for Rust and
-\SI{\combinedFixtureMaxCpp}{ms} for C++.
+campaign, the largest recorded values are \SI{\unifiedFixtureMaxCpp}{ms} for C++ and
+\SI{\unifiedFixtureMaxRust}{ms} for Rust. Rust has the smaller observed maximum on all
+\tailsRustFasterCount{} paired fixtures.
 The Rust port also removes approximately \allocPerPtPass{} heap allocations per point per
 derivative pass within its reserved envelope.
 \end{abstract}

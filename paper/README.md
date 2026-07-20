@@ -1,4 +1,4 @@
-# WCET paper — NDT scan matcher, C++ vs bit-exact Rust port
+# Timing-evidence paper — NDT scan matcher, C++ vs Rust port
 
 LaTeX source for the WCET-analysis paper (IEEEtran conference format; switch the class if the
 target venue requires LIPIcs — the ECRTS WCET Workshop is the primary candidate).
@@ -6,7 +6,7 @@ target venue requires LIPIcs — the ECRTS WCET Workshop is the primary candidat
 ## Build
 
 ```sh
-make            # gen_tables.py + latexmk -> main.pdf
+make            # regenerate all tables, including EVT diagnostics, then build main.pdf
 make tables     # regenerate tables/*.tex from data/*.json only
 make clean      # drop latexmk intermediates
 ```
@@ -14,29 +14,28 @@ make clean      # drop latexmk intermediates
 ## Layout
 
 - `main.tex` — class, macros (`\sumnbr`, `\kdnodes`, `\maxnn`, `\todo{}`), abstract, `\input`s.
-- `sections/01…08` — one file per section; `\todo{...}` marks every gap (red in the PDF).
-- `data/*.json` — **frozen measurement snapshot** (copied from a `bench/run_wcet.sh` run:
-  `wcet.json` timing, `wcet_rust.json` counters, `wcet_alloc.json` allocation pass).
-- `scripts/gen_tables.py` — stdlib-only; renders `tables/*.tex` from `data/`. Tables are
-  committed build products — never hand-edit them.
-- `tables/*.tex` — generated (counters, tails, alloc, regression, gumbel).
+- `sections/01…09` — one file per section and the appendix; `\todo{...}` marks open gaps.
+- `data/*.json` — frozen timing, counter, allocation, trace, replay, and target snapshots.
+  The unified timing files are pooled by `scripts/integrate_campaign.py`.
+- `scripts/gen_tables.py` and `scripts/evt.py` — stdlib-only; render `tables/*.tex` from
+  `data/`. Tables are committed build products — never hand-edit them.
+- `tables/*.tex` — generated counters, timing, allocation, regression, and EVT diagnostics.
 
 ## Data pipeline (reproducing / refreshing the numbers)
 
-1. In the dev container, from the workspace root:
-   `TASKSET="taskset -c 2" OUT_DIR=/tmp/wcet_out bash src/core/autoware_core/localization/autoware_ndt_scan_matcher/bench/run_wcet.sh`
-2. `cp /tmp/wcet_out/{wcet.json,wcet_rust.json,wcet_alloc.json} paper/data/`
-3. `make tables && make`
+1. Run the unified campaign for three distinct boots using
+   `bench/campaign_config_unified.json`.
+2. Validate and pool the sessions with
+   `python3 paper/scripts/integrate_campaign.py --check-only`, then run the same command
+   without `--check-only` to refresh `paper/data/wcet*.json`.
+3. Run `make`.
 
-The current snapshot is the 2026-07-10 container run (Ryzen 5900HX, **powersave governor** —
-flagged as a TODO in Sec. Evaluation/Threats; redo with performance governor + isolated core
-before submission).
+The current host snapshot is the 2026-07-18/2026-07-19 three-boot campaign on the Ryzen
+5900HX with the performance governor and isolated benchmark core. Timing integration rejects
+trace-enabled binaries.
 
 ## Open TODOs (mirrors `\todo{}` marks)
 
-- Re-measure host with performance governor / isolated core / cold-cache / co-runner.
-- EVT strengthening: 1000+ samples, PoT/MLE, confidence intervals, repeated runs.
-- AArch64 bare-metal target: counter-equality verification + target tail table (M5 hardware half).
 - Related work: written and cited (17 entries, venues verified 2026-07-10); re-check page
   numbers for wilhelm2008wcet / cazorla2019mbpta / edgar2001gumbel at camera-ready; add the
   no_std kernel target citation once public.

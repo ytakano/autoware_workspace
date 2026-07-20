@@ -4,7 +4,7 @@
 Inputs (paper/data/): wcet.json (replay timing, both engines), wcet_rust.json (counters),
 wcet_alloc.json (LD_PRELOAD allocation pass); optionally wcet_psweep.json + psweep_rust.json
 (the P-sweep replay + counters).
-Outputs (paper/tables/): counters.tex, tails.tex, frontier_timing.tex, alloc.tex, regression.tex;
+Outputs (paper/tables/): counters.tex, tails.tex, alloc.tex, regression.tex;
 prose-macro files (*_macros.tex: tails, regression, legal, realdata, psweep, env,
 oneoff) so no measurement number is ever hand-typed in the .tex sources; with psweep data
 also tables/psweep.tex and figures/psweep.tex (pgfplots).
@@ -144,11 +144,14 @@ def provenance(manifest, meta):
                     for m in manifest.get("session_manifests", [manifest])})
     configuration = {"A": "Replay", "B": "Isolated"}.get(
         manifest["measurement_profile"], manifest["measurement_profile"])
+    session_count = len(sessions)
+    session_word = "session" if session_count == 1 else "sessions"
+    sample_count = meta.get("pooled_samples_per_fixture", meta["iters"])
     return (
-        rf"{configuration}: {len(sessions)} "
-        rf"session(s), {'/'.join(dates)}, isolated pinned core "
+        rf"{configuration}: {session_count} {session_word}, {'/'.join(dates)}, "
+        rf"isolated pinned core "
         rf"(\texttt{{{tex_escape(manifest.get('affinity_mask', '?'))}}}), "
-        rf"{meta['iters']} aligns/fixture."
+        rf"{sample_count} measured aligns per fixture and engine."
     )
 
 
@@ -166,6 +169,8 @@ def env_macros(manifest, meta):
         raise SystemExit("env: expected CMAKE_BUILD_TYPE=Release")
     if flags.get("CMAKE_CXX_FLAGS_RELEASE") != "-O3 -DNDEBUG":
         raise SystemExit("env: expected CMAKE_CXX_FLAGS_RELEASE=-O3 -DNDEBUG")
+    if flags.get("NDT_BUILD_TRACED") != "OFF":
+        raise SystemExit("env: timing data must use NDT_BUILD_TRACED=OFF")
     if manifest.get("cargo_profile") != "[profile.release]\noverflow-checks = true":
         raise SystemExit("env: unexpected Cargo release profile")
     dates = sorted({m["run_timestamp"][:10]
@@ -299,27 +304,25 @@ def ablation():
         tabcolsep="3pt",
     )
 
-    # Timing comes from the unified primary campaign once all three frontier fixtures
-    # are present there. The legacy 100-sample block remains readable only to regenerate
-    # the pre-unification artifact.
+    # All frontier fixtures must use the same unified campaign as the other timing rows.
     frontier_order = ["search_00", "pareto_01", "pareto_02"]
     primary = json.loads((DATA / "wcet.json").read_text())["fixtures"]
-    unified = all(name in primary for name in frontier_order)
-    if unified:
-        ft = {}
-        for name in frontier_order:
-            fixture = primary[name]
-            ft[name] = {"iter_match": fixture["iter_match"]}
-            for engine in ("cpp", "rust"):
-                samples = sorted(fixture[engine]["samples_ms"])
-                ft[name][engine] = {
-                    "p50_ms": pct(samples, 0.5),
-                    "max_ms": samples[-1],
-                    "n": len(samples),
-                    "iteration_num": fixture[engine]["iteration_num"],
-                }
-    else:
-        ft = doc["frontier_timing"]
+    missing_frontier = [name for name in frontier_order if name not in primary]
+    if missing_frontier:
+        raise SystemExit(
+            f"wcet.json lacks unified frontier fixtures: {missing_frontier}")
+    ft = {}
+    for name in frontier_order:
+        fixture = primary[name]
+        ft[name] = {"iter_match": fixture["iter_match"]}
+        for engine in ("cpp", "rust"):
+            samples = sorted(fixture[engine]["samples_ms"])
+            ft[name][engine] = {
+                "p50_ms": pct(samples, 0.5),
+                "max_ms": samples[-1],
+                "n": len(samples),
+                "iteration_num": fixture[engine]["iteration_num"],
+            }
 
     anchor = ft["search_00"]
     candidate_names = [name for name in frontier_order if name != "search_00"]
@@ -327,55 +330,41 @@ def ablation():
         if not fixture["iter_match"]:
             raise SystemExit(
                 f"frontier timing {name}: engine iteration mismatch")
-    ratios = {
+    max_ratios = {
         engine: max(
             ft[name][engine]["max_ms"] / anchor[engine]["max_ms"]
             for name in candidate_names)
         for engine in ("cpp", "rust")
     }
+    p50_ratios = {
+        engine: max(
+            ft[name][engine]["p50_ms"] / anchor[engine]["p50_ms"]
+            for name in candidate_names)
+        for engine in ("cpp", "rust")
+    }
+    rust_p50_fixture = max(
+        frontier_order, key=lambda name: ft[name]["rust"]["p50_ms"])
+    if rust_p50_fixture != "pareto_01":
+        raise SystemExit(
+            f"Rust frontier p50 moved to {rust_p50_fixture}; revise the prose")
     frontier_ns = {
         ft[name][engine]["n"] for name in frontier_order for engine in ("cpp", "rust")
     }
     if len(frontier_ns) != 1:
         raise SystemExit("frontier timing sample counts differ across fixtures or engines")
-    if unified:
-        (OUT / "frontier_timing.tex").write_text(
-            "% Unified campaign: Pareto timing is reported in tables/tails.tex.\n",
-            encoding="utf-8")
-    else:
-        frontier_rows = []
-        for name in frontier_order:
-            cpp, rust_t = ft[name]["cpp"], ft[name]["rust"]
-            frontier_rows.append(
-                f"{LABEL[name]} & {cpp['p50_ms']:.1f} & {cpp['max_ms']:.1f} "
-                f"& {rust_t['p50_ms']:.1f} & {rust_t['max_ms']:.1f}")
-        write(
-            "frontier_timing.tex",
-            f"Counter-Pareto frontier timing (ms; {next(iter(frontier_ns))} samples per "
-            "fixture and engine; serial, isolated pinned core).",
-            "tab:frontier-timing",
-            "lrrrr",
-            "fixture & C++ p50 & C++ max & Rust p50 & Rust max",
-            frontier_rows,
-            note="The search-00 row is the same-session anchor for the frontier comparison. "
-            r"This 100-sample campaign is separate from the pooled $3{\times}1000$-sample "
-            "primary campaign; maxima across them are descriptive record values.",
-        )
 
-    primary_max = {
+    unified_max = {
         engine: max(max(fixture[engine]["samples_ms"]) for fixture in primary.values())
         for engine in ("cpp", "rust")
     }
-    frontier_max = {
-        engine: max(ft[name][engine]["max_ms"] for name in frontier_order)
+    unified_max_fixture = {
+        engine: max(
+            primary, key=lambda name: max(primary[name][engine]["samples_ms"]))
         for engine in ("cpp", "rust")
     }
-    combined_max = {
-        engine: max(primary_max[engine], frontier_max[engine])
-        for engine in ("cpp", "rust")
-    }
-    if not unified and combined_max["rust"] != ft["pareto_01"]["rust"]["max_ms"]:
-        raise SystemExit("pareto-01 is no longer the Rust union maximum -- revise the prose")
+    if unified_max_fixture != {"cpp": "search_00", "rust": "search_00"}:
+        raise SystemExit(
+            f"unified timing maxima moved to {unified_max_fixture}; revise the prose")
     t1, t2 = doc["time_fitness_ablation"]["champion_kd"]
     if doc["time_fitness_ablation"]["reproducible"]:
         raise SystemExit("time-fitness runs reproduced identically -- the irreproducibility "
@@ -389,13 +378,13 @@ def ablation():
         rf"\newcommand{{\ablationRandomWorstPct}}{{{min(rand_pcts):.1f}}}",
         rf"\newcommand{{\ablationRandomBestPct}}{{{max(rand_pcts):.1f}}}",
         rf"\newcommand{{\ablationFrontierSize}}{{{len(doc['frontier'])}}}",
-        rf"\newcommand{{\ablationFrontierCppRatio}}{{{ratios['cpp']:.3f}}}",
-        rf"\newcommand{{\ablationFrontierRustRatio}}{{{ratios['rust']:.3f}}}",
-        rf"\newcommand{{\ablationFrontierRustExcessPct}}{{{(ratios['rust'] - 1) * 100:.1f}}}",
-        f"{chr(92)}newcommand{{{chr(92)}primaryFixtureMaxCpp}}{{{primary_max['cpp']:.1f}}}",
-        f"{chr(92)}newcommand{{{chr(92)}primaryFixtureMaxRust}}{{{primary_max['rust']:.1f}}}",
-        f"{chr(92)}newcommand{{{chr(92)}combinedFixtureMaxCpp}}{{{combined_max['cpp']:.1f}}}",
-        f"{chr(92)}newcommand{{{chr(92)}combinedFixtureMaxRust}}{{{combined_max['rust']:.1f}}}",
+        rf"\newcommand{{\ablationFrontierCppMaxRatio}}{{{max_ratios['cpp']:.3f}}}",
+        rf"\newcommand{{\ablationFrontierRustMaxRatio}}{{{max_ratios['rust']:.3f}}}",
+        rf"\newcommand{{\ablationFrontierRustMedianRatio}}{{{p50_ratios['rust']:.3f}}}",
+        rf"\newcommand{{\ablationFrontierRustMedianExcessPct}}{{{(p50_ratios['rust'] - 1) * 100:.1f}}}",
+        rf"\newcommand{{\ablationFrontierRustMaxShortfallPct}}{{{(1 - max_ratios['rust']) * 100:.1f}}}",
+        f"{chr(92)}newcommand{{{chr(92)}unifiedFixtureMaxCpp}}{{{unified_max['cpp']:.1f}}}",
+        f"{chr(92)}newcommand{{{chr(92)}unifiedFixtureMaxRust}}{{{unified_max['rust']:.1f}}}",
         rf"\newcommand{{\ablationTimeKdA}}{{{num(t1)}}}",
         rf"\newcommand{{\ablationTimeKdB}}{{{num(t2)}}}",
         rf"\newcommand{{\ablationTimeKdDeltaPct}}{{{100.0 * abs(t1 - t2) / max(t1, t2):.3f}}}",
@@ -635,8 +624,7 @@ def interference():
     # Include every fixture present in all newly measured series. Legacy data still
     # produces its original two-row table because only those co-runner cells exist.
     rows = []
-    co_max_increase = {}
-    co_min_change = {}
+    co_changes = {}
     display_names = [
         name for name in ORDER
         if name in warm and name in cold
@@ -651,8 +639,7 @@ def interference():
             for mode in ("membw", "llc", "fp"):
                 dm = 100.0 * (max(co[mode][n][eng]["samples_ms"]) / base_max - 1.0)
                 cells.append(f"{dm:+.1f}")
-                co_max_increase[n] = max(co_max_increase.get(n, 0.0), dm)
-                co_min_change[n] = min(co_min_change.get(n, 0.0), dm)
+                co_changes[(eng, n, mode)] = dm
         rows.append(" & ".join(cells))
     equal_sample_campaign = (
         len(display_names) == len(warm)
@@ -691,12 +678,35 @@ def interference():
         for eng in ("cpp", "rust"):
             cold_worst = max(
                 cold_worst, 100.0 * (med(cold[n], eng) / med(warm[n], eng) - 1.0))
+    worst_by_engine = {
+        eng: max(
+            ((value, name, mode)
+             for (cell_eng, name, mode), value in co_changes.items()
+             if cell_eng == eng),
+            key=lambda item: item[0],
+        )
+        for eng in ("cpp", "rust")
+    }
+    measured_series = {"warm": warm, "cold": cold, **co}
+    paired_cells = sum(
+        1 for fixtures in measured_series.values() for _ in fixtures)
+    rust_lower_cells = sum(
+        max(fixture["rust"]["samples_ms"]) < max(fixture["cpp"]["samples_ms"])
+        for fixtures in measured_series.values() for fixture in fixtures.values())
+    mode_label = {"membw": "memory-bandwidth", "llc": "LLC", "fp": "FP"}
     macros = [
         "% AUTO-GENERATED by scripts/gen_tables.py -- do not hand-edit.",
         rf"\newcommand{{\coldWorstPct}}{{{cold_worst:.1f}}}",
-        rf"\newcommand{{\coMaxIncreaseSearch}}{{{co_max_increase.get('search_00', 0):.1f}}}",
-        rf"\newcommand{{\coMinChangeSearch}}{{{co_min_change.get('search_00', 0):.1f}}}",
-        rf"\newcommand{{\coMaxIncreaseLegal}}{{{co_max_increase.get('legal_worst', 0):.1f}}}",
+        rf"\newcommand{{\coWorstCppPct}}{{{worst_by_engine['cpp'][0]:.1f}}}",
+        rf"\newcommand{{\coWorstCppFixture}}{{{LABEL[worst_by_engine['cpp'][1]]}}}",
+        rf"\newcommand{{\coWorstCppMode}}{{{mode_label[worst_by_engine['cpp'][2]]}}}",
+        rf"\newcommand{{\coWorstRustPct}}{{{worst_by_engine['rust'][0]:.1f}}}",
+        rf"\newcommand{{\coWorstRustFixture}}{{{LABEL[worst_by_engine['rust'][1]]}}}",
+        rf"\newcommand{{\coWorstRustMode}}{{{mode_label[worst_by_engine['rust'][2]]}}}",
+        rf"\newcommand{{\coGeomMembwCppPct}}{{{co_changes[('cpp', 'legal_worst', 'membw')]:+.1f}}}",
+        rf"\newcommand{{\coGeomMembwRustPct}}{{{co_changes[('rust', 'legal_worst', 'membw')]:+.1f}}}",
+        rf"\newcommand{{\coPairedCells}}{{{paired_cells}}}",
+        rf"\newcommand{{\coRustLowerCells}}{{{rust_lower_cells}}}",
     ]
     (OUT / "interference_macros.tex").write_text("\n".join(macros) + "\n", encoding="utf-8")
     print("wrote tables/interference_macros.tex")
@@ -745,7 +755,9 @@ def main():
             "wcet.json lacks an Isolated meta.manifest -- regenerate it via "
             "scripts/integrate_campaign.py (tables must not mix measurement profiles)")
     rust = json.loads((DATA / "wcet_rust.json").read_text())["fixtures"]
-    alloc = json.loads((DATA / "wcet_alloc.json").read_text())["fixtures"]
+    alloc_doc = json.loads((DATA / "wcet_alloc.json").read_text())
+    alloc = alloc_doc["fixtures"]
+    alloc_meta = alloc_doc["meta"]
     names = [n for n in COUNTER_ORDER if n in timing and n in rust and n in alloc]
     timing_names = [n for n in ORDER if n in timing]
     prov = provenance(manifest, meta)
@@ -935,7 +947,9 @@ def main():
         rows,
         note=r"The constant ${\approx}11$ per point per pass locates the source in the "
         r"per-point inner loop (Sec.~\ref{sec:eval-alloc}). Rust: zero, matching the "
-        r"counting-allocator-verified allocation-freedom contract. " + STRESS_CLASS_NOTE + " " + prov,
+        r"counting-allocator-verified allocation-freedom contract. " + STRESS_CLASS_NOTE
+        + f" Allocation counting uses {alloc_meta['iters']} measured aligns per fixture "
+        + f"after {alloc_meta['warmup']} warmups and was re-verified under Isolated.",
     )
 
     # ---- regression.tex ----
@@ -1167,7 +1181,8 @@ def main():
         r"& $a$ (\si{ns}/kern.) & $b_e$ (\si{ns}/event) "
         r"& $c$ (\si{ms}) & $R^2$",
         rows,
-        note=prov,
+        note=r"Eight fixture points use the unified three-boot timing campaign; the six "
+        r"$P$-sweep points use a separate 100-sample Isolated sweep.",
         tabcolsep="1.5pt",
         size=r"\scriptsize",
     )
