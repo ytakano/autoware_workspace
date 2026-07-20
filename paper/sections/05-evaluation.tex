@@ -17,15 +17,15 @@ governor pins its frequency at \SI{3.2}{GHz}. We compile C++ with \envCppCompile
 \texttt{overflow-checks=true}. No target CPU is explicitly selected, and the manifests
 record no experiment-specific \texttt{RUSTFLAGS}.
 
-The campaign comprises \envSessions{} sessions on \envDate{}, including one session
-across a reboot cycle, with randomized fixture and engine order. For each fixture and
-engine, every session records \envItersWarmPerSession{} warm and
-\envItersTailPerSession{} tail samples after \envWarmup{} warmups. We pool these samples
-across sessions for the warm series; Sec.~\ref{sec:eval-interference} reports the cold and
-co-runner series. A \texttt{steady\_clock} measures only the align loop, after the map and
-kd-tree have been built once per engine and fixture. A fixed-work calibration guard aborts any series whose
-sustained speed shifts by more than 10\%; it fired twice on transient firmware-level
-clamps, which were excluded by re-running the affected series. Engines were measured at
+The campaign comprises \envSessions{} sessions from distinct boots, with randomized
+fixture and engine order. For each fixture and engine, every session records
+\envSamplesPerSession{} measured alignments after \envWarmup{} warmups, yielding
+\envPooledSamples{} pooled samples per fixture and engine. We pool these samples across
+sessions for the warm series; Sec.~\ref{sec:eval-interference} reports matched-size cold
+and co-runner series. A \texttt{steady\_clock} measures only the align loop, after the map
+and kd-tree have been built once per engine and fixture. A fixed-work calibration guard
+rejects a cell whose sustained speed shifts by more than 10\%; it fired once, and the
+affected cell was excluded and remeasured. Engines were measured at
 autoware\_core commit \texttt{\envCommit}. The released data files embed per-run
 manifests containing the environment, compiler flags, commits, and fixture and binary hashes.
 % TODO(artifact): add the archive DOI/URL for the data files, fixtures, generators/seeds,
@@ -103,21 +103,16 @@ show identical \texttt{iteration\_num} per engine pair, final poses agreeing to 
 \certScoreExact{} of \certFixtures{} fixtures.
 The largest score delta is \certMaxScoreDelta{} on \emph{subnormal}, or one \texttt{f32} ULP.
 The primary timing comparison therefore uses trace-conformant inputs.
-Table~\ref{tab:tails} is the primary eight-fixture campaign. Rust has no larger maximum
-than C++ on any paired fixture, and the per-fixture ratios span
-\tailsRatioMin--\tailsRatioMax. Within this primary set, the engine-specific fixture
-maxima are \SI{\primaryFixtureMaxCpp}{ms} for C++ and \SI{\primaryFixtureMaxRust}{ms} for Rust.
+Table~\ref{tab:tails} reports the unified ten-fixture campaign, including the two archived
+Pareto candidates. Rust has a smaller maximum on \tailsRustFasterCount{} fixtures and a
+larger maximum on \tailsRustSlowerCount{}, with per-fixture ratios spanning
+\tailsRatioMin--\tailsRatioMax. The engine-specific fixture maxima are
+\SI{\combinedFixtureMaxCpp}{ms} for C++ and \SI{\combinedFixtureMaxRust}{ms} for Rust.
 
 \input{tables/tails}
-The two Pareto candidates are not rows in Table~\ref{tab:tails} because they belong to the
-separate same-session frontier campaign in Table~\ref{tab:frontier-timing}. The primary
-campaign has $3{\times}1000$ samples per fixture and engine, whereas the frontier campaign
-has 100. Their maxima are therefore descriptive record values, not equal-sample estimates.
-Across the two campaigns, those records are \SI{\combinedFixtureMaxCpp}{ms} for C++ and
-\SI{\combinedFixtureMaxRust}{ms} for Rust. The Rust record occurs on \emph{pareto-01};
-its p50 also exceeds the same-session \emph{search-00} anchor, so the ordering does not
-depend only on the unequal maximum sample counts. The
-\SI{\primaryFixtureMaxRust}{ms} value remains the primary-campaign maximum.
+The Pareto rows use the same $3{\times}1000$ protocol as every other fixture. The Rust
+record occurs on \emph{pareto-01}; its p50 also exceeds the \emph{search-00} anchor, so the
+ordering is not an artifact of unequal sample counts.
 
 % Subnormal outlier: A/B-tested — NOT subnormals; per-point overhead on neighbor-sparse shape.
 The \emph{subnormal} fixture's p50 ratio of $\subnormalMedianRatio\times$ motivated a

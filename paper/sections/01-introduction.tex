@@ -5,10 +5,10 @@ Autoware~\cite{autoware} localizes a vehicle by aligning each LiDAR scan to a Ga
 voxel map with the Normal Distributions Transform (\ndt)~\cite{biber2003ndt}. At 10\,Hz,
 each alignment has a \SI{100}{ms} period before a late pose forces downstream estimation toward
 dead reckoning. Yet input geometry changes Newton iterations, neighbor multiplicity, and
-kd-tree traversal. Measured latencies for synthetic stress inputs range from under
-\SI{10}{ms} to nearly one second on
-the same core. Nominal replay therefore cannot answer whether the deadline has defensible
-margin.
+kd-tree traversal. Across the synthetic stress inputs, the lowest engine--fixture median is
+\SI{\tailsMinMedian}{ms}, whereas the largest observed latency is
+\SI{\tailsMaxObserved}{ms} on the same core, a \tailsLatencySpread-fold span. Nominal
+replay therefore cannot answer whether the deadline has defensible margin.
 
 Classical static WCET analysis struggles because the dominant bounds are input properties;
 exhaustive enumeration is infeasible, while wall-clock-guided fuzzing is noisy and
@@ -48,9 +48,9 @@ Our contributions are:
     followed by a counter-guided search that raises the Rust implementation's kd-node count
     by \searchKdGrowthPct\%; frozen Pareto alternatives are timed separately.
   \item An industrial case study in which Rust removes the C++ per-point allocation hazard
-    within reserved capacities. The largest recorded values across the primary and smaller
-    counter-Pareto frontier campaigns are \SI{\combinedFixtureMaxRust}{ms} for Rust and
-    \SI{\combinedFixtureMaxCpp}{ms} for C++; their sample counts differ.
+    within reserved capacities. In the unified three-boot campaign, the largest recorded
+    values are \SI{\combinedFixtureMaxRust}{ms} for Rust and
+    \SI{\combinedFixtureMaxCpp}{ms} for C++.
     Contract-geometry and
     shipped-configuration witnesses separate production input constraints from
     configuration effects, while a single-drive replay exposes the residual conformance

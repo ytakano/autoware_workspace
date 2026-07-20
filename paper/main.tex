@@ -91,10 +91,9 @@ In a cropped-map, degraded-prior stress replay drawn from a 57-minute drive, onl
 \realOnMap{} frames perform on-map matching; \realShapeOnMap{} satisfy both base agreement
 and work-trace conformance, \realBaseOnly{} satisfy base agreement only, and
 \realBaseDivergent{} fall outside the base criterion. Of the last group,
-\realIterationDivergent{} diverge in iteration count. The largest recorded values across
-the primary and smaller counter-Pareto frontier campaigns are
-\SI{\combinedFixtureMaxRust}{ms} for Rust and
-\SI{\combinedFixtureMaxCpp}{ms} for C++; the campaigns use different sample counts.
+\realIterationDivergent{} diverge in iteration count. In the unified three-boot synthetic
+campaign, the largest recorded values are \SI{\combinedFixtureMaxRust}{ms} for Rust and
+\SI{\combinedFixtureMaxCpp}{ms} for C++.
 The Rust port also removes approximately \allocPerPtPass{} heap allocations per point per
 derivative pass within its reserved envelope.
 \end{abstract}

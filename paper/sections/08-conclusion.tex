@@ -6,10 +6,9 @@ obligations: enforce and test a work envelope, generate stress witnesses with de
 counters, and measure frozen inputs. A domain-informed construction saturates the Rust
 envelope's maximum for the common kernel-evaluation term; subsequent counter-guided search
 stresses Rust kd-tree traversal. The port
-removes the per-point allocation hazard within reserved capacities. The largest recorded
-values across the primary and smaller counter-Pareto frontier campaigns are
-\SI{\combinedFixtureMaxCpp}{ms} for C++ and \SI{\combinedFixtureMaxRust}{ms} for Rust.
-The campaigns use different sample counts, and these timing results remain empirical.
+removes the per-point allocation hazard within reserved capacities. In the unified
+three-boot campaign, the largest recorded values are \SI{\combinedFixtureMaxCpp}{ms} for
+C++ and \SI{\combinedFixtureMaxRust}{ms} for Rust. These timing results remain empirical.
 
 Per-input traces compare a precisely defined work shape without equating leaf payloads,
 implementation-specific traversal, or latency. All frozen synthetic fixtures satisfy the

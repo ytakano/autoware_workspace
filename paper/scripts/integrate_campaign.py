@@ -1,210 +1,241 @@
 #!/usr/bin/env python3
-"""Integrate the Isolated measurement-campaign output into paper/data (roadmap C4).
+"""Validate and pool the unified Profile-B campaign into paper/data."""
 
-Reads the merged per-series JSONs produced by bench/wcet_campaign.py:
-
-  <bench>/campaign_runs/session-{1,2,3}/{warm,cold,corunner_*}.json
-  <bench>/campaign_runs/psweep/session-1/warm.json      (P-sweep, Isolated protocol)
-  <bench>/campaign_runs/psweep/psweep_rust.json         (fresh counters at engine HEAD)
-  <bench>/campaign_runs/alloc/wcet_alloc.json           (alloc pass re-verified)
-
-and (re)writes the paper's frozen data files:
-
-  paper/data/wcet.json          pooled warm samples (sessions concatenated in order),
-                                meta.manifest = policy schema with per-session manifests
-  paper/data/wcet_cold.json     pooled cold series
-  paper/data/wcet_corunner.json co-runner series per mode
-  paper/data/wcet_psweep.json   P-sweep timing (Isolated)
-  paper/data/psweep_rust.json   P-sweep counters (engine HEAD)
-  paper/data/wcet_alloc.json    allocation counts (environment-invariant; re-verified)
-
-Guards: every merged input must carry measurement_profile "B"; iteration equality must hold
-within every session and across sessions per fixture/engine; the script refuses to emit
-otherwise. Re-running is idempotent (pure function of the campaign outputs).
-"""
-
+import argparse
 import json
 import pathlib
 import statistics
 import sys
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent  # paper/
+ROOT = pathlib.Path(__file__).resolve().parent.parent
 WS = ROOT.parent
-BENCH = (WS / "src/core/autoware_core/localization/autoware_ndt_scan_matcher/bench")
-RUNS = BENCH / "campaign_runs"
+BENCH = WS / "src/core/autoware_core/localization/autoware_ndt_scan_matcher/bench"
+DEFAULT_RUNS = BENCH / "campaign_runs/unified_3x1000"
+DEFAULT_CONFIG = BENCH / "campaign_config_unified.json"
 DATA = ROOT / "data"
 SESSIONS = ["session-1", "session-2", "session-3"]
+IDENTITY_FIELDS = (
+    "campaign_id",
+    "campaign_config_hash",
+    "binary_hash",
+    "cpp_commit",
+    "rust_commit",
+    "fixture_hashes",
+)
 
 
 def load(path):
-    with open(path, encoding="utf-8") as fh:
-        return json.load(fh)
+    with open(path, encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def fixture_names(config):
+    names = [name for spec in config["tiers"].values() for name in spec["fixtures"]]
+    if len(names) != len(set(names)):
+        raise SystemExit("campaign config has duplicate fixture names")
+    return sorted(names)
+
+
+def expected_samples(config, series, name):
+    if series == "warm":
+        for spec in config["tiers"].values():
+            if name in spec["fixtures"]:
+                return spec["samples"]
+        raise SystemExit(f"{name}: no timing tier")
+    if series == "cold":
+        return config["cold"]["samples"]
+    if series.startswith("corunner_"):
+        return config["corunner"]["samples"]
+    raise SystemExit(f"unknown series {series}")
 
 
 def manifest_of(doc, path):
-    m = (doc.get("meta") or {}).get("manifest")
-    if not m:
+    manifest = (doc.get("meta") or {}).get("manifest")
+    if not manifest:
         raise SystemExit(f"{path}: missing meta.manifest")
-    if m.get("measurement_profile") != "B":
-        raise SystemExit(f"{path}: measurement_profile {m.get('measurement_profile')!r} != 'B'")
-    return m
+    if manifest.get("measurement_profile") != "B":
+        raise SystemExit(
+            f"{path}: measurement_profile {manifest.get('measurement_profile')!r} != 'B'")
+    return manifest
 
 
-def pool_series(series_name, session_dirs):
-    """Pool one series across sessions; returns (fixtures, manifests, iters_desc)."""
+def assert_identity(reference, candidate, path):
+    for field in IDENTITY_FIELDS:
+        if candidate.get(field) != reference.get(field):
+            raise SystemExit(f"{path}: campaign identity mismatch in {field}")
+
+
+def pool_series(series, session_dirs, config, reference_identity=None):
+    expected_names = fixture_names(config)
     docs = []
-    for sd in session_dirs:
-        p = sd / f"{series_name}.json"
-        if not p.is_file():
-            raise SystemExit(f"missing {p}")
-        docs.append((p, load(p)))
-    manifests = [manifest_of(d, p) for p, d in docs]
+    for session_dir in session_dirs:
+        path = session_dir / f"{series}.json"
+        if not path.is_file():
+            raise SystemExit(f"missing {path}")
+        document = load(path)
+        if sorted(document.get("fixtures", {})) != expected_names:
+            raise SystemExit(f"{path}: fixture set differs from the unified config")
+        docs.append((path, document))
 
-    names = sorted(docs[0][1]["fixtures"])
+    manifests = [manifest_of(document, path) for path, document in docs]
+    identity = reference_identity or manifests[0]
+    for (path, _), manifest in zip(docs, manifests):
+        assert_identity(identity, manifest, path)
+    boot_ids = [manifest.get("boot_id") for manifest in manifests]
+    if any(not value for value in boot_ids) or len(set(boot_ids)) != len(boot_ids):
+        raise SystemExit(f"{series}: sessions must come from three distinct boot IDs")
+
     pooled = {}
-    for n in names:
+    for name in expected_names:
         base = None
         per_session_median = {"cpp": [], "rust": []}
-        for p, d in docs:
-            fx = d["fixtures"].get(n)
-            if fx is None:
-                raise SystemExit(f"{p}: fixture {n} missing")
-            if not fx.get("iter_match", False):
-                raise SystemExit(f"{p}: {n}: iter_match is false")
+        for path, document in docs:
+            fixture = document["fixtures"][name]
+            if not fixture.get("iter_match", False):
+                raise SystemExit(f"{path}: {name}: iter_match is false")
             if base is None:
-                base = {k: v for k, v in fx.items() if k not in ("cpp", "rust")}
-                base["cpp"] = {"iteration_num": fx["cpp"]["iteration_num"],
-                               "allocs_per_align": -1, "samples_ms": []}
-                base["rust"] = {"iteration_num": fx["rust"]["iteration_num"],
-                                "allocs_per_align": -1, "samples_ms": []}
-            for eng in ("cpp", "rust"):
-                if fx[eng]["iteration_num"] != base[eng]["iteration_num"]:
+                base = {key: value for key, value in fixture.items()
+                        if key not in ("cpp", "rust")}
+                base["cpp"] = {
+                    "iteration_num": fixture["cpp"]["iteration_num"],
+                    "allocs_per_align": -1,
+                    "samples_ms": [],
+                }
+                base["rust"] = {
+                    "iteration_num": fixture["rust"]["iteration_num"],
+                    "allocs_per_align": -1,
+                    "samples_ms": [],
+                }
+            expected = expected_samples(config, series, name)
+            for engine in ("cpp", "rust"):
+                samples = fixture[engine].get("samples_ms")
+                if not isinstance(samples, list) or len(samples) != expected:
                     raise SystemExit(
-                        f"{p}: {n}/{eng}: iteration_num "
-                        f"{fx[eng]['iteration_num']} != {base[eng]['iteration_num']} "
-                        "across sessions")
-                base[eng]["samples_ms"].extend(fx[eng]["samples_ms"])
-                per_session_median[eng].append(
-                    round(statistics.median(fx[eng]["samples_ms"]), 3))
+                        f"{path}: {name}/{engine}: expected {expected} samples")
+                if fixture[engine]["iteration_num"] != base[engine]["iteration_num"]:
+                    raise SystemExit(
+                        f"{path}: {name}/{engine}: iteration count changed across sessions")
+                base[engine]["samples_ms"].extend(samples)
+                per_session_median[engine].append(round(statistics.median(samples), 3))
         base["per_session_median"] = per_session_median
-        pooled[n] = base
-    n_samples = sorted({len(f["cpp"]["samples_ms"]) for f in pooled.values()})
-    iters_desc = "+".join(str(x) for x in n_samples) + " pooled across sessions"
-    return pooled, manifests, iters_desc
+        pooled[name] = base
+
+    per_session_counts = sorted({expected_samples(config, series, name)
+                                 for name in expected_names})
+    if len(per_session_counts) != 1:
+        raise SystemExit(f"{series}: unified campaign has unequal sample counts")
+    sample_meta = {
+        "samples_per_session": per_session_counts[0],
+        "session_count": len(session_dirs),
+        "pooled_samples_per_fixture": per_session_counts[0] * len(session_dirs),
+    }
+    return pooled, manifests, sample_meta, identity
 
 
 def top_manifest(manifests, note):
-    head = dict(manifests[0])
-    head.update({
-        "experiment_id": "campaign/pooled",
-        "sessions": [m["experiment_id"] for m in manifests],
+    manifest = dict(manifests[0])
+    manifest.update({
+        "experiment_id": "unified-campaign/pooled",
+        "sessions": [item["experiment_id"] for item in manifests],
         "session_manifests": manifests,
-        "pooling": "samples concatenated in session order; per-session medians retained "
-                   "on each fixture for cross-session statistics",
+        "pooling": "samples concatenated in session order; per-session medians retained",
         "notes": note,
     })
-    return head
+    return manifest
 
 
-def emit(path, benchmark, meta, fixtures):
-    doc = {"benchmark": benchmark, "meta": meta, "fixtures": fixtures}
-    path.write_text(json.dumps(doc, indent=1), encoding="utf-8")
+def emit(path, benchmark, meta, fixtures, check_only):
+    if check_only:
+        print(f"validated {path.name}: {len(fixtures)} fixtures")
+        return
+    document = {"benchmark": benchmark, "meta": meta, "fixtures": fixtures}
+    path.write_text(json.dumps(document, indent=1) + "\n", encoding="utf-8")
     print(f"wrote {path} ({len(fixtures)} fixtures)")
 
 
 def main():
-    session_dirs = [RUNS / s for s in SESSIONS]
-    for sd in session_dirs:
-        if not sd.is_dir():
-            raise SystemExit(f"missing campaign session dir {sd}")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--runs-dir", type=pathlib.Path, default=DEFAULT_RUNS)
+    parser.add_argument("--config", type=pathlib.Path, default=DEFAULT_CONFIG)
+    parser.add_argument("--output-dir", type=pathlib.Path, default=DATA)
+    parser.add_argument("--check-only", action="store_true")
+    args = parser.parse_args()
+    config = load(args.config)
+    session_dirs = [args.runs_dir / name for name in SESSIONS]
+    for directory in session_dirs:
+        if not directory.is_dir():
+            raise SystemExit(f"missing campaign session directory {directory}")
 
-    # ---- warm (the paper's primary timing base) -> wcet.json ----
-    warm, warm_manifests, iters_desc = pool_series("warm", session_dirs)
-    meta = {
-        "iters": iters_desc,
-        "warmup": 10,
+    warm, warm_manifests, warm_samples, identity = pool_series(
+        "warm", session_dirs, config)
+    warm_meta = {
+        **warm_samples,
+        "iters": f"{warm_samples['pooled_samples_per_fixture']} pooled across "
+                 f"{warm_samples['session_count']} sessions",
+        "warmup": config["warmup"],
         "num_threads": 1,
         "clock": "steady_clock",
         "unit": "ms",
         "alloc_counting": False,
         "cache_condition": "warm",
-        "note": "align loop only; map+kdtree built once per engine per fixture; "
-                "Isolated configuration per plan/ndt_timing_measurement_policy.md",
+        "note": "align loop only; map and kd-tree built once per engine and fixture",
         "manifest": top_manifest(
-            warm_manifests,
-            "primary timing base: pooled warm series of the 3-session Isolated campaign"),
+            warm_manifests, "unified three-boot Profile-B warm campaign"),
     }
-    emit(DATA / "wcet.json", "WCET fixture replay (Isolated campaign, pooled warm)",
-         meta, warm)
+    emit(
+        args.output_dir / "wcet.json",
+        "WCET fixture replay (unified Profile-B campaign, pooled warm)",
+        warm_meta,
+        warm,
+        args.check_only,
+    )
 
-    # ---- cold -> wcet_cold.json ----
-    cold, cold_manifests, cold_iters = pool_series("cold", session_dirs)
-    meta_cold = dict(meta)
-    meta_cold.update({
-        "iters": cold_iters,
-        "warmup": 0,
+    cold, cold_manifests, cold_samples, _ = pool_series(
+        "cold", session_dirs, config, identity)
+    cold_meta = {
+        **warm_meta,
+        **cold_samples,
+        "iters": f"{cold_samples['pooled_samples_per_fixture']} pooled across "
+                 f"{cold_samples['session_count']} sessions",
+        "warmup": config["cold"]["warmup"],
         "cache_condition": "cold",
-        "note": "between-sample software cache eviction (WCET_EVICT_BYTES; an approximation "
-                "-- see the policy's Cache Measurement Policy); Isolated",
-        "manifest": top_manifest(cold_manifests, "cold series of the Isolated campaign"),
-    })
-    emit(DATA / "wcet_cold.json", "WCET fixture replay (Isolated campaign, cold series)",
-         meta_cold, cold)
+        "manifest": top_manifest(
+            cold_manifests, "unified three-boot Profile-B cold campaign"),
+    }
+    emit(
+        args.output_dir / "wcet_cold.json",
+        "WCET fixture replay (unified Profile-B campaign, pooled cold)",
+        cold_meta,
+        cold,
+        args.check_only,
+    )
 
-    # ---- co-runner series -> wcet_corunner.json (modes nested) ----
     modes = {}
     mode_manifests = []
-    for mode in ("membw", "llc", "fp"):
-        fixtures, manifests, _ = pool_series(f"corunner_{mode}", session_dirs)
+    mode_samples = None
+    for mode in config["corunner"]["modes"]:
+        series = f"corunner_{mode}"
+        fixtures, manifests, samples, _ = pool_series(
+            series, session_dirs, config, identity)
         modes[mode] = fixtures
         mode_manifests.extend(manifests)
-    doc = {
-        "benchmark": "WCET fixture replay (Isolated campaign, co-runner series)",
+        mode_samples = samples
+    corunner_doc = {
+        "benchmark": "WCET fixture replay (unified Profile-B co-runner campaign)",
         "meta": {
+            **(mode_samples or {}),
             "unit": "ms",
-            "note": "one-resource-at-a-time interference co-runner pinned to a different "
-                    "physical core sharing the L3 (policy: Interference Sensitivity "
-                    "Experiment); Isolated",
-            "manifest": top_manifest(mode_manifests,
-                                     "co-runner series of the Isolated campaign"),
+            "manifest": top_manifest(
+                mode_manifests, "unified three-boot Profile-B co-runner campaign"),
         },
         "modes": modes,
     }
-    (DATA / "wcet_corunner.json").write_text(json.dumps(doc, indent=1), encoding="utf-8")
-    print(f"wrote {DATA / 'wcet_corunner.json'} ({len(modes)} modes)")
-
-    # ---- P-sweep (single Isolated session) -> wcet_psweep.json ----
-    ps_dir = RUNS / "psweep" / "session-1"
-    ps, ps_manifests, ps_iters = pool_series("warm", [ps_dir])
-    meta_ps = dict(meta)
-    meta_ps.update({
-        "iters": ps_iters,
-        "manifest": top_manifest(ps_manifests, "P-sweep under the Isolated protocol"),
-        "note": "regenerated shared counter-extremal geometry per P (distinct fixture instances from "
-                "the frozen search-00); Isolated",
-    })
-    emit(DATA / "wcet_psweep.json", "WCET P-sweep (Isolated campaign)", meta_ps, ps)
-
-    # ---- P-sweep counters at engine HEAD ----
-    src = RUNS / "psweep" / "psweep_rust.json"
-    if not src.is_file():
-        raise SystemExit(f"missing {src} (fresh wcet_frame output)")
-    (DATA / "psweep_rust.json").write_text(src.read_text(encoding="utf-8"),
-                                           encoding="utf-8")
-    print(f"wrote {DATA / 'psweep_rust.json'} (copied from campaign)")
-
-    # ---- alloc counts (environment-invariant; re-verified under the new env) ----
-    src = RUNS / "alloc" / "wcet_alloc.json"
-    if not src.is_file():
-        raise SystemExit(f"missing {src} (re-verified alloc pass)")
-    alloc = load(src)
-    alloc.setdefault("meta", {})["note"] = (
-        "LD_PRELOAD interposer; allocation counts are deterministic and "
-        "environment-invariant (re-verified under the Isolated environment)")
-    (DATA / "wcet_alloc.json").write_text(json.dumps(alloc, indent=1), encoding="utf-8")
-    print(f"wrote {DATA / 'wcet_alloc.json'}")
-
-    print("integration complete")
+    output = args.output_dir / "wcet_corunner.json"
+    if args.check_only:
+        print(f"validated {output.name}: {len(modes)} modes x {len(warm)} fixtures")
+    else:
+        output.write_text(json.dumps(corunner_doc, indent=1) + "\n", encoding="utf-8")
+        print(f"wrote {output} ({len(modes)} modes x {len(warm)} fixtures)")
     return 0
 
 

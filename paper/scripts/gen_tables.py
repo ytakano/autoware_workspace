@@ -32,6 +32,8 @@ EULER_GAMMA = 0.5772156649015329
 # Display order: worst first.
 ORDER = [
     "search_00",
+    "pareto_01",
+    "pareto_02",
     "search_01",
     "dense_neighbors",
     "max_iterations",
@@ -40,6 +42,7 @@ ORDER = [
     "legal_worst",
     "legal_osc",
 ]
+COUNTER_ORDER = [name for name in ORDER if not name.startswith("pareto_")]
 LABEL = {
     "search_00": r"\emph{search-00}",
     "search_01": r"\emph{search-01}",
@@ -181,18 +184,32 @@ def env_macros(manifest, meta):
         rf"\newcommand{{\envWarmup}}{{{meta['warmup']}}}",
         rf"\newcommand{{\envSessions}}{{{len(manifest.get('sessions', [1]))}}}",
     ]
-    # Decode the pooled sample accounting (review2 #7): "<warm>+<tail> pooled across
-    # sessions" with the session count -- emitted as per-session macros so the prose and
-    # captions can spell out 3 x (100 warm + 1000 tail) without hand-typing it.
+    # New campaigns carry structured sample accounting. Decode the legacy mixed-tier
+    # string only so the frozen pre-unification data remains reproducible.
     import re as _re
     n_sessions = len(manifest.get("sessions", [1]))
-    m = _re.match(r"(\d+)\+(\d+) pooled", str(meta["iters"]))
-    if not m or int(m.group(1)) % n_sessions or int(m.group(2)) % n_sessions:
-        raise SystemExit(f"env: cannot decode iters {meta['iters']!r} over "
-                         f"{n_sessions} sessions -- update the decode or the prose")
+    if all(key in meta for key in (
+            "samples_per_session", "pooled_samples_per_fixture", "session_count")):
+        if int(meta["session_count"]) != n_sessions:
+            raise SystemExit("env: structured session count disagrees with the manifest")
+        per_session = str(meta["samples_per_session"])
+        pooled = str(meta["pooled_samples_per_fixture"])
+        warm_per_session = tail_per_session = int(meta["samples_per_session"])
+    else:
+        match = _re.match(r"(\d+)\+(\d+) pooled", str(meta["iters"]))
+        if (not match or int(match.group(1)) % n_sessions
+                or int(match.group(2)) % n_sessions):
+            raise SystemExit(f"env: cannot decode iters {meta['iters']!r} over "
+                             f"{n_sessions} sessions")
+        warm_per_session = int(match.group(1)) // n_sessions
+        tail_per_session = int(match.group(2)) // n_sessions
+        per_session = f"{warm_per_session} or {tail_per_session}"
+        pooled = f"{int(match.group(1))} or {int(match.group(2))}"
     macros += [
-        rf"\newcommand{{\envItersWarmPerSession}}{{{int(m.group(1)) // n_sessions}}}",
-        rf"\newcommand{{\envItersTailPerSession}}{{{int(m.group(2)) // n_sessions}}}",
+        rf"\newcommand{{\envSamplesPerSession}}{{{per_session}}}",
+        rf"\newcommand{{\envPooledSamples}}{{{pooled}}}",
+        rf"\newcommand{{\envItersWarmPerSession}}{{{warm_per_session}}}",
+        rf"\newcommand{{\envItersTailPerSession}}{{{tail_per_session}}}",
         rf"\newcommand{{\envIsolated}}{{{manifest.get('isolated_cpus') or 'none'}}}",
         rf"\newcommand{{\envCommit}}{{{(manifest.get('cpp_commit') or '?')[:8]}}}",
     ]
@@ -282,58 +299,82 @@ def ablation():
         tabcolsep="3pt",
     )
 
-    # Frontier timing macros, anchored on the same-series search_00 cells.
-    ft = doc["frontier_timing"]
-    anchor = ft["search_00"]
-    cand_names = [n for n in ft if n != "search_00"]
-    for n, fx in ft.items():
-        if not fx["iter_match"]:
-            raise SystemExit(f"frontier timing {n}: engine iteration mismatch -- "
-                             "equal-work invariant violated; investigate before publishing")
-    ratios = {eng: max(ft[n][eng]["max_ms"] / anchor[eng]["max_ms"] for n in cand_names)
-              for eng in ("cpp", "rust")}
+    # Timing comes from the unified primary campaign once all three frontier fixtures
+    # are present there. The legacy 100-sample block remains readable only to regenerate
+    # the pre-unification artifact.
     frontier_order = ["search_00", "pareto_01", "pareto_02"]
-    frontier_labels = {
-        "search_00": r"\emph{search-00}",
-        "pareto_01": r"\emph{pareto-01}",
-        "pareto_02": r"\emph{pareto-02}",
+    primary = json.loads((DATA / "wcet.json").read_text())["fixtures"]
+    unified = all(name in primary for name in frontier_order)
+    if unified:
+        ft = {}
+        for name in frontier_order:
+            fixture = primary[name]
+            ft[name] = {"iter_match": fixture["iter_match"]}
+            for engine in ("cpp", "rust"):
+                samples = sorted(fixture[engine]["samples_ms"])
+                ft[name][engine] = {
+                    "p50_ms": pct(samples, 0.5),
+                    "max_ms": samples[-1],
+                    "n": len(samples),
+                    "iteration_num": fixture[engine]["iteration_num"],
+                }
+    else:
+        ft = doc["frontier_timing"]
+
+    anchor = ft["search_00"]
+    candidate_names = [name for name in frontier_order if name != "search_00"]
+    for name, fixture in ft.items():
+        if not fixture["iter_match"]:
+            raise SystemExit(
+                f"frontier timing {name}: engine iteration mismatch")
+    ratios = {
+        engine: max(
+            ft[name][engine]["max_ms"] / anchor[engine]["max_ms"]
+            for name in candidate_names)
+        for engine in ("cpp", "rust")
     }
-    frontier_ns = {ft[n][eng]["n"] for n in frontier_order for eng in ("cpp", "rust")}
+    frontier_ns = {
+        ft[name][engine]["n"] for name in frontier_order for engine in ("cpp", "rust")
+    }
     if len(frontier_ns) != 1:
         raise SystemExit("frontier timing sample counts differ across fixtures or engines")
-    frontier_rows = []
-    for n in frontier_order:
-        cpp, rust_t = ft[n]["cpp"], ft[n]["rust"]
-        frontier_rows.append(
-            f"{frontier_labels[n]} & {cpp['p50_ms']:.1f} & {cpp['max_ms']:.1f} "
-            f"& {rust_t['p50_ms']:.1f} & {rust_t['max_ms']:.1f}"
+    if unified:
+        (OUT / "frontier_timing.tex").write_text(
+            "% Unified campaign: Pareto timing is reported in tables/tails.tex.\n",
+            encoding="utf-8")
+    else:
+        frontier_rows = []
+        for name in frontier_order:
+            cpp, rust_t = ft[name]["cpp"], ft[name]["rust"]
+            frontier_rows.append(
+                f"{LABEL[name]} & {cpp['p50_ms']:.1f} & {cpp['max_ms']:.1f} "
+                f"& {rust_t['p50_ms']:.1f} & {rust_t['max_ms']:.1f}")
+        write(
+            "frontier_timing.tex",
+            f"Counter-Pareto frontier timing (ms; {next(iter(frontier_ns))} samples per "
+            "fixture and engine; serial, isolated pinned core).",
+            "tab:frontier-timing",
+            "lrrrr",
+            "fixture & C++ p50 & C++ max & Rust p50 & Rust max",
+            frontier_rows,
+            note="The search-00 row is the same-session anchor for the frontier comparison. "
+            r"This 100-sample campaign is separate from the pooled $3{\times}1000$-sample "
+            "primary campaign; maxima across them are descriptive record values.",
         )
-    write(
-        "frontier_timing.tex",
-        f"Counter-Pareto frontier timing (ms; {next(iter(frontier_ns))} samples per "
-        "fixture and engine; serial, isolated pinned core).",
-        "tab:frontier-timing",
-        "lrrrr",
-        "fixture & C++ p50 & C++ max & Rust p50 & Rust max",
-        frontier_rows,
-        note="The search-00 row is the same-session anchor for the frontier comparison. "
-        r"This 100-sample campaign is separate from the pooled $3{\times}1000$-sample "
-        "primary campaign; maxima across them are descriptive record values.",
-    )
 
-    primary = json.loads((DATA / "wcet.json").read_text())["fixtures"]
     primary_max = {
-        eng: max(max(fx[eng]["samples_ms"]) for fx in primary.values())
-        for eng in ("cpp", "rust")
+        engine: max(max(fixture[engine]["samples_ms"]) for fixture in primary.values())
+        for engine in ("cpp", "rust")
     }
     frontier_max = {
-        eng: max(ft[n][eng]["max_ms"] for n in frontier_order)
-        for eng in ("cpp", "rust")
+        engine: max(ft[name][engine]["max_ms"] for name in frontier_order)
+        for engine in ("cpp", "rust")
     }
     combined_max = {
-        eng: max(primary_max[eng], frontier_max[eng]) for eng in ("cpp", "rust")
+        engine: max(primary_max[engine], frontier_max[engine])
+        for engine in ("cpp", "rust")
     }
-    if combined_max["rust"] != ft["pareto_01"]["rust"]["max_ms"]:
+    if not unified and combined_max["rust"] != ft["pareto_01"]["rust"]["max_ms"]:
         raise SystemExit("pareto-01 is no longer the Rust union maximum -- revise the prose")
     t1, t2 = doc["time_fitness_ablation"]["champion_kd"]
     if doc["time_fitness_ablation"]["reproducible"]:
@@ -591,11 +632,17 @@ def interference():
         xs = sorted(fx[eng]["samples_ms"])
         return xs[len(xs) // 2]
 
-    # Table: the two co-runner fixtures, delta of median and max vs the warm series.
+    # Include every fixture present in all newly measured series. Legacy data still
+    # produces its original two-row table because only those co-runner cells exist.
     rows = []
     co_max_increase = {}
     co_min_change = {}
-    for n in ("search_00", "legal_worst"):
+    display_names = [
+        name for name in ORDER
+        if name in warm and name in cold
+        and all(name in co[mode] for mode in ("membw", "llc", "fp"))
+    ]
+    for n in display_names:
         cells = [LABEL[n]]
         for eng in ("cpp", "rust"):
             base_max = max(warm[n][eng]["samples_ms"])
@@ -607,6 +654,24 @@ def interference():
                 co_max_increase[n] = max(co_max_increase.get(n, 0.0), dm)
                 co_min_change[n] = min(co_min_change.get(n, 0.0), dm)
         rows.append(" & ".join(cells))
+    equal_sample_campaign = (
+        len(display_names) == len(warm)
+        and all(
+            len(co[mode][name][engine]["samples_ms"])
+            == len(warm[name][engine]["samples_ms"])
+            for mode in ("membw", "llc", "fp")
+            for name in display_names
+            for engine in ("cpp", "rust")
+        )
+    )
+    interference_note = (
+        r"Positive = slower than warm. Every row is derived from the same "
+        r"three-session, equal-sample campaign as Table~\ref{tab:tails}."
+        if equal_sample_campaign else
+        r"Positive = slower than warm. \emph{search-00} is kernel-evaluation-bound "
+        r"(cache-resident); \emph{geom-stress} is kd-traversal/memory-bound and more "
+        r"interference-sensitive."
+    )
     write(
         "interference.tex",
         r"Cache and interference sensitivity: relative change vs.\ the warm series "
@@ -618,9 +683,7 @@ def interference():
         r"& \multicolumn{4}{c}{Rust (cold/membw/llc/fp)}",
         rows,
         tabcolsep="2pt",
-        note=r"Positive = slower than warm. \emph{search-00} is kernel-evaluation-bound "
-        r"(cache-resident); \emph{geom-stress} is kd-traversal/memory-bound and more "
-        r"interference-sensitive.",
+        note=interference_note,
     )
     # Cold worst across ALL fixtures (prose macro).
     cold_worst = 0.0
@@ -683,7 +746,8 @@ def main():
             "scripts/integrate_campaign.py (tables must not mix measurement profiles)")
     rust = json.loads((DATA / "wcet_rust.json").read_text())["fixtures"]
     alloc = json.loads((DATA / "wcet_alloc.json").read_text())["fixtures"]
-    names = [n for n in ORDER if n in timing]
+    names = [n for n in COUNTER_ORDER if n in timing and n in rust and n in alloc]
+    timing_names = [n for n in ORDER if n in timing]
     prov = provenance(manifest, meta)
     env_macros(manifest, meta)
     oneoff_macros()
@@ -714,7 +778,7 @@ def main():
     ratios = {}
     p50 = {}  # (fixture, engine) -> p50 ms
     mx = {}  # (fixture, engine) -> max ms
-    for n in names:
+    for n in timing_names:
         fx = timing[n]
         cs = sorted(fx["cpp"]["samples_ms"])
         rs = sorted(fx["rust"]["samples_ms"])
@@ -728,15 +792,15 @@ def main():
     write(
         "tails.tex",
         r"Frame time per engine (\si{ms}; \envSessions{} sessions $\times$ "
-        r"(\envItersWarmPerSession{} warm ${+}$ \envItersTailPerSession{} tail) samples "
-        r"per fixture per engine, pooled; serial, isolated pinned core). "
+        r"\envSamplesPerSession{} measured samples per fixture and engine; "
+        r"\envPooledSamples{} pooled; serial, isolated pinned core). "
         r"Each fixture satisfies work-trace conformance.",
         "tab:tails",
         "lrrrrr",
         r"fixture & \multicolumn{2}{c}{C++ (p50 / max)} "
         r"& \multicolumn{2}{c}{Rust (p50 / max)} & ratio",
         rows,
-        note=r"ratio = Rust max / C++ max; $<1$ everywhere. " + STRESS_CLASS_NOTE + " " + prov,
+        note=r"ratio = Rust max / C++ max; values below one favor Rust. " + STRESS_CLASS_NOTE + " " + prov,
     )
 
     # ---- tails_macros.tex: timing/counter/alloc-derived prose numbers ----
@@ -797,17 +861,12 @@ def main():
             f"alloc work-check spread {(cert_hi - cert_lo) / cert_lo:.3%} > 0.5% -- "
             "the C++-side P*N_pass cross-check claim in Secs. III-C/V-C no longer holds"
         )
-    # Intro spread claim: "from under 10 ms to nearly a second ... two orders of magnitude".
     spread = max(mx.values()) / min(p50.values())
-    if not (min(p50.values()) < 10.0 and max(mx.values()) > 900.0 and spread > 100.0):
-        raise SystemExit(
-            f"intro spread claim is stale (min p50 {min(p50.values()):.1f} ms, "
-            f"max {max(mx.values()):.1f} ms, spread {spread:.0f}x)")
     # Cross-session stability (review #8): worst relative spread of per-session medians,
     # and the spread of the Rust/C++ max ratio, across the campaign sessions.
     med_spread_worst = 0.0
     ratio_spread_worst = 0.0
-    for n in names:
+    for n in timing_names:
         psm = timing[n].get("per_session_median")
         if not psm:
             continue
@@ -822,6 +881,11 @@ def main():
         "% AUTO-GENERATED by scripts/gen_tables.py -- do not hand-edit.",
         rf"\newcommand{{\tailsRatioMin}}{{{min(ratios.values()):.2f}}}",
         rf"\newcommand{{\tailsRatioMax}}{{{max(ratios.values()):.2f}}}",
+        rf"\newcommand{{\tailsMinMedian}}{{{min(p50.values()):.1f}}}",
+        rf"\newcommand{{\tailsMaxObserved}}{{{max(mx.values()):.1f}}}",
+        rf"\newcommand{{\tailsLatencySpread}}{{{spread:.0f}}}",
+        rf"\newcommand{{\tailsRustFasterCount}}{{{sum(value < 1.0 for value in ratios.values())}}}",
+        rf"\newcommand{{\tailsRustSlowerCount}}{{{sum(value > 1.0 for value in ratios.values())}}}",
         rf"\newcommand{{\sessMedSpreadWorstPct}}{{{med_spread_worst:.1f}}}",
         rf"\newcommand{{\sessRatioSpreadWorst}}{{{ratio_spread_worst:.2f}}}",
         rf"\newcommand{{\tailsSearchMaxCpp}}{{{mx[('search_00', 'cpp')]:.1f}}}",
@@ -1744,8 +1808,8 @@ def trace_cert():
     fixtures = doc["fixtures"]
     ulps = {}
     rows = []
-    table_names = [n for n in ORDER if n in fixtures]
-    table_names += sorted(n for n in fixtures if n not in ORDER and not n.startswith("psweep"))
+    table_names = [n for n in COUNTER_ORDER if n in fixtures]
+    table_names += sorted(n for n in fixtures if n not in COUNTER_ORDER and not n.startswith("psweep"))
     for n, fx in fixtures.items():
         tr = fx.get("trace")
         if tr is None:
