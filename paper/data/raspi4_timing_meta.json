@@ -1,0 +1,9 @@
+{
+  "captured_utc_date": "2026-07-22",
+  "target": "Raspberry Pi 4, Cortex-A72, bare-metal no_std kernel",
+  "engine_commit": "6541a2760f8b5ef85fff095327013f5f6709ac44",
+  "awkernel_commit": "78b3a6f94485e4741f826bd6570a7f132e680d74",
+  "build_command": "make aarch64 BSP=raspi4 RELEASE=1 FEATURES=ndt",
+  "kernel_image_sha256": "81bcac54867866e7ae99e121336f5b6d9cf79a12f8b5f32c6956f474087f1ff0",
+  "serial_log_sha256": "048ac9d654c42b746a6e22a489b5980e36a91b76732609fcbb39c820f8caca89"
+}

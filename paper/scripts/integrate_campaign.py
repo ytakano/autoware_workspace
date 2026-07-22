@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Validate and pool the unified Profile-B campaign into paper/data."""
+"""Validate and pool a bounded Isolated campaign into paper/data."""
 
 import argparse
+import hashlib
 import json
 import pathlib
 import statistics
@@ -10,8 +11,8 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 WS = ROOT.parent
 BENCH = WS / "src/core/autoware_core/localization/autoware_ndt_scan_matcher/bench"
-DEFAULT_RUNS = BENCH / "campaign_runs/unified_3x1000"
-DEFAULT_CONFIG = BENCH / "campaign_config_unified.json"
+DEFAULT_RUNS = BENCH / "campaign_runs/unified_bounded_3x1000"
+DEFAULT_CONFIG = WS / "plan/campaign_config_unified_bounded.json"
 DATA = ROOT / "data"
 SESSIONS = ["session-1", "session-2", "session-3"]
 IDENTITY_FIELDS = (
@@ -27,6 +28,11 @@ IDENTITY_FIELDS = (
 def load(path):
     with open(path, encoding="utf-8") as handle:
         return json.load(handle)
+
+
+def config_hash(config):
+    encoded = json.dumps(config, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def fixture_names(config):
@@ -67,6 +73,79 @@ def assert_identity(reference, candidate, path):
     for field in IDENTITY_FIELDS:
         if candidate.get(field) != reference.get(field):
             raise SystemExit(f"{path}: campaign identity mismatch in {field}")
+
+
+def validate_campaign_locks(runs_dir, session_dirs, config):
+    expected_hash = config_hash(config)
+    lock_path = runs_dir / "campaign.lock.json"
+    if not lock_path.is_file():
+        raise SystemExit(f"missing {lock_path}")
+    campaign_lock = load(lock_path)
+    expected = {
+        "campaign_id": config.get("campaign_id"),
+        "config_hash": expected_hash,
+        "sessions": len(session_dirs),
+    }
+    for field, value in expected.items():
+        if campaign_lock.get(field) != value:
+            raise SystemExit(
+                f"{lock_path}: {field} {campaign_lock.get(field)!r} != {value!r}")
+
+    boot_ids = []
+    for number, session_dir in enumerate(session_dirs, start=1):
+        path = session_dir / "session.lock.json"
+        if not path.is_file():
+            raise SystemExit(f"missing {path}")
+        lock = load(path)
+        expected_session = {
+            "campaign_id": config.get("campaign_id"),
+            "config_hash": expected_hash,
+            "session": number,
+        }
+        for field, value in expected_session.items():
+            if lock.get(field) != value:
+                raise SystemExit(f"{path}: {field} {lock.get(field)!r} != {value!r}")
+        if not lock.get("boot_id"):
+            raise SystemExit(f"{path}: missing boot_id")
+        boot_ids.append(lock["boot_id"])
+    if len(set(boot_ids)) != len(boot_ids):
+        raise SystemExit("session locks must record three distinct boot IDs")
+    return campaign_lock
+
+
+def validate_sidecars(series, session_dirs, config, campaign_lock):
+    expected_names = fixture_names(config)
+    identity = {
+        "campaign_id": campaign_lock["campaign_id"],
+        "campaign_config_hash": campaign_lock["config_hash"],
+        "binary_hash": campaign_lock["binary_hash"],
+        "cpp_commit": campaign_lock["cpp_commit"],
+        "rust_commit": campaign_lock["rust_commit"],
+        "fixture_hashes": campaign_lock["fixture_hashes"],
+    }
+    expected_files = {
+        f"{name}__{engine}.cell.json"
+        for name in expected_names
+        for engine in ("cpp", "rust")
+    }
+    for session_dir in session_dirs:
+        directory = session_dir / series
+        actual_files = {path.name for path in directory.glob("*.cell.json")}
+        if actual_files != expected_files:
+            raise SystemExit(
+                f"{directory}: sidecar set differs from campaign plan; "
+                f"missing={sorted(expected_files - actual_files)}, "
+                f"extra={sorted(actual_files - expected_files)}")
+        session_lock = load(session_dir / "session.lock.json")
+        for filename in sorted(expected_files):
+            path = directory / filename
+            sidecar = load(path)
+            if sidecar.get("problems"):
+                raise SystemExit(f"{path}: measurement problems: {sidecar['problems']}")
+            manifest = sidecar.get("manifest") or {}
+            assert_identity(identity, manifest, path)
+            if manifest.get("boot_id") != session_lock["boot_id"]:
+                raise SystemExit(f"{path}: boot_id differs from session lock")
 
 
 def pool_series(series, session_dirs, config, reference_identity=None):
@@ -138,8 +217,9 @@ def pool_series(series, session_dirs, config, reference_identity=None):
 
 def top_manifest(manifests, note):
     manifest = dict(manifests[0])
+    campaign_id = manifest.get("campaign_id") or "campaign"
     manifest.update({
-        "experiment_id": "unified-campaign/pooled",
+        "experiment_id": f"{campaign_id}/pooled",
         "sessions": [item["experiment_id"] for item in manifests],
         "session_manifests": manifests,
         "pooling": "samples concatenated in session order; per-session medians retained",
@@ -162,6 +242,8 @@ def main():
     parser.add_argument("--runs-dir", type=pathlib.Path, default=DEFAULT_RUNS)
     parser.add_argument("--config", type=pathlib.Path, default=DEFAULT_CONFIG)
     parser.add_argument("--output-dir", type=pathlib.Path, default=DATA)
+    parser.add_argument("--warm-output-name", default="wcet.json")
+    parser.add_argument("--warm-only", action="store_true")
     parser.add_argument("--check-only", action="store_true")
     args = parser.parse_args()
     config = load(args.config)
@@ -169,7 +251,9 @@ def main():
     for directory in session_dirs:
         if not directory.is_dir():
             raise SystemExit(f"missing campaign session directory {directory}")
+    campaign_lock = validate_campaign_locks(args.runs_dir, session_dirs, config)
 
+    validate_sidecars("warm", session_dirs, config, campaign_lock)
     warm, warm_manifests, warm_samples, identity = pool_series(
         "warm", session_dirs, config)
     warm_meta = {
@@ -184,16 +268,20 @@ def main():
         "cache_condition": "warm",
         "note": "align loop only; map and kd-tree built once per engine and fixture",
         "manifest": top_manifest(
-            warm_manifests, "unified three-boot Profile-B warm campaign"),
+            warm_manifests,
+            f"three-boot Isolated warm campaign ({config['campaign_id']})"),
     }
     emit(
-        args.output_dir / "wcet.json",
-        "WCET fixture replay (unified Profile-B campaign, pooled warm)",
+        args.output_dir / args.warm_output_name,
+        "WCET fixture replay (Isolated campaign, pooled warm)",
         warm_meta,
         warm,
         args.check_only,
     )
+    if args.warm_only:
+        return 0
 
+    validate_sidecars("cold", session_dirs, config, campaign_lock)
     cold, cold_manifests, cold_samples, _ = pool_series(
         "cold", session_dirs, config, identity)
     cold_meta = {
@@ -204,11 +292,12 @@ def main():
         "warmup": config["cold"]["warmup"],
         "cache_condition": "cold",
         "manifest": top_manifest(
-            cold_manifests, "unified three-boot Profile-B cold campaign"),
+            cold_manifests,
+            f"three-boot Isolated cold campaign ({config['campaign_id']})"),
     }
     emit(
         args.output_dir / "wcet_cold.json",
-        "WCET fixture replay (unified Profile-B campaign, pooled cold)",
+        "WCET fixture replay (unified Isolated campaign, pooled cold)",
         cold_meta,
         cold,
         args.check_only,
@@ -219,18 +308,20 @@ def main():
     mode_samples = None
     for mode in config["corunner"]["modes"]:
         series = f"corunner_{mode}"
+        validate_sidecars(series, session_dirs, config, campaign_lock)
         fixtures, manifests, samples, _ = pool_series(
             series, session_dirs, config, identity)
         modes[mode] = fixtures
         mode_manifests.extend(manifests)
         mode_samples = samples
     corunner_doc = {
-        "benchmark": "WCET fixture replay (unified Profile-B co-runner campaign)",
+        "benchmark": "WCET fixture replay (unified Isolated co-runner campaign)",
         "meta": {
             **(mode_samples or {}),
             "unit": "ms",
             "manifest": top_manifest(
-                mode_manifests, "unified three-boot Profile-B co-runner campaign"),
+                mode_manifests,
+                f"three-boot Isolated co-runner campaign ({config['campaign_id']})"),
         },
         "modes": modes,
     }

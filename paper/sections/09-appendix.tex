@@ -3,27 +3,36 @@
 
 \subsection{Regression details}
 \label{app:regression}
-Table~\ref{tab:regression} reports both models over $n=\regN$ points per engine. Traversal
-counts are engine-specific, regressor correlation reaches \regCorr, and wide intervals
-plus leave-one-out error make coefficient-level attribution unsupported.
+For each engine $e\in\{C,R\}$ and evaluated input, let $Y_e$ be the empirical p50
+alignment time, $M$ the number of processed point--pass pairs, $S=\sumnbr$ the kernel-evaluation
+count, and $Q_C=\flannevals$ and $Q_R=\kdnodes$ the engine-specific traversal counts. The
+two-term model is $Y_e=a_eS+b_eQ_e+c_e$; the four-term model adds
+$c_{\mathrm{pt},e}M$. Thus $a_e$, $b_e$, $c_e$, and $c_{\mathrm{pt},e}$ are fitted
+kernel, traversal, intercept, and per-processed-point coefficients, respectively.
+Table~\ref{tab:regression} reports both models over $n=\regN$ input observations per
+engine. Regressor correlation reaches \regCorr, and wide intervals plus leave-one-out error
+make coefficient-level attribution unsupported.
 \input{tables/regression}
 
-\subsection{$P$-sweep fit diagnostics}
+\subsection{\texorpdfstring{$P$}{P}-sweep fit diagnostics}
 \label{app:psweep-fit}
 Table~\ref{tab:psweep-fit} reports descriptive uncertainty for the affine line through the
-six observed maxima. The intervals rely on ordinary least-squares residual assumptions and
+six observed maxima. The intervals rely on ordinary least-squares (OLS) residual assumptions and
 do not bound unobserved maxima or worst-case latency.
 \input{tables/psweep_fit}
 
 \subsection{Rejected tail-model diagnostics}
 \label{app:evt}
-Table~\ref{tab:evt} reports fitted-tail diagnostics only to document rejection: serial
-dependence invalidates their quantiles and intervals. A pooled Gumbel estimate that lies only
+Table~\ref{tab:evt} reports fitted-tail diagnostics only to document rejection: $\xi$
+denotes the GPD shape parameter. Serial dependence invalidates inferential intervals, and the
+in-sample column records fits that fail even before extrapolation. A pooled Gumbel estimate that lies only
 \evtGumbelExtraPct\% above the observed maximum illustrates why fit appearance is insufficient.
 \input{tables/evt}
 
-\subsection{Cross-ISA discrepancy diagnosis}
-\label{app:crossisa-debug}
-The initial AArch64 mismatch on \emph{search-01} reproduced under QEMU and hardware.
-Bisection found a stored expectation predating the PCL \texttt{f32} fidelity fix, not an ISA effect;
-re-baselining made host, emulator, and hardware counters bit-identical.
+\subsection{Cross-ISA consistency controls}
+\label{app:crossisa-controls}
+The cross-ISA check uses commit-pinned fixture bytes and host counter tuples. Rust
+software \texttt{libm} fixes the elementary-function implementation, fused multiply-add
+contraction is disabled, and both QEMU and AArch64 hardware replay the same serialized
+inputs. Agreement is checked on the complete counter tuple rather than inferred from host
+results.

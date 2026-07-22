@@ -3,19 +3,17 @@
 
 The case study separates analysis of a data-dependent industrial kernel into three
 obligations: enforce and test a work envelope, generate stress witnesses with deterministic
-counters, and measure frozen inputs. A domain-informed construction saturates the Rust
-envelope's maximum for the common kernel-evaluation term; subsequent counter-guided search
-stresses Rust kd-tree traversal. The port
-removes the per-point allocation hazard within reserved capacities. In the unified
-three-boot campaign, the largest recorded values are \SI{\unifiedFixtureMaxCpp}{ms} for
-C++ and \SI{\unifiedFixtureMaxRust}{ms} for Rust, both on \emph{search-00}. Rust has the
-smaller observed maximum on all \tailsRustFasterCount{} warm-series fixtures and in
+counters, and measure frozen inputs. A domain-informed construction attains the common
+kernel-count ceiling, while two archived candidates exercise high Rust traversal counts at
+lower common-kernel work. The port removes the per-point allocation hazard within
+reserved capacities. Rust has the
+smaller observed maximum on every warm-series fixture and in
 \coRustLowerCells{} of \coPairedCells{} equal-sample comparisons across the warm, cold,
 and co-runner series. These timing results remain empirical.
 
 Per-input traces compare a precisely defined work shape without equating leaf payloads,
 implementation-specific traversal, or latency. All frozen synthetic fixtures satisfy the
-work-trace criterion, although their payload digests differ. The cropped-map,
+work-trace criterion, although their payload digests differ. The auxiliary cropped-map,
 degraded-prior replay provides a more restrictive result: only \realOnMap{} frames perform
 meaningful matching, \realShapeOnMap{} satisfy both the base and work-trace criteria, and
 \realBaseDivergent{} fall outside the base criterion. Among the latter,
@@ -27,8 +25,9 @@ Rust is not necessary for these bounds. Its safe core narrows memory-safety and 
 obligations so validation can focus on equivalence, numerics, work, and timing; FFI, unsafe
 code, and dependencies remain trusted.
 
-The NDT--EKF replay extends the evidence to rotation, quality gates, innovations, and
-feedback but does not establish production readiness: C++ stayed below \SI{46.8}{ms}, yet
+The auxiliary NDT--EKF replay extends the evidence to rotation, quality gates, innovations, and
+feedback but does not establish production readiness: C++ stayed below
+\SI{\stackCppTimeMax}{ms}, yet
 same-engine runs diverged, left the available map, and did not recover after their maxima.
 Operational evaluation requires the production ECU, ground truth, co-resident loads, and
 end-to-end \SI{10}{Hz} gate and innovation measurements. Host parallelism places the

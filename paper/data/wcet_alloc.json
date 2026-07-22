@@ -10,7 +10,7 @@
   "engine": "both",
   "evict_bytes": 0,
   "cache_condition": "warm",
-  "note": "LD_PRELOAD interposer; allocation counts are deterministic and environment-invariant (re-verified under the Profile-B environment)"
+  "note": "LD_PRELOAD interposer under the Isolated measurement configuration; counts are deterministic for each frozen fixture"
  },
  "fixtures": {
   "cache_hostile": {

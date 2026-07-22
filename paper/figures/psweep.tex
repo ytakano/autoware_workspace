@@ -9,19 +9,20 @@
   grid=major, tick label style={font=\footnotesize}, label style={font=\footnotesize},
   legend style={font=\footnotesize},
 ]
-\addplot[only marks, mark=square*, color=blue] coordinates { (250,122.95) (500,245.99) (1000,501.52) (2000,974.35) (4000,1944.20) (8000,3875.21) };
+\addplot[only marks, mark=square*, color=blue] coordinates { (250,126.34) (500,251.75) (1000,491.65) (2000,982.99) (4000,1964.51) (8000,3930.39) };
 \addlegendentry{C++ (measured max)}
-\addplot[no marks, color=blue, dashed] coordinates { (250,128.79) (8000,3876.79) };
+\addplot[no marks, color=blue, dashed] coordinates { (250,125.68) (8000,3929.18) };
 \addlegendentry{C++ fit ($R^2=1.0000$)}
-\addplot[only marks, mark=*, color=red] coordinates { (250,75.58) (500,150.08) (1000,310.30) (2000,592.38) (4000,1188.99) (8000,2371.16) };
+\addplot[only marks, mark=*, color=red] coordinates { (250,75.07) (500,149.78) (1000,300.09) (2000,613.89) (4000,1186.54) (8000,2361.07) };
 \addlegendentry{Rust (measured max)}
-\addplot[no marks, color=red, dashed] coordinates { (250,78.84) (8000,2371.46) };
-\addlegendentry{Rust fit ($R^2=1.0000$)}
+\addplot[no marks, color=red, dashed] coordinates { (250,81.34) (8000,2364.69) };
+\addlegendentry{Rust fit ($R^2=0.9999$)}
 \end{axis}
 \end{tikzpicture}
 \caption{Observed maximum align latency vs.\ source-point count $P$ on the
 Rust-search geometry
-(work per point held invariant; counters verified). Dashed lines are descriptive affine fits
+(common kernel evaluations per point held invariant; traversal counters measured separately).
+Dashed lines are descriptive affine fits
 through the six observed maxima, not hard latency bounds.}
 \label{fig:psweep}
 \end{figure}

@@ -3,28 +3,38 @@
 
 Three analysis layers establish a conditional work bound, search for Rust-counter stress
 inputs, and measure frozen witnesses. Per-input cross-language traces check recorded work-trace
-conformance before timing, and a cross-ISA replay checks transfer to the deployment-class
-target.
+conformance before timing, and a cross-instruction-set-architecture (cross-ISA) replay checks transfer to the
+embedded evaluation target.
 
 \subsection{Analysis layer 1: Structural bound and property tests}
 \paragraph{Conditional work-envelope proposition.}
-Let $P\le P_{\max}=\runtimePMax$, $N_{\mathrm{leaves}}\le
-L_{\max}=\runtimeLeavesMax$, $N_{\mathrm{iter}}\le I_{\max}=30$, and
-$K(p)\le\maxnn=64$. Assume line-search refinement is disabled, the balanced kd-tree fits
+Let $P_{\max}$ and $L_{\max}$ be positive limits supplied at engine construction, and
+let $I_{\max}\in\{0,\ldots,30\}$ be the configured iteration limit. For one
+alignment, $P$ is the source-point count, $N_{\mathrm{leaves}}$ is the active map-leaf
+count, and $N_{\mathrm{iter}}$ is the number of completed Newton updates. Let
+$N_{\mathrm{pass}}$ count derivative-evaluation passes, including the initial evaluation,
+and let $K(p,i)$ be the number of leaves evaluated for source point $p$ in pass $i$.
+Finally, $\sumnbr$ is the total number of point--leaf kernel evaluations and $\kdnodes$
+is the total number of Rust kd-tree nodes visited. Suppose $P\le P_{\max}$,
+$N_{\mathrm{leaves}}\le L_{\max}$, $N_{\mathrm{iter}}\le I_{\max}$, and
+$K(p,i)\le\maxnn=64$ for every
+$p\in\{1,\ldots,P\}$ and $i\in\{1,\ldots,N_{\mathrm{pass}}\}$. Assume line-search
+refinement is disabled, the balanced kd-tree fits
 the 64-entry query stack, all scalar and point inputs are finite, and caller-owned scratch
 has been reserved for $(P_{\max},I_{\max})$. Checked construction also requires the
 integer products below to fit in their counter types. Then the serial Rust align kernel
 satisfies
 \begin{equation}
  \begin{aligned}
- N_{\mathrm{pass}}&\le31,\qquad
- \sumnbr\le31P_{\max}\maxnn,\\
- \kdnodes&\le31P_{\max}L_{\max}.
+ N_{\mathrm{pass}}&\le I_{\max}+1,\qquad
+ \sumnbr\le(I_{\max}+1)P_{\max}\maxnn,\\
+ \kdnodes&\le(I_{\max}+1)P_{\max}L_{\max}.
  \end{aligned}
  \label{eq:rust-envelope}
 \end{equation}
-For the configured limits, these bounds are 3,968,000 kernel evaluations and
-25,916,000,000 kd-node visits. The project-owned serial kernel performs no heap allocation,
+For the principal configuration $P_{\max}=\runtimePMax$,
+$L_{\max}=\runtimeLeavesMax$, and $I_{\max}=30$, these bounds are
+\runtimeKernelEvalMax{} kernel evaluations and \runtimeKdVisitMax{} kd-node visits. The project-owned serial kernel performs no heap allocation,
 lock acquisition, or recursive call after entry. Capacity, arithmetic, stack, iteration,
 map-size, and non-finite-input violations return typed errors. A query that finds a 65th
 in-radius leaf retains the first 64, records a diagnostic, and forces the result to
@@ -32,7 +42,8 @@ non-converged so the node can issue a warning and reject convergence. Fixed-size
 algebra and other dependencies remain trusted; this proposition is not a formal proof of
 their internals or of elapsed time.
 
-Randomized property tests check
+The instrumented counters \(\mathrm{passes}\) and \(\mathrm{points}\) denote the
+derivative-pass count and total processed point--pass pairs. Randomized property tests check
 $\mathrm{passes}\le N_{\mathrm{iter}}+1$,
 $\mathrm{points}=P\,\mathrm{passes}$,
 $\sumnbr\le\mathrm{points}\,\maxnn$, and
@@ -52,11 +63,11 @@ it is not an input-only search under shipped parameters. $P$ remains a caller co
 not a search dimension. A separate \emph{shipped-configuration stress} search fixes
 $\epsilon=0.01$ and enforces the production preprocessing input contracts. The counter
 fitness is independent of wall-clock timing and deterministic for the fixed Rust
-implementation. Because lexicographic order need not match time order, all
-non-dominated counter vectors are archived and their fixtures timed. Budget-matched random
-and wall-clock-fitness arms provide limited diagnostic comparisons; their different initial
-distributions and small replicate counts do not support a general ranking of search
-strategies.
+implementation. Because lexicographic order need not match time order, two additional
+high-traversal candidates at lower common-kernel work are retained as stress inputs and
+timed under the same protocol. We do not compare
+search strategies because the exploratory arms did not share initial distributions or provide
+sufficient replication.
 
 Only \sumnbr{} is a common work axis across the two engines. The \kdnodes{} objective is
 specific to the Rust kd-tree; the search does not optimize the C++ FLANN distance or
@@ -83,18 +94,18 @@ translation, normalized output quaternion, transformation probability, and neare
 transformation likelihood. Suppressing the dependence on $x$, define
 \[
  \Delta_t=\lVert t_C-t_R\rVert_2,\qquad
- \Delta_R=2\arccos |\langle q_C,q_R\rangle|,
+ \Delta_\theta=2\arccos |\langle q_C,q_R\rangle|,
 \]
 with $\Delta_{\mathrm{tp}}=|\pi_C-\pi_R|$ and
-$\Delta_{\mathrm{nvtl}}=|\lambda_C-\lambda_R|$. The
-\textbf{base-agreement set} is
+$\Delta_{\mathrm{nvtl}}=|\lambda_C-\lambda_R|$. Let
+$J=\{t,\theta,\mathrm{tp},\mathrm{nvtl}\}$ index the four comparison metrics, and let
+$\tau_j$ denote the threshold for metric $j\in J$. The \textbf{base-agreement set} is
 \[
  E_{\mathrm{base}}=\{x:N_{\mathrm{iter}}^C=N_{\mathrm{iter}}^R\
  \ \text{and}\ \Delta_j\le\tau_j\ \text{for every}\ j\in J\}.
 \]
-Here $j$ indexes the comparison metrics in
-$J=\{t,R,\mathrm{tp},\mathrm{nvtl}\}$, and $\tau_j$ is the corresponding threshold:
-$\tau_t=10^{-4}\,\mathrm{m}$, $\tau_R=10^{-5}\,\mathrm{rad}$, and
+The thresholds are
+$\tau_t=10^{-4}\,\mathrm{m}$, $\tau_\theta=10^{-5}\,\mathrm{rad}$, and
 $\tau_{\mathrm{tp}}=\tau_{\mathrm{nvtl}}=10^{-4}$.
 All quantities must also be finite. These fixed numerical-agreement thresholds are much
 smaller than operational localization tolerances; they are comparison criteria, not
@@ -103,7 +114,10 @@ production acceptance limits.
 Each map leaf receives a canonical identifier $(g,v)$, where $g$ is the ordinal of its
 grid in the deterministically sorted map and $v$ is its signed voxel key. Before hashing,
 each point's returned leaves are sorted by this identifier. A domain-separated SHA-256
-digest preserves point and pass order while recording the sorted identifier list. The work
+digest preserves point and pass order while recording the sorted identifier list. Let $i$
+index derivative-evaluation passes, $P_i$ be the source-point count in pass $i$,
+$S_{\mathrm{nbr},i}$ its point--leaf evaluation count, and
+$\mathbf H_{\mathrm{ID},i}$ the point-ordered sequence of canonical-ID digests. The work
 trace for one engine is
 \[
  W_{\mathrm{shape}}=
@@ -111,9 +125,6 @@ trace for one engine is
  \left(P_i,S_{\mathrm{nbr},i},\mathbf H_{\mathrm{ID},i}\right){}_
  {i=1}^{N_{\mathrm{pass}}}\right).
 \]
-Here $i$ indexes derivative-evaluation passes, $P_i$ is the number of source points
-processed in pass $i$, $S_{\mathrm{nbr},i}$ is that pass's point--leaf evaluation count,
-and $\mathbf H_{\mathrm{ID},i}$ is the point-ordered sequence of canonical-ID digests.
 The \textbf{trace-conformant set} is
 \[
  E_{\mathrm{shape}}=
@@ -146,13 +157,15 @@ witness, not proof of equal stress.
 Frozen little-endian fixtures feed both engines through one replay harness in documented
 host configurations. An \texttt{LD\_PRELOAD} interposer counts C++ allocations without
 source changes. Regression against engine-specific counters is diagnostic only. Tail-model
-fitting is also secondary to the observed timing results: per-session POT/GPD fits use
-maximum likelihood and bootstrap intervals, but a mandatory gate requires independence and
-stability before any extrapolation may be reported.
+fitting is also secondary to the observed timing results. Per-session
+peaks-over-threshold/generalized-Pareto-distribution (POT/GPD) fits use maximum likelihood
+at a fixed 95\% threshold, but a mandatory gate requires independence and in-sample
+adequacy before any extrapolation may be reported.
 
-\subsection{Cross-ISA transfer: Deployment-target validation}
+\subsection{Cross-ISA transfer: Embedded-target validation}
 \label{sec:meth-crossisa}
-Pure-Rust \texttt{libm} removes dependence on the platform C library. We replay the frozen
-fixtures on a Raspberry Pi~4 bare-metal \texttt{no\_std} kernel and compare each counter
+Pure-Rust \texttt{libm} removes dependence on the platform C library. In an auxiliary
+cross-ISA experiment, we replay the frozen fixtures on a Raspberry Pi~4 bare-metal
+\texttt{no\_std} kernel and compare each counter
 tuple with its host value rather than assuming ISA independence. Section~\ref{sec:eval-raspi4}
-reports the results, and Appendix~\ref{app:crossisa-debug} gives the discrepancy diagnosis.
+reports the results, and Appendix~\ref{app:crossisa-controls} documents the consistency controls.

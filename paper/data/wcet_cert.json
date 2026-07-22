@@ -1,7 +1,7 @@
 {
- "benchmark": "WCET fixture pose/score certificate (plan/paper_fix.md B1)",
+ "benchmark": "WCET fixture pose and score agreement",
  "meta": {
-  "note": "second certificate leg: final pose + transform_probability + NVTL agreement per fixture, both engines on identical buffers; deterministic per input, so independent of the timing-run sample count",
+  "note": "Deterministic per-input comparison of final pose, transform probability, and NVTL on identical input buffers; the result is independent of the timing-run sample count.",
   "captured": "2026-07-12",
   "thresholds": {
    "trans_m": 0.0001,

@@ -1,52 +1,53 @@
 {
+  "meta": {
+    "captured": "2026-07-22",
+    "engine_commit": "6541a2760f8b5ef85fff095327013f5f6709ac44",
+    "binary_sha256": "a5733d1068fc711a0913f99382a6d023bdb0082bd810f9c5ba2d2376d3d494c7",
+    "protocol": "one deterministic align per capacity-parameterized fixture; timing samples are not retained",
+    "crosscheck": "all counters equal the e7aecddf traced replay captured on 2026-07-22"
+  },
   "fixtures": {
     "psweep_p00250": {
       "n_map": 41472,
       "n_tiles": 8,
       "n_source": 250,
       "iteration_num": 30,
-      "counters": { "derivative_passes": 31, "points_processed": 7750, "sum_neighbors": 496000, "kd_nodes_visited": 1492220 },
-      "samples_us": [75239.352]
+      "counters": { "derivative_passes": 31, "points_processed": 7750, "sum_neighbors": 496000, "kd_nodes_visited": 1508336 }
     },
     "psweep_p00500": {
       "n_map": 41472,
       "n_tiles": 8,
       "n_source": 500,
       "iteration_num": 30,
-      "counters": { "derivative_passes": 31, "points_processed": 15500, "sum_neighbors": 992000, "kd_nodes_visited": 2987410 },
-      "samples_us": [149370.013]
+      "counters": { "derivative_passes": 31, "points_processed": 15500, "sum_neighbors": 992000, "kd_nodes_visited": 3019648 }
     },
     "psweep_p01000": {
       "n_map": 41472,
       "n_tiles": 8,
       "n_source": 1000,
       "iteration_num": 30,
-      "counters": { "derivative_passes": 31, "points_processed": 31000, "sum_neighbors": 1984000, "kd_nodes_visited": 5990200 },
-      "samples_us": [297089.200]
+      "counters": { "derivative_passes": 31, "points_processed": 31000, "sum_neighbors": 1984000, "kd_nodes_visited": 6054672 }
     },
     "psweep_p02000": {
       "n_map": 41472,
       "n_tiles": 8,
       "n_source": 2000,
       "iteration_num": 30,
-      "counters": { "derivative_passes": 31, "points_processed": 62000, "sum_neighbors": 3968000, "kd_nodes_visited": 12011903 },
-      "samples_us": [597644.577]
+      "counters": { "derivative_passes": 31, "points_processed": 62000, "sum_neighbors": 3968000, "kd_nodes_visited": 12140437 }
     },
     "psweep_p04000": {
       "n_map": 41472,
       "n_tiles": 8,
       "n_source": 4000,
       "iteration_num": 30,
-      "counters": { "derivative_passes": 31, "points_processed": 124000, "sum_neighbors": 7936000, "kd_nodes_visited": 24002114 },
-      "samples_us": [1192666.453]
+      "counters": { "derivative_passes": 31, "points_processed": 124000, "sum_neighbors": 7936000, "kd_nodes_visited": 24259236 }
     },
     "psweep_p08000": {
       "n_map": 41472,
       "n_tiles": 8,
       "n_source": 8000,
       "iteration_num": 30,
-      "counters": { "derivative_passes": 31, "points_processed": 248000, "sum_neighbors": 15872000, "kd_nodes_visited": 48040992 },
-      "samples_us": [2374442.060]
+      "counters": { "derivative_passes": 31, "points_processed": 248000, "sum_neighbors": 15872000, "kd_nodes_visited": 48554742 }
     }
   }
 }

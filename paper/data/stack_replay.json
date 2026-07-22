@@ -7,6 +7,14 @@
       "rust2",
       "cpp2"
     ],
+    "workers_per_engine": 4,
+    "cpp_parallelism": "OpenMP",
+    "rust_parallelism": "Rayon",
+    "scheduler": "CFS",
+    "worker_pinning": false,
+    "map_extent_m": 500,
+    "map_load_radius_m": 150,
+    "initial_pose_count": 1,
     "ground_truth_available": false,
     "open_loop_frame_index": 237,
     "relay_sequence_for_open_loop_frame": 238

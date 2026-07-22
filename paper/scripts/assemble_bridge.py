@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """Assemble paper/data/bridge.json for the Replay-to-Isolated bridge experiment.
 
-Five inputs, both profiles:
+Five inputs, both measurement configurations:
   synthetic (search_00, legal_worst, legal_osc):
     Replay leg: bench/campaign_runs/profileA/session-1/warm.json
-    B-leg: paper/data/wcet.json (pooled 3-session campaign)
+    Isolated leg: campaign_runs/session-{1,2,3}/warm.json (pooled campaign)
   real (real_slowest, real_median):
     Replay leg: same profileA session
-    B-leg: bench/campaign_runs/<b_leg_session>/warm.json  (short controlled session)
+    Isolated leg: a dedicated warm.json (short controlled session)
 
-Usage: assemble_bridge.py <b_leg_warm.json>
+Usage: assemble_bridge.py <isolated_real_warm.json>
 """
 import json
-import sys
 import pathlib
+import sys
 
 B = pathlib.Path("/autoware_workspace/src/core/autoware_core/localization/"
                  "autoware_ndt_scan_matcher/bench")
@@ -28,40 +28,73 @@ def stats(samples):
     return {"p50_ms": round(p50, 3), "max_ms": round(s[-1], 3), "n": n}
 
 
-def main(b_leg_path):
-    # C3: the Replay leg uses the matched-n pooled campaign (synthetics at n=3000, the
-    # 3 x 1000 pooled run; real-frame legs copied from the original session-1 at n=100, already
-    # matched to their Isolated leg), so the synthetic max comparison is same-n.
-    a_doc = json.loads((B / "campaign_runs/profileA/c3_pooled/warm.json").read_text())
-    b_pool = json.loads((DATA / "wcet.json").read_text())
-    b_real = json.loads(pathlib.Path(b_leg_path).read_text())
+def main(isolated_real_path):
+    # The Replay leg uses a matched-size pooled campaign: synthetic inputs have 3000
+    # measurements and real-frame inputs have 100, matching their Isolated legs.
+    replay_doc = json.loads((B / "campaign_runs/profileA/c3_pooled/warm.json").read_text())
+    isolated_docs = [
+        json.loads((B / f"campaign_runs/session-{index}/warm.json").read_text())
+        for index in (1, 2, 3)
+    ]
+    isolated_real = json.loads(pathlib.Path(isolated_real_path).read_text())
+
+    isolated_hashes = {
+        doc["meta"]["manifest"]["binary_hash"] for doc in isolated_docs
+    }
+    if len(isolated_hashes) != 1:
+        raise SystemExit("Isolated synthetic sessions use different binaries")
+
+    isolated_pooled_manifest = dict(isolated_docs[0]["meta"]["manifest"])
+    isolated_pooled_manifest["experiment_id"] = "bridge-isolated/pooled"
+    isolated_pooled_manifest["sessions"] = [
+        doc["meta"]["manifest"]["experiment_id"] for doc in isolated_docs
+    ]
 
     out = {"meta": {
-        "profile_a_manifest": a_doc["meta"]["manifest"],
-        "profile_b_pooled_manifest": b_pool["meta"]["manifest"],
-        "profile_b_real_manifest": b_real["meta"]["manifest"],
-        "note": ("interference inflation = production-profile latency / controlled-profile "
-                 "latency (descriptive only, per the measurement policy). Synthetic legs are "
-                 "matched-n pooled 3-session campaigns (n=3000) on both profiles (C3); "
-                 "real-frame legs are dedicated controlled sessions (n=100); same 3.2 GHz "
+        "replay_manifest": replay_doc["meta"]["manifest"],
+        "isolated_pooled_manifest": isolated_pooled_manifest,
+        "isolated_real_manifest": isolated_real["meta"]["manifest"],
+        "note": ("inflation = Replay latency / Isolated latency; the ratio is descriptive. "
+                 "Synthetic legs are matched-size pooled three-session campaigns (n=3000) "
+                 "in both configurations; real-frame legs are dedicated matched-size "
+                 "sessions (n=100); all runs use the same 3.2 GHz "
                  "reference clock."),
     }, "inputs": {}}
 
     for fx in FIXTURES:
-        a_slot = a_doc["fixtures"][fx]
-        b_slot = (b_pool["fixtures"] if fx in b_pool["fixtures"] else b_real["fixtures"])[fx]
+        replay_slot = replay_doc["fixtures"][fx]
+        if fx in isolated_docs[0]["fixtures"]:
+            isolated_slot = {}
+            for eng in ("cpp", "rust"):
+                iteration_counts = {
+                    doc["fixtures"][fx][eng]["iteration_num"] for doc in isolated_docs
+                }
+                if len(iteration_counts) != 1:
+                    raise SystemExit(f"{fx}/{eng}: iteration mismatch among Isolated sessions")
+                isolated_slot[eng] = {
+                    "iteration_num": iteration_counts.pop(),
+                    "samples_ms": [
+                        value
+                        for doc in isolated_docs
+                        for value in doc["fixtures"][fx][eng]["samples_ms"]
+                    ],
+                }
+        else:
+            isolated_slot = isolated_real["fixtures"][fx]
         entry = {}
         for eng in ("cpp", "rust"):
-            a, b = stats(a_slot[eng]["samples_ms"]), stats(b_slot[eng]["samples_ms"])
+            replay = stats(replay_slot[eng]["samples_ms"])
+            isolated = stats(isolated_slot[eng]["samples_ms"])
             entry[eng] = {
-                "profile_a": a, "profile_b": b,
-                "inflation_p50": round(a["p50_ms"] / b["p50_ms"], 3),
-                "inflation_max": round(a["max_ms"] / b["max_ms"], 3),
-                "abs_diff_max_ms": round(a["max_ms"] - b["max_ms"], 3),
-                "overrun_only_in_a": a["max_ms"] > 100.0 >= b["max_ms"],
+                "replay": replay,
+                "isolated": isolated,
+                "inflation_p50": round(replay["p50_ms"] / isolated["p50_ms"], 3),
+                "inflation_max": round(replay["max_ms"] / isolated["max_ms"], 3),
+                "abs_diff_max_ms": round(replay["max_ms"] - isolated["max_ms"], 3),
+                "overrun_only_in_replay": replay["max_ms"] > 100.0 >= isolated["max_ms"],
             }
-            if a_slot[eng]["iteration_num"] != b_slot[eng]["iteration_num"]:
-                raise SystemExit(f"{fx}/{eng}: iteration mismatch across profiles")
+            if replay_slot[eng]["iteration_num"] != isolated_slot[eng]["iteration_num"]:
+                raise SystemExit(f"{fx}/{eng}: iteration mismatch across configurations")
         out["inputs"][fx] = entry
 
     (DATA / "bridge.json").write_text(json.dumps(out, indent=1))

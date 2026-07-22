@@ -1,6 +1,6 @@
 {
  "meta": {
-  "experiment": "C8 parallel feasibility (plan/paper_fix2.md)",
+  "experiment": "parallel throughput feasibility",
   "engine_commit": "96e35b85bcfb30ae3a0cd818bfb830a904df1d6d",
   "calib_before_ns": 7163454983,
   "calib_after_ns": 7343794240,
@@ -12,7 +12,7 @@
    "4": "2,4,6,8"
   },
   "pinning": "C++: OMP_NUM_THREADS + GOMP_CPU_AFFINITY; Rust: RAYON_NUM_THREADS + NDT_PIN_RAYON_WORKERS (init_thread_pool pins worker i to the i-th cpuset CPU)",
-  "note": "Throughput feasibility, NOT a multi-core WCET analysis: the serial engine remains the deterministic baseline. Speedups are within this boot (k=1 baseline); not comparable to the frozen serial Profile-B (a different isolation set). Rust iteration counts are k-invariant (parallel backend bit-identical to serial)."
+  "note": "Throughput feasibility, not a multicore WCET analysis: the serial engine remains the deterministic baseline. Speedups use the single-worker run from the same boot and isolation configuration as their baseline, so they are not compared with the primary timing campaign. Rust iteration counts are invariant with worker count because the parallel backend is bit-identical to the serial backend on these inputs."
  },
  "inputs": {
   "search_00": {

@@ -1,5 +1,5 @@
 {
- "benchmark": "production-parameterized legal search, fitness = max per-point K (plan/paper_fix.md B3)",
+ "benchmark": "production-parameterized legal search with maximum per-point K as fitness",
  "meta": {
   "date": "2026-07-12",
   "tool": "realtime_ndt_scan_matcher example wcet_search_legal, WCET_SEARCH_FITNESS=maxk",

@@ -1,4 +1,5 @@
 {
+  "schema_version": 2,
   "benchmark": "WCET fixture replay (frozen adversarial inputs)",
   "meta": {
     "iters": 1,
@@ -21,7 +22,13 @@
       "voxel_id",
       "mean",
       "inverse_covariance"
-    ]
+    ],
+    "captured": "2026-07-22",
+    "engine_commit": "e7aecddfd651334e05c88353c41a2dd13890fa47",
+    "binary_sha256": "128410dd83c6cbbe6a7a9c416be636cf0e799cc3ca01c2ea269615f832abfb73",
+    "build": "Release, NDT_BUILD_TRACED=ON, serial",
+    "timing_reference_commit": "6541a2760f8b5ef85fff095327013f5f6709ac44",
+    "counter_crosscheck": "all deterministic Rust counters equal the fixed timing commit; trace latency is not retained"
   },
   "fixtures": {
     "cache_hostile": {
@@ -29,6 +36,11 @@
       "n_tiles": 1,
       "n_source": 2000,
       "max_iterations": 30,
+      "rust_limits": {
+        "max_source_points": 2000,
+        "max_active_leaves": 418000,
+        "max_iterations": 30
+      },
       "iter_match": true,
       "cert": {
         "base_match": true,
@@ -58,17 +70,11 @@
       },
       "cpp": {
         "iteration_num": 3,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          47.520112
-        ]
+        "allocs_per_align": -1
       },
       "rust": {
         "iteration_num": 3,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          14.584718
-        ]
+        "allocs_per_align": -1
       }
     },
     "dense_neighbors": {
@@ -76,6 +82,11 @@
       "n_tiles": 8,
       "n_source": 1500,
       "max_iterations": 30,
+      "rust_limits": {
+        "max_source_points": 1500,
+        "max_active_leaves": 418000,
+        "max_iterations": 30
+      },
       "iter_match": true,
       "cert": {
         "base_match": true,
@@ -98,24 +109,18 @@
         "line_search_loops": 0,
         "cpp_kd_dist": 2976000,
         "cpp_kd_accum": 656586,
-        "rust_kd": 6643990,
+        "rust_kd": 7778334,
         "score_max_ulp": 1,
         "cpp_nbr": 2976000,
         "rust_nbr": 2976000
       },
       "cpp": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          1320.86702
-        ]
+        "allocs_per_align": -1
       },
       "rust": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          831.460354
-        ]
+        "allocs_per_align": -1
       }
     },
     "legal_osc": {
@@ -123,6 +128,11 @@
       "n_tiles": 1,
       "n_source": 1500,
       "max_iterations": 30,
+      "rust_limits": {
+        "max_source_points": 1500,
+        "max_active_leaves": 418000,
+        "max_iterations": 30
+      },
       "iter_match": true,
       "cert": {
         "base_match": true,
@@ -152,17 +162,11 @@
       },
       "cpp": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          199.272443
-        ]
+        "allocs_per_align": -1
       },
       "rust": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          105.586947
-        ]
+        "allocs_per_align": -1
       }
     },
     "legal_worst": {
@@ -170,6 +174,11 @@
       "n_tiles": 1,
       "n_source": 1500,
       "max_iterations": 30,
+      "rust_limits": {
+        "max_source_points": 1500,
+        "max_active_leaves": 418000,
+        "max_iterations": 30
+      },
       "iter_match": true,
       "cert": {
         "base_match": true,
@@ -199,17 +208,11 @@
       },
       "cpp": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          255.013465
-        ]
+        "allocs_per_align": -1
       },
       "rust": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          192.785224
-        ]
+        "allocs_per_align": -1
       }
     },
     "max_iterations": {
@@ -217,6 +220,11 @@
       "n_tiles": 1,
       "n_source": 1200,
       "max_iterations": 30,
+      "rust_limits": {
+        "max_source_points": 1200,
+        "max_active_leaves": 418000,
+        "max_iterations": 30
+      },
       "iter_match": true,
       "cert": {
         "base_match": true,
@@ -246,17 +254,11 @@
       },
       "cpp": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          151.152946
-        ]
+        "allocs_per_align": -1
       },
       "rust": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          62.053356
-        ]
+        "allocs_per_align": -1
       }
     },
     "pareto_01": {
@@ -264,6 +266,11 @@
       "n_tiles": 8,
       "n_source": 2000,
       "max_iterations": 30,
+      "rust_limits": {
+        "max_source_points": 2000,
+        "max_active_leaves": 418000,
+        "max_iterations": 30
+      },
       "iter_match": true,
       "cert": {
         "base_match": true,
@@ -286,24 +293,18 @@
         "line_search_loops": 0,
         "cpp_kd_dist": 3984892,
         "cpp_kd_accum": 1157609,
-        "rust_kd": 12012536,
+        "rust_kd": 12139294,
         "score_max_ulp": 4,
         "cpp_nbr": 3809774,
         "rust_nbr": 3809774
       },
       "cpp": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          1144.945878
-        ]
+        "allocs_per_align": -1
       },
       "rust": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          1185.015089
-        ]
+        "allocs_per_align": -1
       }
     },
     "pareto_02": {
@@ -311,6 +312,11 @@
       "n_tiles": 8,
       "n_source": 2000,
       "max_iterations": 30,
+      "rust_limits": {
+        "max_source_points": 2000,
+        "max_active_leaves": 418000,
+        "max_iterations": 30
+      },
       "iter_match": true,
       "cert": {
         "base_match": true,
@@ -333,24 +339,18 @@
         "line_search_loops": 0,
         "cpp_kd_dist": 3881690,
         "cpp_kd_accum": 1148738,
-        "rust_kd": 12036191,
+        "rust_kd": 12156351,
         "score_max_ulp": 1,
         "cpp_nbr": 3625153,
         "rust_nbr": 3625153
       },
       "cpp": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          1118.777699
-        ]
+        "allocs_per_align": -1
       },
       "rust": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          1138.363393
-        ]
+        "allocs_per_align": -1
       }
     },
     "psweep_p00250": {
@@ -358,6 +358,11 @@
       "n_tiles": 8,
       "n_source": 250,
       "max_iterations": 30,
+      "rust_limits": {
+        "max_source_points": 250,
+        "max_active_leaves": 418000,
+        "max_iterations": 30
+      },
       "iter_match": true,
       "cert": {
         "base_match": true,
@@ -380,24 +385,18 @@
         "line_search_loops": 0,
         "cpp_kd_dist": 509516,
         "cpp_kd_accum": 145049,
-        "rust_kd": 1492220,
+        "rust_kd": 1508336,
         "score_max_ulp": 2,
         "cpp_nbr": 496000,
         "rust_nbr": 496000
       },
       "cpp": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          151.795354
-        ]
+        "allocs_per_align": -1
       },
       "rust": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          151.79242
-        ]
+        "allocs_per_align": -1
       }
     },
     "psweep_p00500": {
@@ -405,6 +404,11 @@
       "n_tiles": 8,
       "n_source": 500,
       "max_iterations": 30,
+      "rust_limits": {
+        "max_source_points": 500,
+        "max_active_leaves": 418000,
+        "max_iterations": 30
+      },
       "iter_match": true,
       "cert": {
         "base_match": true,
@@ -427,24 +431,18 @@
         "line_search_loops": 0,
         "cpp_kd_dist": 1019404,
         "cpp_kd_accum": 290360,
-        "rust_kd": 2987410,
+        "rust_kd": 3019648,
         "score_max_ulp": 1,
         "cpp_nbr": 992000,
         "rust_nbr": 992000
       },
       "cpp": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          308.201896
-        ]
+        "allocs_per_align": -1
       },
       "rust": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          305.34647
-        ]
+        "allocs_per_align": -1
       }
     },
     "psweep_p01000": {
@@ -452,6 +450,11 @@
       "n_tiles": 8,
       "n_source": 1000,
       "max_iterations": 30,
+      "rust_limits": {
+        "max_source_points": 1000,
+        "max_active_leaves": 418000,
+        "max_iterations": 30
+      },
       "iter_match": true,
       "cert": {
         "base_match": true,
@@ -474,24 +477,18 @@
         "line_search_loops": 0,
         "cpp_kd_dist": 2039056,
         "cpp_kd_accum": 581710,
-        "rust_kd": 5990200,
+        "rust_kd": 6054672,
         "score_max_ulp": 1,
         "cpp_nbr": 1984000,
         "rust_nbr": 1984000
       },
       "cpp": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          600.313766
-        ]
+        "allocs_per_align": -1
       },
       "rust": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          605.140417
-        ]
+        "allocs_per_align": -1
       }
     },
     "psweep_p02000": {
@@ -499,6 +496,11 @@
       "n_tiles": 8,
       "n_source": 2000,
       "max_iterations": 30,
+      "rust_limits": {
+        "max_source_points": 2000,
+        "max_active_leaves": 418000,
+        "max_iterations": 30
+      },
       "iter_match": true,
       "cert": {
         "base_match": true,
@@ -521,24 +523,18 @@
         "line_search_loops": 0,
         "cpp_kd_dist": 4078360,
         "cpp_kd_accum": 1164469,
-        "rust_kd": 12011903,
+        "rust_kd": 12140437,
         "score_max_ulp": 11,
         "cpp_nbr": 3968000,
         "rust_nbr": 3968000
       },
       "cpp": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          1199.952437
-        ]
+        "allocs_per_align": -1
       },
       "rust": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          1208.104202
-        ]
+        "allocs_per_align": -1
       }
     },
     "psweep_p04000": {
@@ -546,6 +542,11 @@
       "n_tiles": 8,
       "n_source": 4000,
       "max_iterations": 30,
+      "rust_limits": {
+        "max_source_points": 4000,
+        "max_active_leaves": 418000,
+        "max_iterations": 30
+      },
       "iter_match": true,
       "cert": {
         "base_match": true,
@@ -568,24 +569,18 @@
         "line_search_loops": 0,
         "cpp_kd_dist": 8156472,
         "cpp_kd_accum": 2328008,
-        "rust_kd": 24002114,
+        "rust_kd": 24259236,
         "score_max_ulp": 6,
         "cpp_nbr": 7936000,
         "rust_nbr": 7936000
       },
       "cpp": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          2383.007888
-        ]
+        "allocs_per_align": -1
       },
       "rust": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          2430.088689
-        ]
+        "allocs_per_align": -1
       }
     },
     "psweep_p08000": {
@@ -593,6 +588,11 @@
       "n_tiles": 8,
       "n_source": 8000,
       "max_iterations": 30,
+      "rust_limits": {
+        "max_source_points": 8000,
+        "max_active_leaves": 418000,
+        "max_iterations": 30
+      },
       "iter_match": true,
       "cert": {
         "base_match": true,
@@ -615,24 +615,18 @@
         "line_search_loops": 0,
         "cpp_kd_dist": 16312944,
         "cpp_kd_accum": 4657933,
-        "rust_kd": 48040992,
+        "rust_kd": 48554742,
         "score_max_ulp": 3,
         "cpp_nbr": 15872000,
         "rust_nbr": 15872000
       },
       "cpp": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          4799.305257
-        ]
+        "allocs_per_align": -1
       },
       "rust": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          4865.920126
-        ]
+        "allocs_per_align": -1
       }
     },
     "real_median": {
@@ -640,6 +634,11 @@
       "n_tiles": 1,
       "n_source": 1500,
       "max_iterations": 30,
+      "rust_limits": {
+        "max_source_points": 1500,
+        "max_active_leaves": 418000,
+        "max_iterations": 30
+      },
       "iter_match": true,
       "cert": {
         "base_match": true,
@@ -669,17 +668,11 @@
       },
       "cpp": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          135.807995
-        ]
+        "allocs_per_align": -1
       },
       "rust": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          25.519415
-        ]
+        "allocs_per_align": -1
       }
     },
     "real_slowest": {
@@ -687,6 +680,11 @@
       "n_tiles": 1,
       "n_source": 1500,
       "max_iterations": 30,
+      "rust_limits": {
+        "max_source_points": 1500,
+        "max_active_leaves": 418000,
+        "max_iterations": 30
+      },
       "iter_match": true,
       "cert": {
         "base_match": true,
@@ -716,17 +714,11 @@
       },
       "cpp": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          163.841238
-        ]
+        "allocs_per_align": -1
       },
       "rust": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          84.078287
-        ]
+        "allocs_per_align": -1
       }
     },
     "search_00": {
@@ -734,6 +726,11 @@
       "n_tiles": 8,
       "n_source": 2000,
       "max_iterations": 30,
+      "rust_limits": {
+        "max_source_points": 2000,
+        "max_active_leaves": 418000,
+        "max_iterations": 30
+      },
       "iter_match": true,
       "cert": {
         "base_match": true,
@@ -756,24 +753,18 @@
         "line_search_loops": 0,
         "cpp_kd_dist": 4078360,
         "cpp_kd_accum": 1164469,
-        "rust_kd": 12011903,
+        "rust_kd": 12140437,
         "score_max_ulp": 12,
         "cpp_nbr": 3968000,
         "rust_nbr": 3968000
       },
       "cpp": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          1227.17054
-        ]
+        "allocs_per_align": -1
       },
       "rust": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          1214.68332
-        ]
+        "allocs_per_align": -1
       }
     },
     "search_01": {
@@ -781,6 +772,11 @@
       "n_tiles": 8,
       "n_source": 2000,
       "max_iterations": 30,
+      "rust_limits": {
+        "max_source_points": 2000,
+        "max_active_leaves": 418000,
+        "max_iterations": 30
+      },
       "iter_match": true,
       "cert": {
         "base_match": true,
@@ -803,24 +799,18 @@
         "line_search_loops": 0,
         "cpp_kd_dist": 4260817,
         "cpp_kd_accum": 1176162,
-        "rust_kd": 10787955,
+        "rust_kd": 11070038,
         "score_max_ulp": 2,
         "cpp_nbr": 2321941,
         "rust_nbr": 2321941
       },
       "cpp": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          846.896923
-        ]
+        "allocs_per_align": -1
       },
       "rust": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          878.063075
-        ]
+        "allocs_per_align": -1
       }
     },
     "subnormal": {
@@ -828,6 +818,11 @@
       "n_tiles": 1,
       "n_source": 1000,
       "max_iterations": 30,
+      "rust_limits": {
+        "max_source_points": 1000,
+        "max_active_leaves": 418000,
+        "max_iterations": 30
+      },
       "iter_match": true,
       "cert": {
         "base_match": true,
@@ -857,19 +852,12 @@
       },
       "cpp": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          101.604616
-        ]
+        "allocs_per_align": -1
       },
       "rust": {
         "iteration_num": 30,
-        "allocs_per_align": -1,
-        "samples_ms": [
-          23.674394
-        ]
+        "allocs_per_align": -1
       }
     }
-  },
-  "schema_version": 2
+  }
 }

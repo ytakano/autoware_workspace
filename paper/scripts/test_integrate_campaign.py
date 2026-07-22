@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import importlib.util
+import hashlib
 import json
 import pathlib
 import tempfile
@@ -58,6 +59,9 @@ class IntegrateCampaignTest(unittest.TestCase):
             self.assertEqual(samples["samples_per_session"], 2)
             self.assertEqual(samples["pooled_samples_per_fixture"], 6)
             self.assertEqual(len(pooled["a"]["cpp"]["samples_ms"]), 6)
+            top = INTEGRATE.top_manifest(manifests, "test pooling")
+            self.assertEqual(top["experiment_id"], "test/pooled")
+            self.assertEqual(len(top["sessions"]), 3)
 
     def test_pool_rejects_reused_boot_id(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -76,6 +80,11 @@ class IntegrateCampaignTest(unittest.TestCase):
             path.write_text(json.dumps(document))
             with self.assertRaisesRegex(SystemExit, "NDT_BUILD_TRACED=OFF"):
                 INTEGRATE.pool_series("warm", directories, self.config())
+
+    def test_config_hash_matches_campaign_canonicalization(self):
+        config = self.config()
+        encoded = json.dumps(config, sort_keys=True, separators=(",", ":")).encode()
+        self.assertEqual(INTEGRATE.config_hash(config), hashlib.sha256(encoded).hexdigest())
 
 
 if __name__ == "__main__":

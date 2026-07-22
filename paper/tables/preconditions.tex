@@ -6,7 +6,7 @@ behavior on violation. ``assumed'' rows are not runtime-checked by the engine.}
 \label{tab:preconditions}
 \scriptsize
 \setlength{\tabcolsep}{2pt}
-\begin{tabular}{@{}lllp{0.22\columnwidth}@{}}
+\begin{tabular}{@{}p{0.18\columnwidth}p{0.12\columnwidth}p{0.24\columnwidth}p{0.36\columnwidth}@{}}
 \toprule
 quantity & limit & enforced by & on violation \\
 \midrule
@@ -15,8 +15,8 @@ $N_{\mathrm{iter}}$ & 30 & engine and loop guards & reject larger setting \\
 line-search passes & 0 extra & shipped flag off & outside proposition if enabled \\
 $K$ (Rust) & 64 & hard search cap & warn; force non-converged \\
 $K$ (C++) & none & --- & grows with tile overlap \\
-$K$ (production input) & 27 & map pipeline (assumed) & production-input bound invalid \\
-$N_{\mathrm{leaves}}$ & \runtimeLeavesMax & map finalization & reject; keep old map \\
+$K$ (production input) & 27 & preprocessing contract (assumed) & production-input bound invalid \\
+$N_{\mathrm{leaves}}$ & \runtimeLeavesMax & map finalization & reject; retain active map \\
 kd query stack & 64 entries & build-depth guard & return map-build error \\
 serial scratch & \runtimeScratchBytes{} B & startup reservation & reject undersized scratch \\
 integer products & counter range & checked construction & return arithmetic error \\

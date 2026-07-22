@@ -1,7 +1,7 @@
 \section{Introduction}
 \label{sec:intro}
 
-Autoware~\cite{autoware} localizes a vehicle by aligning each LiDAR scan to a Gaussian
+Autoware~\cite{autoware} localizes a vehicle by aligning each light-detection-and-ranging (LiDAR) scan to a Gaussian
 voxel map with the Normal Distributions Transform (\ndt)~\cite{biber2003ndt}. At 10\,Hz,
 each alignment has a \SI{100}{ms} period before a late pose forces downstream estimation toward
 dead reckoning. Yet input geometry changes Newton iterations, neighbor multiplicity, and
@@ -35,24 +35,19 @@ Our contributions are:
   \item A three-layer analysis combining a property-tested structural work bound,
     deterministic stress-witness generation using Rust counters, and controlled timing of
     frozen witnesses.
-    Mandatory tail diagnostics determine whether extrapolation is admissible and reject it
-    for these measurements.
   \item A per-input cross-language work-trace conformance check. The base-agreement set
     $E_{\mathrm{base}}$ checks iteration equality and pose and score tolerances;
     $E_{\mathrm{shape}}$ additionally checks the recorded
     pass structure, point and neighbor counts, and canonical leaf identities. A separate
     payload digest checks leaf means and inverse covariances. Neither establishes runtime
     membership in $D$ or full semantic equivalence.
-  \item A domain-informed construction that reaches the Rust envelope's
-    $P\maxnn(N_{\mathrm{iter}}{+}1)$ maximum for the common kernel-evaluation term,
-    followed by a counter-guided search that raises the Rust implementation's kd-node count
-    by \searchKdGrowthPct\%; frozen Pareto alternatives use the same timing protocol.
+  \item A domain-informed construction that reaches the configured maximum of
+    \runtimeKernelEvalMax{} common kernel evaluations, together with two archived candidates that
+    exercise high Rust kd-node counts at lower common-kernel work under the same timing
+    protocol.
   \item An industrial case study in which Rust removes the C++ per-point allocation hazard
-    within reserved capacities. In the unified three-boot campaign, the largest recorded
-    values are \SI{\unifiedFixtureMaxCpp}{ms} for C++ and
-    \SI{\unifiedFixtureMaxRust}{ms} for Rust, with a smaller Rust maximum on all
-    \tailsRustFasterCount{}
-    fixtures. Contract-geometry and
+    within reserved capacities and has a smaller observed maximum on every paired fixture in
+    the unified three-boot campaign. Contract-geometry and
     shipped-configuration witnesses separate production input constraints from
     configuration effects, while a single-drive replay exposes the residual conformance
     boundary.

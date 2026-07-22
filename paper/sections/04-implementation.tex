@@ -3,18 +3,21 @@
 
 \subsection{Engines and real-time hardening}
 The baseline is serial PCL/OpenMP multigrid \ndt{}~\cite{autoware,ndtomp}. The Rust port
-exposes the same C ABI and also builds as \texttt{no\_std}; ABI/API substitutability does
-not imply closed-loop equivalence. Differential tests cover voxel construction, align,
-engine, and node paths. Both engines use autoware\_core commit \texttt{\envCommit}.
+is connected to the node through a bounded C application binary interface (ABI) and also
+builds as \texttt{no\_std}. The constructor receives explicit work limits, and each align
+call receives caller-owned scratch. This bounded ABI is an internal integration boundary.
+The Rust-backed node retains the evaluated ROS-facing behavior, which does not imply
+closed-loop equivalence. Differential tests cover voxel construction, align,
+engine, and node paths. The primary unified campaign and $P$-sweep use
+autoware\_core commit \texttt{\envCommit}.
 
 The following are explicit constraints, not automatic Rust or \texttt{no\_std} properties:
 \begin{itemize}
- \item engine construction requires $P_{\max}=\runtimePMax$,
- $L_{\max}=\runtimeLeavesMax$, and $I_{\max}=30$. Caller-owned align scratch reserves
- \runtimeScratchBytes{} bytes in the serial build for $P_{\max}$, \maxnn, and
- $I_{\max}+1$ result and convergence-history slots. A counting allocator verifies zero
- allocations from the first frame; an undersized workspace or oversized scan returns an
- error without growth;
+ \item engine construction requires positive, representable $P_{\max}$ and $L_{\max}$,
+ and $I_{\max}\in\{0,\ldots,30\}$. The principal configuration sets them to \runtimePMax,
+ \runtimeLeavesMax, and 30, respectively; the capacity sweep varies $P_{\max}$. For the
+ principal serial build, caller-owned align scratch reserves \runtimeScratchBytes{} bytes
+ for $P_{\max}$, \maxnn, and $I_{\max}+1$ result and convergence-history slots. An undersized workspace or oversized scan returns an error without growth;
  \item radius search uses a fixed 64-entry iterative stack, preserves near/far visit order,
  and is differential-tested against a recursive oracle. Finding a 65th neighbor sets a
  diagnostic while retaining the first 64;
@@ -34,7 +37,7 @@ The \maxnn=64 cap makes the kernel term finite. Its production-input justificati
 leaf per occupied voxel per tile, disjoint tiles, radius equal to voxel size, and centroids
 inside their voxels. A search ball then intersects at most $3^3=27$ cells, leaving a
 $2.4\times$ margin. Boundary inclusion and floating-point radius comparison remain
-assumptions. A post-change replay of all \runtimeValidationFrames{} captured frames
+assumptions. A validation replay of all \runtimeValidationFrames{} captured frames
 observed $K\le\runtimeObservedKMax$ and triggered the neighbor-limit diagnostic on
 \runtimeNeighborLimitFrames{} frames. Overlapping tiles can exceed 64 outside these
 conditions. Rust detects the 65th neighbor, returns the pose with a non-fatal
@@ -42,12 +45,12 @@ diagnostic, and forces the convergence verdict to false. The node emits a warnin
 the frame as non-converged, allowing the existing downstream fallback policy to apply.
 
 \label{sec:impl-fixtures}
-Four hand-built engine fixtures isolate hazards: \emph{dense-neighbors} reaches 64 leaves
-with eight overlapping corner lattices; \emph{max-iterations} reaches the iteration cap;
+Four hand-built engine fixtures isolate hazards: \emph{dense-nbrs} reaches 64 leaves
+with eight overlapping corner lattices; \emph{max-iters} reaches the iteration cap;
 \emph{cache-hostile} spreads shuffled queries across a wide map; and \emph{subnormal}
 places kernel exponentials in the f64 subnormal range. The search generator exposes these
 stressor dimensions. Its domain-informed seed saturates the common kernel count, and
-subsequent counter-guided search increases the Rust traversal count. The per-tile $K=8$
+the subsequent deterministic search explores the Rust traversal count. The per-tile $K=8$
 value belongs only to the corner-lattice witness, not the analytic ceiling of 27.
 
 \subsection{Production-input stress classes}
@@ -56,7 +59,7 @@ Production preprocessing downsamples and crops scans, rejects duplicates, limits
 1500, and assumes disjoint voxel-aligned map tiles. The \emph{contract-geometry stress}
 fixture, displayed as \emph{geom-stress}, satisfies these input conditions with $K=8$ but
 uses non-shipped $\epsilon=10^{-10}$ to reach 30 iterations. At the shipped
-$\epsilon=0.01$, the same fixture converges in \oneoffLegalWorstProdEpsIters{} iterations.
+$\epsilon=0.01$, the same fixture converges before the iteration cap.
 It is therefore neither a shipped-configuration execution nor a witness for the analytic
 $K\le27$ ceiling. An independent input-contract verifier checks each candidate.
 

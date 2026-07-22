@@ -12,26 +12,26 @@ evidence that any input realizes it. Our first analysis layer retains the struct
 enforces its terms by construction, and checks them with property-based testing; the second
 and third layers supply witness inputs and platform timing.
 
-Measurement-based and probabilistic timing analysis (MBPTA) applies extreme value theory to
-measured execution times to extrapolate
-\pwcet{}~\cite{edgar2001gumbel,cucu2012mbpta}; Cazorla et al.~\cite{cazorla2019mbpta} give a
+Measurement-based and probabilistic timing analysis (MBPTA) applies extreme value theory
+(EVT) to measured execution times to extrapolate probabilistic worst-case execution time
+(\pwcet{})~\cite{edgar2001gumbel,cucu2012mbpta}; Cazorla et al.~\cite{cazorla2019mbpta} give a
 survey. A central limitation is \emph{representativity}: EVT bounds only the behaviors
 exercised by the measurement protocol. This limitation has motivated randomized platforms
 and measurement protocols~\cite{lima2017evt}, statistical estimation and validation
 procedures~\cite{hansen2009statistical}, and reusable tooling~\cite{reghenzani2018chronovise}.
 We address representativity from the input side by constructing stress inputs and evaluating
-them with deterministic, timing-independent Rust counters. The domain-informed construction
-reaches the Rust envelope's analytic maximum for the common kernel-evaluation term. A
+them with deterministic, timing-independent Rust counters. The domain-informed construction reaches the configured ceiling on common kernel work. A
 secondary POT/GPD diagnostic on the frozen stress measurements
-fails its independence gate, so we withhold tail extrapolation as detailed in
+fails its diagnostic gates, so we withhold tail extrapolation as detailed in
 Sec.~\ref{sec:eval-evt}. The timing evidence therefore consists of observed maxima, not an
 MBPTA estimate.
 
 Search-based generation of worst-case inputs for timing constraints dates to Wegener et
 al.~\cite{wegener1997testing,wegener2001comparison}, who evolve test data with \emph{measured
 execution time} as fitness and note the complementarity with static analysis. Wall-clock
-fitness is noisy, machine-specific, and unreproducible across platforms. Our fitness
-combines a common kernel-work counter with a Rust-specific traversal counter. For a fixed
+fitness is noisy and machine-specific, so its ranking need not transfer across runs or
+platforms. Our fitness combines a common kernel-work counter with a Rust-specific traversal
+counter. For a fixed
 port implementation, the resulting input ranking is deterministic and independent of timing
 noise. Analytic saturation is established by checking the common counter against its bound,
 not by a comparative advantage of the counter fitness. The common kernel-work axis supports
@@ -41,7 +41,8 @@ Rust traversal counter does not transfer; C++ results are observations over thos
 inputs and do not establish a C++-specific traversal extremum.
 
 For ROS-based systems, Casini et al.~\cite{casini2019ros2} bound end-to-end response times
-of ROS~2 processing chains under reservation-based scheduling, treating per-callback WCETs as given inputs. Such analyses
+of ROS~2 processing chains under reservation-based scheduling, treating per-callback WCETs
+as given inputs. Such analyses
 are complementary to ours: we establish a structural work envelope and timing evidence for
 the dominant callback kernel, the \ndt{} align, that those chain analyses consume. We also
 remove per-point heap allocation and other structural
@@ -50,13 +51,12 @@ hazards that would otherwise make the per-callback WCET assumption fragile.
 In real-time and safety-critical systems, Rust's ownership model underpins systems such as
 the Tock embedded
 OS~\cite{levy2017tock}, and RustBelt~\cite{jung2018rustbelt} gives machine-checked foundations
-for its safety claims. In safe Rust, ownership, lifetime, and aliasing rules discharge
-memory-safety and data-race-freedom obligations that an equivalent C++ implementation would
-need to establish through its own design and verification evidence. This advantage does not
+for its safety claims. Safe Rust encodes memory-safety and data-race-freedom obligations in the type system;
+an equivalent C++ implementation would need separate design and verification evidence. This advantage does not
 establish WCET: panic-freedom, allocation-freedom, recursion-freedom, and bounded loops on
 the hot path remain separate requirements. We show these can be made lint- and test-enforced
-properties of a production kernel. In this case study, the high-fidelity,
-per-input-checked port also serves as an analysis instrument: its safe core narrows the
+properties of an industrial kernel. In this case study, the per-input-checked port also
+serves as an analysis instrument: its safe core narrows the
 verification surface while carrying the instrumentation burden for both languages.
 
 For \ndt{} scan matching, registration originates with Biber and

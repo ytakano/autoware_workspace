@@ -11,14 +11,14 @@ comes from one machine. The campaign compares complete deployable implementation
 release settings, not languages in isolation; compiler flags have no exact cross-toolchain
 mapping, and allocators, layouts, kd-trees, libraries, and compiler choices all contribute.
 Real replay is single-shot per frame, and parallel results omit worker scheduling and
-interference, so neither supports a multi-core WCET claim.
+interference, so neither supports a multi-core WCET claim. The unified campaign and
+$P$-sweep are the primary bounded-build timing evidence. Bridge, parallel, subnormal-control,
+real-data, and AArch64 results are artifact-pinned auxiliary experiments; they are not pooled
+with the primary campaign, and their measurements do not characterize its binary.
 
 Search covers a parameterized generator, not all inputs. Kernel-evaluation saturation is
 exact, but the traversal objective is the Rust-specific kd-node count and has only its
-$O(N_{\mathrm{leaves}})$ structural cap; a slower Rust geometry may exist. The ablation
-compares four informed-seed hill runs, three random-genome runs, and two wall-clock runs.
-The unequal initial distributions and small replicate counts prevent a strategy-level
-ranking. The counter vector also omits empty-query frequency, fixed per-point overhead,
+$O(N_{\mathrm{leaves}})$ structural cap; a slower Rust geometry may exist. The counter vector also omits empty-query frequency, fixed per-point overhead,
 solver branches, and numerical regime. No independent search uses the C++ FLANN distance or
 plane-evaluation counters, so C++ timing evidence is limited to observations over the
 transferred fixture set. The real-data evidence covers one
@@ -32,7 +32,7 @@ co-resident workloads. Same-engine repetitions also diverge, preventing whole-dr
 language attribution; environment-gated EKF tracing may itself perturb scheduling.
 
 \subsection{Cross-language and cross-ISA validity}
-Two corrected port gaps reduced real-frame iteration-count divergence to
+For the evaluated port, real-frame iteration-count divergence occurs on
 \realIterationDivergent{} of \realFrames{} frames, all among the \realOnMap{} on-map set
 (\realOnMapDivPct\%). The stricter $E_{\mathrm{base}}$ criterion excludes
 \realBaseDivergent{} on-map frames: \realOutputDivergent{} have equal iterations but exceed
@@ -48,15 +48,15 @@ digest includes means and regularized inverse covariances, yet agrees on only
 frames. Consequently, neither digest establishes full semantic equivalence. SHA-256
 collisions remain computationally possible. The C++ trace records complete uncapped
 neighbor lists, so shape agreement confirms at most \maxnn{} leaves at the C++ query
-coordinates. The current Rust search detects a 65th leaf at its own coordinate; the
-post-change \runtimeValidationFrames{}-frame replay triggered no such diagnostic. This
+coordinates. The Rust search detects a 65th leaf at its own coordinate; a
+\runtimeValidationFrames{}-frame validation replay triggered no such diagnostic. This
 does not remove the coordinate difference or retroactively add the diagnostic to the
 cross-language trace relation.
 
-The Rust stream targets ISA stability through software \texttt{libm} and no FMA contraction;
-all \raspiTotal{} frozen fixtures match on the AArch64 target. This is a per-fixture check,
-not a general ISA proof. The initial stale-baseline mismatch also shows that expected
-counters must be commit-pinned. The C++ leg remains x86/Linux-specific because it depends
+The Rust stream targets ISA stability through software \texttt{libm} and no fused
+multiply-add (FMA) contraction; all \raspiTotal{} frozen fixtures match on the AArch64
+target. This is a per-fixture check, not a general ISA proof. Expected counters and fixture
+bytes must remain commit-pinned. The C++ leg remains x86/Linux-specific because it depends
 on PCL and ROS.
 
 \subsection{Safety and contract scope}
@@ -70,7 +70,7 @@ the C ABI, unsafe internals, and trusted dependencies remain in scope. Likewise,
 Table~\ref{tab:preconditions} distinguishes enforced limits from assumptions.
 Engine-configuration stress fixtures are API-legal but need not satisfy production
 preprocessing contracts. Those contracts include tile geometry, downsampling, and the
-tighter operational $P\le1500$ cap. The Rust engine now
+tighter operational $P\le1500$ cap. The evaluated Rust engine
 enforces $P\le\runtimePMax$ and $N_{\mathrm{leaves}}\le\runtimeLeavesMax$, but it does
 not verify the tighter preprocessing or geometry conditions. Production must
 validate static map conditions at load time and per-scan conditions before alignment, with a
@@ -83,10 +83,12 @@ No searched contract-conforming input combines $K=8$ with 30 shipped-parameter i
 ceiling has no witness and assumes boundary and floating-point behavior. A
 \legalKSearchSeeds{}-seed contract-conforming search reaches only
 $K=\legalKSearchMax$; this is evidence, not proof, that reachable $K$ stays below the
-ceiling. The affine $P$ fit is validated only
-for $P\in[\psweepPmin{},\psweepPmax{}]$ on the host, and allocation freedom holds only
-inside pre-reserved capacities. Allocation freedom removes one kernel-level latency path;
-it does not bound interrupts, system-management interrupts, page faults, scheduler delays,
+ceiling. The affine $P$ fit is validated only for the capacity-parameterized family
+$P\in[\psweepPmin{},\psweepPmax{}]$ on the host; each point uses $P_{\max}=P$, so the
+rows above \runtimePMax{} do not belong to the principal source-capacity configuration.
+Allocation freedom holds only inside the capacity reserved for the selected configuration and
+removes one kernel-level latency path. It does not bound interrupts, system-management
+interrupts, page faults, scheduler delays,
 or memory-hierarchy interference on the Linux host.
 
 \subsection{Evidence strength}
@@ -98,8 +100,10 @@ machine-checked formal proof. The Rust envelope's maximum for the common
 kernel-evaluation term has an exact saturation witness, whereas neither a Rust traversal
 maximum nor a C++ traversal extremum is established.
 
-All times are platform-specific observations. Tail extrapolation is withheld because the
-diagnostic finds serial dependence reaching $|\mathrm{ACF}|=\evtAcfWorst$. Separately, the
+All times are platform-specific observations. The tail diagnostics find serial dependence
+reaching $|\mathrm{ACF}|=\evtAcfWorst$; moreover, \evtFitFailures{} of
+\evtFitChecks{} fits fail the in-sample adequacy check. Extrapolation is therefore
+withheld. Separately, the
 bridge experiment associates
 the controlled configuration with a \SI{\bridgeCppTaxMinMs}--\SI{\bridgeCppTaxMaxMs}{ms}
 unresolved C++ shift. The result is therefore a structurally enforced and property-tested

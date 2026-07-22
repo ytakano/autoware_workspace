@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tail-model diagnostics for the Isolated warm samples (roadmap C2, stdlib-only).
+"""Tail-model diagnostics for the Isolated warm samples (stdlib-only).
 
 Method (plan/ndt_timing_measurement_policy.md, "pWCET and EVT Policy"):
 - Input: paper/data/wcet.json (pooled Isolated warm samples). The pooled stream is split
@@ -7,24 +7,19 @@ Method (plan/ndt_timing_measurement_policy.md, "pWCET and EVT Policy"):
   guarded against the recorded per_session_median. Fits are per session because the pooled
   stream is non-stationary across sessions (documented level shifts up to ~3%).
 - Peaks-over-threshold with a 2-parameter generalized Pareto MLE (Nelder-Mead on
-  (xi, log beta)); threshold sweep over the 90/92.5/95/97.5/99% empirical quantiles for
-  parameter stability; the working threshold is the 95% quantile.
-- Per-align exceedance quantiles follow directly from POT (no per-block conversion):
-  q(p) = u + beta/xi * ((p/zeta)^(-xi) - 1), zeta = n_u/n. For xi < 0 the fitted tail is
-  bounded with upper endpoint u - beta/xi.
-- 95% CIs by seeded bootstrap over the exceedances (1000 draws).
-- Diagnostics: lag-1..10 autocorrelation per session (independence), split-half p99
-  agreement within sessions (stationarity within), cross-session spread of the fits
-  (stationarity across), and a Gumbel/GEV block-maxima comparison at block sizes 10/25/50.
+  (xi, log beta)) at the 95% empirical quantile.
+- Diagnostics: lag-1..10 autocorrelation per session, an in-sample p99.9 adequacy check,
+  and a pooled Gumbel block-maxima comparison. These diagnostics document why no
+  extrapolation is reported.
 
 Outputs: tables/evt.tex + tables/evt_macros.tex. The script fails loudly if the per-session
-split guard or an in-sample sanity check breaks (regenerate-or-break, like gen_tables.py).
+split guard breaks. In-sample fit failures are reported as rejection diagnostics rather than
+treated as pipeline errors.
 """
 
 import json
 import math
 import pathlib
-import random
 import statistics
 import sys
 
@@ -40,9 +35,6 @@ LABEL = {
 }
 N_SESSIONS = 3
 WORK_Q = 0.95  # working threshold quantile
-SWEEP_QS = [0.90, 0.925, 0.95, 0.975, 0.99]
-BOOT = 1000
-P_TARGETS = [1e-6, 1e-9]
 EULER_GAMMA = 0.5772156649015329
 
 
@@ -133,10 +125,6 @@ def gpd_quantile(u, xi, beta, zeta, p):
     return u + beta / xi * ((p / zeta) ** (-xi) - 1.0)
 
 
-def gpd_endpoint(u, xi, beta):
-    return u - beta / xi if xi < 0 else None
-
-
 # ---------------------------------------------------------------------------
 # Diagnostics
 # ---------------------------------------------------------------------------
@@ -175,65 +163,30 @@ def per_session(fx, eng):
     return sessions
 
 
-def analyze(name, fx, eng, rng):
+def analyze(fx, eng):
     rows = []
     for s_idx, xs in enumerate(per_session(fx, eng)):
         srt = sorted(xs)
         n = len(srt)
-        # Threshold sweep for stability.
-        sweep = []
-        for q in SWEEP_QS:
-            u = quantile(srt, q)
-            ys = [x - u for x in srt if x > u]
-            if len(ys) < 10:
-                continue
-            xi, beta, _ = fit_gpd(ys)
-            sweep.append((q, u, len(ys), xi, beta))
         # Working fit at the 95% threshold.
         u = quantile(srt, WORK_Q)
         ys = [x - u for x in srt if x > u]
         xi, beta, _ = fit_gpd(ys)
         zeta = len(ys) / n
-        # Bootstrap CIs over the exceedances.
-        boots = []
-        for _ in range(BOOT):
-            sample = [ys[rng.randrange(len(ys))] for _ in ys]
-            try:
-                bxi, bbeta, _ = fit_gpd(sample)
-            except (ValueError, OverflowError):
-                continue
-            boots.append((bxi, bbeta))
-        boots_xi = sorted(b[0] for b in boots)
-        q9s = sorted(gpd_quantile(u, b[0], b[1], zeta, 1e-9) for b in boots)
-        ends = sorted(gpd_endpoint(u, b[0], b[1]) for b in boots if b[0] < 0)
-
-        def ci(xs_sorted):
-            return (xs_sorted[int(0.025 * len(xs_sorted))],
-                    xs_sorted[int(0.975 * len(xs_sorted))]) if xs_sorted else (None, None)
-
         # In-sample sanity: the fitted quantile at the empirical p99.9 exceedance
         # probability must sit near the empirical value (within 3x the tail width).
         emp999 = quantile(srt, 0.999)
         fit999 = gpd_quantile(u, xi, beta, zeta, 0.001)
         tail_width = max(srt[-1] - u, 1e-9)
-        if abs(fit999 - emp999) > 3.0 * tail_width:
-            raise SystemExit(
-                f"{name}/{eng}/s{s_idx + 1}: in-sample sanity failed "
-                f"(fitted p99.9 {fit999:.3f} vs empirical {emp999:.3f})")
+        sanity_error = abs(fit999 - emp999)
         rows.append({
             "session": s_idx + 1,
             "n": n, "u": u, "n_u": len(ys), "zeta": zeta,
-            "xi": xi, "xi_ci": ci(boots_xi), "beta": beta,
-            "q6": gpd_quantile(u, xi, beta, zeta, 1e-6),
-            "q9": gpd_quantile(u, xi, beta, zeta, 1e-9),
-            "q9_ci": ci(q9s),
-            "endpoint": gpd_endpoint(u, xi, beta),
-            "endpoint_ci": ci(ends),
+            "xi": xi, "beta": beta,
             "max": srt[-1],
             "acf_max": max(abs(a) for a in acf(xs)),
-            "split_half_p99": (quantile(sorted(xs[:n // 2]), 0.99),
-                               quantile(sorted(xs[n // 2:]), 0.99)),
-            "sweep_xi_range": (min(s[3] for s in sweep), max(s[3] for s in sweep)),
+            "sanity_ok": sanity_error <= 3.0 * tail_width,
+            "sanity_error_widths": sanity_error / tail_width,
         })
     return rows
 
@@ -259,65 +212,58 @@ def main():
     manifest = doc["meta"]["manifest"]
     if manifest.get("measurement_profile") != "B":
         raise SystemExit("wcet.json is not Isolated data")
-    rng = random.Random(0xE47E47)
-
     results = {}
     diag_acf_worst = 0.0
-    diag_split_worst = 0.0
-    diag_xi_sweep_worst = 0.0
     for name in TAIL_FIXTURES:
         for eng in ("cpp", "rust"):
-            rows = analyze(name, fixtures[name], eng, rng)
+            rows = analyze(fixtures[name], eng)
             results[(name, eng)] = rows
             for r in rows:
                 diag_acf_worst = max(diag_acf_worst, r["acf_max"])
-                a, b = r["split_half_p99"]
-                diag_split_worst = max(diag_split_worst, abs(b / a - 1.0) * 100.0)
-                lo, hi = r["sweep_xi_range"]
-                diag_xi_sweep_worst = max(diag_xi_sweep_worst, hi - lo)
 
     # Table: tail diagnostics per fixture x engine -- empirical tail + the two
     # diagnostics that gate extrapolation (serial dependence; fit instability).
     rows_tex = []
-    ci_explode_worst = 0.0
+    fit_failures = 0
+    fit_checks = 0
+    fit_error_worst = 0.0
     for name in TAIL_FIXTURES:
         for eng, lab in (("cpp", "C++"), ("rust", "Rust")):
             rs = results[(name, eng)]
             mx = max(r["max"] for r in rs)
-            p50 = statistics.median(
-                statistics.median([r["u"] for r in rs]) for _ in (0,))  # placeholder unused
             acf_lo = min(r["acf_max"] for r in rs)
             acf_hi = max(r["acf_max"] for r in rs)
             xi_lo = min(r["xi"] for r in rs)
             xi_hi = max(r["xi"] for r in rs)
-            q9_hi = max(r["q9_ci"][1] for r in rs if r["q9_ci"][1] is not None)
-            ci_explode_worst = max(ci_explode_worst, q9_hi)
+            failures = sum(not r["sanity_ok"] for r in rs)
+            fit_failures += failures
+            fit_checks += len(rs)
+            fit_error_worst = max(fit_error_worst, *(r["sanity_error_widths"] for r in rs))
             first = LABEL[name] if eng == "cpp" else ""
             rows_tex.append(
                 f"{first} & {lab} & {fmt(mx)} & "
                 f"{acf_lo:.2f}--{acf_hi:.2f} & "
-                f"{xi_lo:.2f}..{xi_hi:.2f} & {fmt(q9_hi, 0)}"
+                f"{xi_lo:.2f}..{xi_hi:.2f} & {failures}/{len(rs)}"
             )
 
     # Gumbel/GEV block-maxima comparison on the pooled search_00 C++ stream.
     xs = fixtures["search_00"]["cpp"]["samples_ms"]
-    gum = {b: gumbel_blocks(xs, b) for b in (10, 25, 50)}
-    gum_q9_spread = max(g[2] for g in gum.values()) - min(g[2] for g in gum.values())
+    gum = gumbel_blocks(xs, 10)
 
     lines = [
         "% AUTO-GENERATED by scripts/evt.py -- do not hand-edit.",
         r"\begin{table}[t]",
         r"\centering",
-        r"\caption{Rejected per-session POT/GPD tail models ($n{=}1000$/session; 95\% threshold;"
-        r" \evtBoot{} bootstrap draws). Dependence invalidates extrapolation; the fitted values"
-        r" are diagnostic outputs, not timing estimates. Times in \si{ms}.}",
+        r"\caption{Rejected per-session POT/GPD tail models ($n{=}1000$/session; 95\% threshold)."
+        r" Dependence or in-sample fit failure invalidates extrapolation; values are diagnostic"
+        r" outputs, not timing estimates. Times in \si{ms}.}",
         r"\label{tab:evt}",
         r"\footnotesize",
         r"\setlength{\tabcolsep}{3pt}",
         r"\begin{tabular}{llrrrr}",
         r"\toprule",
         r"fixture & engine & max & $|\mathrm{ACF}|_{\max}$ & $\xi$ range"
-        r" & $q_{10^{-9}}$ CI hi \\",
+        r" & fit failures \\",
         r"\midrule",
     ]
     lines += [r + r" \\" for r in rows_tex]
@@ -325,8 +271,9 @@ def main():
         r"\bottomrule",
         r"\end{tabular}",
         r"\par\smallskip\footnotesize ACF: largest lag-1--10 magnitude over three sessions"
-        r" (i.i.d.: ${\sim}0.03$). The last column is the worst bootstrap CI upper end;"
-        r" dependence makes it non-inferential. \emph{geom-stress} uses production-contract"
+        r" (i.i.d.: ${\sim}0.03$). Fit failures count sessions whose fitted p99.9 differs"
+        r" from the empirical p99.9 by more than three observed tail widths."
+        r" \emph{geom-stress} uses production-contract"
         r" geometry with non-shipped $\epsilon$; \emph{shipped-osc} also fixes shipped"
         r" $\epsilon$.",
         r"\end{table}",
@@ -335,34 +282,23 @@ def main():
     print("wrote tables/evt.tex")
 
     # Prose macros.
-    xi_max = max(r["xi"] for rs in results.values() for r in rs)
     s0 = results[("search_00", "cpp")]
-    q9_med = statistics.median(r["q9"] for r in s0)
     mx = max(r["max"] for r in s0)
     macros = [
         "% AUTO-GENERATED by scripts/evt.py -- do not hand-edit.",
-        rf"\newcommand{{\evtXiMax}}{{{xi_max:.2f}}}",
         rf"\newcommand{{\evtAcfWorst}}{{{diag_acf_worst:.2f}}}",
-        rf"\newcommand{{\evtSplitWorstPct}}{{{diag_split_worst:.1f}}}",
-        rf"\newcommand{{\evtXiSweepWorst}}{{{diag_xi_sweep_worst:.2f}}}",
-        rf"\newcommand{{\evtCiExplodeS}}{{{ci_explode_worst / 1000.0:.0f}}}",
-        rf"\newcommand{{\evtGumbelSpread}}{{{gum_q9_spread:.1f}}}",
-        rf"\newcommand{{\evtGumbelQNine}}{{{gum[10][2]:.1f}}}",
-        rf"\newcommand{{\evtGumbelExtraPct}}{{{100.0 * (gum[10][2] / mx - 1.0):.1f}}}",
-        rf"\newcommand{{\evtBoot}}{{{BOOT}}}",
+        rf"\newcommand{{\evtFitFailures}}{{{fit_failures}}}",
+        rf"\newcommand{{\evtFitChecks}}{{{fit_checks}}}",
+        rf"\newcommand{{\evtGumbelExtraPct}}{{{100.0 * (gum[2] / mx - 1.0):.1f}}}",
     ]
     (OUT / "evt_macros.tex").write_text("\n".join(macros) + "\n", encoding="utf-8")
     print("wrote tables/evt_macros.tex")
 
     # Console diagnostics summary.
     print(f"diagnostics: worst |ACF| lag1-10 = {diag_acf_worst:.3f}; "
-          f"worst split-half p99 delta = {diag_split_worst:.2f}%; "
-          f"worst xi sweep range = {diag_xi_sweep_worst:.2f}; "
-          f"all xi < 0: {xi_max < 0}")
-    print(f"search_00 cpp: q(1e-9) median {q9_med:.1f} ms vs max {mx:.1f} ms "
-          f"({100 * (q9_med / mx - 1):+.1f}%)")
-    print(f"gumbel comparison (search_00 cpp, pooled): "
-          + ", ".join(f"block {b}: q9={g[2]:.1f} (n={g[3]})" for b, g in gum.items()))
+          f"in-sample failures = {fit_failures}/{fit_checks}")
+    print(f"gumbel comparison (search_00 cpp, block 10): "
+          f"q9={gum[2]:.1f} (n={gum[3]})")
     return 0
 
 

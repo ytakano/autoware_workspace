@@ -9,7 +9,7 @@ $6{\times}6$ Hessian over point--leaf pairs, solves the Newton system, and updat
 six-degree-of-freedom pose. Execution stops at update threshold $\epsilon$ or the
 30-iteration cap.
 
-We study the serial Autoware multigrid engine derived from
+We study the serial Autoware multigrid engine, based on the Point Cloud Library (PCL) and derived from
 \texttt{ndt\_omp}~\cite{autoware,ndtomp}. Dynamic map tiles retain separate voxel grids,
 while one kd-tree spans all leaf centroids; overlapping tiles can therefore multiply
 neighbors. The \emph{engine} is the align kernel and map structures. The ROS \emph{node}
@@ -18,20 +18,21 @@ kernel.
 
 \subsection{Execution-time decomposition and notation}
 \label{sec:decomposition}
-For one align invocation, we use the following parametric decomposition of the modeled
-kernel time:
+For one align invocation, let $T_{\mathrm{model}}$ denote the modeled kernel time, $P$ the
+number of source points, and $p\in\{1,\ldots,P\}$ a source-point index. Let
+$N_{\mathrm{iter}}$ be the number of completed Newton updates and $N_{\mathrm{pass}}$ the
+number of derivative-evaluation passes. For point $p$, $T_{\mathrm{search}}(p)$ bounds one
+radius search and $K(p)$ bounds the number of returned leaves. Finally,
+$T_{\mathrm{kernel}}$ bounds one point--leaf score, gradient, and Hessian evaluation, and
+$T_{\mathrm{solve}}$ bounds one Newton solve and pose update. We use the following
+parametric decomposition:
 \begin{equation}
  T_{\mathrm{model}}\le N_{\mathrm{pass}}\sum_{p=1}^{P}
  \bigl(T_{\mathrm{search}}(p)+K(p)T_{\mathrm{kernel}}\bigr)
  +N_{\mathrm{iter}}T_{\mathrm{solve}}.
  \label{eq:decomp}
 \end{equation}
-Here, $p$ indexes the $P$ source points, $N_{\mathrm{iter}}$ is the number of completed
-Newton updates, and $N_{\mathrm{pass}}$ is the number of derivative-evaluation passes.
-$T_{\mathrm{search}}(p)$ bounds one radius search for point $p$, $K(p)$ bounds the number
-of leaves returned by that search, $T_{\mathrm{kernel}}$ bounds one point--leaf score,
-gradient, and Hessian evaluation, and $T_{\mathrm{solve}}$ bounds one Newton solve and pose
-update. The pass index is suppressed by taking $T_{\mathrm{search}}(p)$ and $K(p)$ as
+The pass index is suppressed by taking $T_{\mathrm{search}}(p)$ and $K(p)$ as
 maxima over the passes of the invocation. These $T_*$ terms are symbolic unit-cost bounds,
 not coefficients inferred from the timing measurements. We write
 $K=\max_{1\le p\le P}K(p)$ for the maximum neighbor multiplicity over the complete
@@ -39,19 +40,20 @@ invocation.
 
 The shipped configuration disables line-search derivative refinement, so one initial pass
 plus one pass per Newton step gives $N_{\mathrm{pass}}=N_{\mathrm{iter}}+1\le31$.
-The bounded Rust engine enforces $P\le P_{\max}=\runtimePMax$,
-$N_{\mathrm{leaves}}\le L_{\max}=\runtimeLeavesMax$, and
-$K(p)\le\maxnn=64$. Here, $P_{\max}$ is the configured source-point limit,
-$N_{\mathrm{leaves}}$ is the number of active map leaves indexed by the kd-tree,
-$L_{\max}$ is its configured limit, and \maxnn{} is the per-query neighbor cap. A kd
-traversal visits at most $N_{\mathrm{leaves}}$ nodes per query. Production replay
-observed at most 1500 scan points, while engine stress fixtures use 2000. The larger
-configured value covers both sets. Table~\ref{tab:preconditions} records the enforced
-limits and violation behavior.
+The bounded Rust engine enforces $P\le P_{\max}$,
+$N_{\mathrm{leaves}}\le L_{\max}$, and $K(p)\le\maxnn=64$. Here, $P_{\max}$ is
+the configured source-point limit, $N_{\mathrm{leaves}}$ is the number of active map
+leaves indexed by the kd-tree, $L_{\max}$ is its configured leaf limit, and \maxnn{} is
+the per-query neighbor cap. A kd traversal visits at most $N_{\mathrm{leaves}}$ nodes per
+query. The principal evaluation configuration uses $P_{\max}=\runtimePMax$ and
+$L_{\max}=\runtimeLeavesMax$: production replay observes at most 1500 scan points, while
+the engine stress fixtures use 2000. Section~\ref{sec:eval-psweep} separately varies the
+configured $P_{\max}$. Table~\ref{tab:preconditions} records the principal limits and
+violation behavior.
 
 We count total point--leaf evaluations as \sumnbr, total Rust kd nodes as \kdnodes, and
-$\bar K=\sumnbr/(P N_{\mathrm{pass}})$. For C++, we aggregate the FLANN traversal
-events as
+$\bar K=\sumnbr/(P N_{\mathrm{pass}})$. For C++, we aggregate the Fast Library for Approximate Nearest Neighbors (FLANN)
+traversal events as
 $\flannevals=\Sigma_{\mathrm{dist}}^{C}+\Sigma_{\mathrm{plane}}^{C}$, the sum of
 distance and split-plane evaluations. Thus \sumnbr{} is included in the work-trace
 conformance check, whereas \kdnodes{} and \flannevals{} count different events and their
@@ -64,7 +66,8 @@ platform-specific bounds.
 \subsection{Why work bounds need timing evidence}
 Individual maxima need not be jointly reachable, so constructed inputs are witnesses, not
 upper bounds. Cache, allocator, and floating-point costs are absent from the work model.
-In particular, C++ performs about 11 heap allocations per point per derivative pass. This
-is a known input-proportional latency path whose cost is not bounded by the work model;
+In particular, C++ performs about 11 heap allocations per point per derivative pass on
+neighbor-returning fixtures. This is a known input-proportional latency path whose cost is
+not bounded by the work model;
 removing it eliminates one such path but does not by itself establish a finite latency bound
 for the kernel or the surrounding Linux system.

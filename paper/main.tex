@@ -1,6 +1,3 @@
-% WCET analysis of the NDT scan-matching engine: C++ vs a high-fidelity Rust port
-% (work-trace conformance checked on individually compared inputs).
-% Class: IEEEtran conference (switch to LIPIcs for the ECRTS WCET Workshop if accepted style differs).
 % Build: make  (latexmk -pdf main)
 \documentclass[conference]{IEEEtran}
 
@@ -26,22 +23,17 @@
 \input{tables/tails_macros}
 \input{tables/evt_macros}
 \input{tables/env_macros}
-\input{tables/oneoff_macros}
 \input{tables/cert_macros}
 \input{tables/legal_k_macros}
 \input{tables/raspi4_macros}
 \input{tables/interference_macros}
-\input{tables/ablation_macros}
 \input{tables/bridge_macros}
 \input{tables/raspi4_timing_macros}
 \input{tables/tracecert_macros}
 \input{tables/parallel_macros}
 \input{tables/subnormal_ab_macros}
 \input{tables/runtime_limits_macros}
-
-% --- editing aids (strip before submission) ---
-\newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
-\newcommand{\tentative}[1]{\textcolor{blue}{#1}}
+\input{tables/stack_replay_macros}
 
 % --- consistent terminology ---
 \newcommand{\ndt}{NDT}
@@ -60,8 +52,7 @@ Cross-Language Work-Trace Conformance}
 
 \author{%
   \IEEEauthorblockN{Yuuki Takano}
-  \IEEEauthorblockA{TIER IV, Inc.\\
-  \todo{email / co-authors / affiliations}}
+  \IEEEauthorblockA{TIER IV, Inc.}
 }
 
 \maketitle
@@ -70,16 +61,16 @@ Cross-Language Work-Trace Conformance}
 The execution time of Normal Distributions Transform (\ndt) scan matching is strongly
 input-dependent, complicating worst-case execution-time (WCET) analysis on the localization
 critical path. We analyze the align kernel of the industrial Autoware matcher; map loading,
-preprocessing, and ROS scheduling are outside the scope. The Rust port reduces the
+preprocessing, and Robot Operating System (ROS) scheduling are outside the scope. The Rust port reduces the
 low-level verification surface of the safe core and supports \texttt{no\_std}, but bounded
-execution is not Rust-specific and the FFI, unsafe code, and dependencies remain trusted.
+execution is not Rust-specific and the foreign-function interface (FFI), unsafe code, and dependencies remain trusted.
 Our three-layer method establishes a conditional structural work bound, generates stress
 witnesses using Rust instrumentation counters, and measures frozen witnesses. It separates
 algorithmic work from platform-specific time per unit work and does not claim a certified
 hard time bound.
 A domain-informed construction saturates the Rust envelope's analytic maximum for the
-common kernel-evaluation term; subsequent counter-guided search increases the Rust
-implementation's kd-node count. C++ timing
+common kernel-evaluation term; two additional archived candidates exercise high Rust
+kd-node counts at lower common-kernel work. C++ timing
 remains an observation over the transferred fixture set, not a search for a C++ traversal
 extremum. Per-input traces provide evidence that Rust and C++ perform the same recorded work
 shape on trace-conformant inputs.
@@ -87,21 +78,20 @@ We call this relation work-trace conformance; leaf payloads, implementation-spec
 traversal, and latency remain distinct. The input-domain analysis separates the
 bounded-neighbor engine contract from the production preprocessing contract, while the
 experiments separately identify engine-configuration and shipped-configuration stress.
-In a cropped-map, degraded-prior stress replay drawn from a 57-minute drive, only
-\realOnMap{} frames perform on-map matching; \realShapeOnMap{} satisfy both base agreement
-and work-trace conformance, \realBaseOnly{} satisfy base agreement only, and
-\realBaseDivergent{} fall outside the base criterion. Of the last group,
-\realIterationDivergent{} diverge in iteration count. In the unified three-boot synthetic
-campaign, the largest recorded values are \SI{\unifiedFixtureMaxCpp}{ms} for C++ and
+An auxiliary cropped-map, degraded-prior replay exposes residual work-trace and
+iteration-count divergence and is reported separately from the primary timing campaign.
+In the unified three-boot synthetic campaign, the largest recorded values are
+\SI{\unifiedFixtureMaxCpp}{ms} for C++ and
 \SI{\unifiedFixtureMaxRust}{ms} for Rust. Rust has the smaller observed maximum on all
 \tailsRustFasterCount{} paired fixtures.
-The Rust port also removes approximately \allocPerPtPass{} heap allocations per point per
-derivative pass within its reserved envelope.
+On neighbor-returning fixtures, the C++ baseline performs approximately
+\allocPerPtPass{} heap allocations per point per derivative pass; the Rust align path
+measures zero within its reserved envelope.
 \end{abstract}
 
 \begin{IEEEkeywords}
-WCET, bounded execution, counter-guided stress testing, Rust, scan matching, NDT, autonomous
-driving, localization
+timing evidence, structural work bounds, Rust, scan matching, NDT, autonomous driving,
+localization
 \end{IEEEkeywords}
 
 \input{sections/01-introduction}
