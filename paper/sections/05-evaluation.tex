@@ -314,7 +314,8 @@ deadline compliance or multi-core WCET.
 To relate the two tiers to real inputs, we used an environment-gated hook at the engine
 entry points to capture each NDT input: the map tile, per-align guess, and source cloud. The
 capture contains \realFrames{} aligns collected after production preprocessing during a
-57-minute urban drive in İstanbul. Both engines replayed the resulting buffers offline with
+57-minute urban drive in İstanbul from the Istanbul Open Dataset~\cite{istanbulopendataset}.
+Both engines replayed the resulting buffers offline with
 cost counters enabled. The harness could not reproduce the production localization filter's
 prior quality, so the frozen guess track uses NDT odometry with constant-velocity
 extrapolation from a global-navigation-satellite-system (GNSS) seed. This track represents

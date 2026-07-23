@@ -2,7 +2,7 @@
 \label{sec:implementation}
 
 \subsection{Engines and real-time hardening}
-The baseline is serial PCL/OpenMP multigrid \ndt{}~\cite{autoware,ndtomp}. The Rust port
+The baseline is serial PCL/OpenMP multigrid \ndt{}~\cite{autoware,autowarecore,ndtomp}. The Rust port
 is connected to the node through a bounded C application binary interface (ABI) and also
 builds as \texttt{no\_std}. The constructor receives explicit work limits, and each align
 call receives caller-owned scratch. This bounded ABI is an internal integration boundary.
@@ -10,6 +10,9 @@ The Rust-backed node retains the evaluated ROS-facing behavior, which does not i
 closed-loop equivalence. Differential tests cover voxel construction, align,
 engine, and node paths. The primary unified campaign and $P$-sweep use
 autoware\_core commit \texttt{\envCommit}.
+The Rust engine source, documentation, frozen-fixture generator, and short Rust-only
+evaluation script are publicly available at commit \texttt{12f9e9a} in the
+\texttt{realtime\_core} repository~\cite{tier4realtimecore}.
 
 The following are explicit constraints, not automatic Rust or \texttt{no\_std} properties:
 \begin{itemize}
