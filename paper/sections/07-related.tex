@@ -1,67 +1,66 @@
 \section{Related Work}
 \label{sec:related}
 
-Static WCET analyzers in the aiT tradition compute certified bounds from abstract cache and
-pipeline
-models~\cite{ferdinand2001ait}; Wilhelm et al.~\cite{wilhelm2008wcet} survey the field. These
-methods excel on control-dominated code whose loop bounds are program constants or annotatable
-invariants. In our kernel, the Newton iteration count, per-point neighbor multiplicity, and
-kd-tree traversal length are properties of the \emph{input geometry}. Static analysis alone
-can only return the product of the individual maxima in Eq.~\eqref{eq:decomp}, with no
-evidence that any input realizes it. Our first analysis layer retains the structural bound,
-enforces its terms by construction, and checks them with property-based testing; the second
-and third layers supply witness inputs and platform timing.
+Static WCET analyzers derive certified time bounds from program-flow and hardware
+models~\cite{ferdinand2001ait,wilhelm2008wcet}. Parametric WCET analysis retains
+input-dependent quantities in symbolic formulas~\cite{bygde2008parametric,huber2012parametric};
+static analysis is therefore not limited to multiplying independent maxima. In this NDT
+kernel, however, Newton iterations, neighbor multiplicity, and kd-tree traversal are jointly
+induced by floating-point geometry, while a useful bound must be tied to a realizable input.
+Our parameterized work envelope is not a processor-time analysis: it enforces and
+property-tests structural limits, constructs witnesses for selected terms, and measures them.
+It complements rather than replaces certified static hardware analysis.
 
-Measurement-based and probabilistic timing analysis (MBPTA) applies extreme value theory
-(EVT) to measured execution times to extrapolate probabilistic worst-case execution time
-(\pwcet{})~\cite{edgar2001gumbel,cucu2012mbpta}; Cazorla et al.~\cite{cazorla2019mbpta} give a
-survey. A central limitation is \emph{representativity}: EVT bounds only the behaviors
-exercised by the measurement protocol. This limitation has motivated randomized platforms
-and measurement protocols~\cite{lima2017evt}, statistical estimation and validation
-procedures~\cite{hansen2009statistical}, and reusable tooling~\cite{reghenzani2018chronovise}.
-We address representativity from the input side by constructing stress inputs and evaluating
-them with deterministic, timing-independent Rust counters. The domain-informed construction reaches the configured ceiling on common kernel work. A
-secondary POT/GPD diagnostic on the frozen stress measurements
-fails its diagnostic gates, so we withhold tail extrapolation as detailed in
-Sec.~\ref{sec:eval-evt}. The timing evidence therefore consists of observed maxima, not an
-MBPTA estimate.
+Measurement-based probabilistic timing analysis (MBPTA) applies extreme value theory (EVT)
+to execution-time samples to infer probabilistic worst-case execution time
+(\pwcet{})~\cite{edgar2001gumbel,cucu2012mbpta,cazorla2019mbpta}. Its validity depends on both
+test coverage~\cite{law2016coverage} and the statistical structure of the measurements.
+Lima et al.~\cite{lima2016careful} discuss failure modes in applying EVT to execution times;
+Guet et al.~\cite{guet2017representativity} analyze serial dependence and multi-mode tasks,
+while Bozhko et al.~\cite{bozhko2023pwcet} formalize the guarantees ascribed to \pwcet{}.
+Classical dependent-EVT work formalizes local dependence and the extremal
+index~\cite{leadbetter1983extremes}; threshold-exceedance and declustering methods address
+serial dependence and clustered extremes~\cite{davison1990threshold,ferro2003clusters}.
+These concerns apply directly here because geometry induces distinct modes and the frozen
+series exhibit substantial autocorrelation. We address input coverage by constructing stress
+fixtures and ranking them with deterministic counters, but the generator still covers only a
+parameterized family. The POT/GPD fits fail the predeclared dependence or adequacy gates in
+Sec.~\ref{sec:eval-evt}; consequently, we report observed maxima rather than an extrapolated
+\pwcet{} estimate.
 
-Search-based generation of worst-case inputs for timing constraints dates to Wegener et
-al.~\cite{wegener1997testing,wegener2001comparison}, who evolve test data with \emph{measured
-execution time} as fitness and note the complementarity with static analysis. Wall-clock
-fitness is noisy and machine-specific, so its ranking need not transfer across runs or
-platforms. Our fitness combines a common kernel-work counter with a Rust-specific traversal
-counter. For a fixed
-port implementation, the resulting input ranking is deterministic and independent of timing
-noise. Analytic saturation is established by checking the common counter against its bound,
-not by a comparative advantage of the counter fitness. The common kernel-work axis supports
-cross-language transfer: a Rust-search input is replayed
-on the production C++ engine, and the replay checks work-trace conformance per input. The
-Rust traversal counter does not transfer; C++ results are observations over those transferred
-inputs and do not establish a C++-specific traversal extremum.
+Search-based timing-stress generation dates to Wegener et
+al.~\cite{wegener1997testing,wegener2001comparison}, who use measured execution time and
+describe evolutionary testing as complementary to static analysis. Because wall-clock
+fitness is noisy and platform-specific, we rank fixtures with a language-common kernel-work
+counter and a Rust-specific traversal counter. For a fixed Rust implementation, this ranking
+is timing-independent. Only the common counter is shown to reach its structural ceiling.
+Replaying Rust-search fixtures on C++ tests per-input work-trace conformance, but establishes
+neither a C++ traversal extremum nor a time bound.
 
-For ROS-based systems, Casini et al.~\cite{casini2019ros2} bound end-to-end response times
-of ROS~2 processing chains under reservation-based scheduling, treating per-callback WCETs
-as given inputs. Such analyses
-are complementary to ours: we establish a structural work envelope and timing evidence for
-the dominant callback kernel, the \ndt{} align, that those chain analyses consume. We also
-remove per-point heap allocation and other structural
-hazards that would otherwise make the per-callback WCET assumption fragile.
+ROS~2 chain analyses use callback WCETs to bound end-to-end response
+times~\cite{casini2019ros2}. Multi-executor analysis covers reaction time and data age in an
+autonomous-driving case study~\cite{teper2024ros2}, while a recent survey spans executor,
+communication, tracing, and accelerator timing~\cite{casini2026ros2survey}. ROS~2
+autonomous-driving architectures and ROS~2--Adaptive AUTOSAR integration add vehicle-level
+deployment context~\cite{bonci2026ros2av,hong2024autosar}. We work below that level, excluding
+map loading, scheduling, communication, and downstream callbacks. Our callback evidence is
+conditional and platform-specific, not a certified callback time or 10-Hz end-to-end
+guarantee.
 
-In real-time and safety-critical systems, Rust's ownership model underpins systems such as
-the Tock embedded
-OS~\cite{levy2017tock}, and RustBelt~\cite{jung2018rustbelt} gives machine-checked foundations
-for its safety claims. Safe Rust encodes memory-safety and data-race-freedom obligations in the type system;
-an equivalent C++ implementation would need separate design and verification evidence. This advantage does not
-establish WCET: panic-freedom, allocation-freedom, recursion-freedom, and bounded loops on
-the hot path remain separate requirements. We show these can be made lint- and test-enforced
-properties of an industrial kernel. In this case study, the per-input-checked port also
-serves as an analysis instrument: its safe core narrows the
-verification surface while carrying the instrumentation burden for both languages.
+Rust's ownership model supports resource-constrained systems such as Tock
+OS~\cite{levy2017tock}, while RustBelt~\cite{jung2018rustbelt} gives machine-checked
+foundations for core language safety claims. Safe Rust narrows memory-safety and data-race
+obligations in our safe core; it does not establish WCET. Panic-, allocation-, recursion-,
+and loop-boundedness remain separate, and unsafe code, the C ABI, and dependencies remain
+trusted. Here the port serves both as an engine and as a controlled instrumentation surface.
 
-For \ndt{} scan matching, registration originates with Biber and
-Stra{\ss}er~\cite{biber2003ndt} and was extended to 3D by
-Magnusson~\cite{magnusson2009thesis}. The engine studied here is Autoware's
-production localization matcher~\cite{autoware}, a multigrid variant of the multi-threaded
-\texttt{ndt\_omp} implementation~\cite{ndtomp}. Prior work on these implementations reports
-average-case throughput. We are not aware of a published WCET-oriented analysis of an \ndt{} engine.
+NDT registration originates with Biber and Stra{\ss}er~\cite{biber2003ndt} and was extended
+to 3D by Magnusson~\cite{magnusson2009thesis}. Autoware's production matcher~\cite{autoware}
+is a multigrid derivative of the parallel \texttt{ndt\_omp} implementation~\cite{ndtomp}.
+Prior work demonstrates real-time NDT pose correction and reports timing across map
+resolutions~\cite{lim2020realtimendt}; it primarily evaluates throughput, accuracy, and
+robustness. LIO-SAM and FAST-LIO2 likewise emphasize accuracy, rate, and computational
+efficiency in LiDAR--inertial localization~\cite{shan2020liosam,xu2022fastlio2}. We instead
+study conditional structural limits, stress witnesses, and cross-language work traces for one industrial align kernel, without proposing a localization
+method or a hard deadline guarantee. We are not aware of a published WCET-oriented NDT
+analysis with this combination.

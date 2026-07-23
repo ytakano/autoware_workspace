@@ -58,35 +58,29 @@ Cross-Language Work-Trace Conformance}
 \maketitle
 
 \begin{abstract}
-The execution time of Normal Distributions Transform (\ndt) scan matching is strongly
-input-dependent, complicating worst-case execution-time (WCET) analysis on the localization
-critical path. We analyze the align kernel of the industrial Autoware matcher; map loading,
-preprocessing, and Robot Operating System (ROS) scheduling are outside the scope. The Rust port reduces the
-low-level verification surface of the safe core and supports \texttt{no\_std}, but bounded
-execution is not Rust-specific and the foreign-function interface (FFI), unsafe code, and dependencies remain trusted.
-Our three-layer method establishes a conditional structural work bound, generates stress
-witnesses using Rust instrumentation counters, and measures frozen witnesses. It separates
-algorithmic work from platform-specific time per unit work and does not claim a certified
+Normal Distributions Transform (\ndt) scan matching has strongly input-dependent execution
+time on the localization critical path. We study the align kernel of Autoware's production
+matcher; map loading, preprocessing, and Robot Operating System scheduling are outside the
+timed scope. Our three-layer method enforces and property-tests a conditional structural work
+envelope, constructs stress witnesses with deterministic Rust counters, and measures frozen
+witnesses. It separates algorithmic work from platform time and does not claim a certified
 hard time bound.
-A domain-informed construction saturates the Rust envelope's analytic maximum for the
-common kernel-evaluation term; two additional archived candidates exercise high Rust
-kd-node counts at lower common-kernel work. C++ timing
-remains an observation over the transferred fixture set, not a search for a C++ traversal
-extremum. Per-input traces provide evidence that Rust and C++ perform the same recorded work
-shape on trace-conformant inputs.
-We call this relation work-trace conformance; leaf payloads, implementation-specific
-traversal, and latency remain distinct. The input-domain analysis separates the
-bounded-neighbor engine contract from the production preprocessing contract, while the
-experiments separately identify engine-configuration and shipped-configuration stress.
-An auxiliary cropped-map, degraded-prior replay exposes residual work-trace and
-iteration-count divergence and is reported separately from the primary timing campaign.
-In the unified three-boot synthetic campaign, the largest recorded values are
-\SI{\unifiedFixtureMaxCpp}{ms} for C++ and
-\SI{\unifiedFixtureMaxRust}{ms} for Rust. Rust has the smaller observed maximum on all
-\tailsRustFasterCount{} paired fixtures.
-On neighbor-returning fixtures, the C++ baseline performs approximately
-\allocPerPtPass{} heap allocations per point per derivative pass; the Rust align path
-measures zero within its reserved envelope.
+
+A domain-informed construction attains the configured ceiling for the language-common
+kernel-evaluation term; two archived candidates exercise higher Rust-specific kd-tree
+traversal at lower common work. Per-input traces define \emph{work-trace conformance} over
+passes, processed points, neighbor counts, and leaf identities. Leaf payloads,
+implementation-specific traversal, total work, and latency remain outside that relation, so
+C++ results are observations over transferred fixtures rather than a C++ worst-case search.
+An auxiliary cropped-map, degraded-prior replay exposes the remaining conformance boundary.
+
+In a unified three-boot synthetic campaign, the largest observed values are
+\SI{\unifiedFixtureMaxCpp}{ms} for C++ and \SI{\unifiedFixtureMaxRust}{ms} for Rust; Rust
+has the smaller maximum on all \tailsRustFasterCount{} paired fixtures. On
+neighbor-returning fixtures, C++ performs approximately \allocPerPtPass{} heap allocations
+per point per derivative pass, whereas the Rust align path allocates none within its reserved
+envelope. Rust narrows the safe-core verification surface but is not required for bounded
+execution; its unsafe code, foreign-function interface, and dependencies remain trusted.
 \end{abstract}
 
 \begin{IEEEkeywords}

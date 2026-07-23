@@ -10,10 +10,11 @@ kd-tree traversal. Across the synthetic stress inputs, the lowest engine--fixtur
 \SI{\tailsMaxObserved}{ms} on the same core, a \tailsLatencySpread-fold span. Nominal
 replay therefore cannot answer whether the deadline has defensible margin.
 
-Classical static WCET analysis struggles because the dominant bounds are input properties;
-exhaustive enumeration is infeasible, while wall-clock-guided fuzzing is noisy and
-machine-specific. We instead separate a structural work envelope from measured
-platform cost, then search deterministic work counters for stress witnesses.
+Static and parametric WCET analysis can express input-dependent bounds, but this kernel
+still requires a realizable geometry that jointly exercises its dominant terms. Exhaustive
+enumeration is infeasible, while wall-clock-guided search is noisy and machine-specific. We
+instead separate a structural work envelope from platform timing and search deterministic
+work counters for stress witnesses.
 
 Rust is useful here not because C++ cannot be bounded, but because ownership, lifetimes, and
 aliasing rules discharge memory-safety and data-race-freedom obligations in the safe
@@ -25,10 +26,10 @@ the standard library. Its radius query caps neighbors at \maxnn; the
 that limit. Per-input work traces compare a defined work shape on evaluated inputs; leaf
 payloads, traversal, memory operations, and latency are assessed separately.
 
-The objective is to realize a real-time-oriented \ndt{} engine through the Rust port, with
-explicit work limits and timing evidence for its critical path. The production C++ engine
-serves as the behavioral and timing baseline for the port. We do not attempt to search or
-establish the C++ implementation's worst traversal shape.
+Our objective is to make the \ndt{} align kernel amenable to real-time analysis through
+explicit work limits and timing evidence. The Rust port is both an implementation and an
+analysis instrument; the production C++ engine is its behavioral and timing baseline. We do
+not search for or establish the C++ implementation's worst traversal shape.
 
 Our contributions are:
 \begin{enumerate}
@@ -53,13 +54,7 @@ Our contributions are:
     boundary.
 \end{enumerate}
 
-The remainder of this paper is organized as follows. Section~\ref{sec:problem}
-formulates the WCET problem and its structural work decomposition.
-Sections~\ref{sec:methodology} and~\ref{sec:implementation} present the three-layer
-method, cross-language work-trace conformance check, and implementation, while
-Section~\ref{sec:evaluation} reports stress-witness generation, timing, trace, real-data,
-and cross-ISA results. Sections~\ref{sec:threats} and~\ref{sec:related} discuss limitations
-and prior
-work, respectively. Section~\ref{sec:conclusion} presents the conclusions, and the appendix
-provides detailed regression and cross-ISA diagnostics, together with the tail-model
-rejection details.
+Section~\ref{sec:problem} defines the work model;
+Secs.~\ref{sec:methodology}--\ref{sec:implementation} present the method and port.
+Section~\ref{sec:evaluation} evaluates the evidence, followed by limitations, related work,
+and conclusions. The appendix contains secondary diagnostics.
