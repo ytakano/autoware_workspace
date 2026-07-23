@@ -11,16 +11,16 @@ fixture & passes & shape & payload & score ULP & \flannevals{} & \kdnodes{} \\
 \midrule
 \emph{search-00} & 31 & exact & different & $12$ & \num{5242829} & \num{12140437} \\
 \emph{search-01} & 31 & exact & different & $2$ & \num{5436979} & \num{11070038} \\
+\emph{pareto-01} & 31 & exact & different & $4$ & \num{5142501} & \num{12139294} \\
+\emph{pareto-02} & 31 & exact & different & $1$ & \num{5030428} & \num{12156351} \\
 \emph{dense-nbrs} & 31 & exact & different & $1$ & \num{3632586} & \num{7778334} \\
 \emph{max-iters} & 31 & exact & different & $2$ & \num{1082202} & \num{1319894} \\
 \emph{cache-hostile} & 4 & exact & different & $0$ & \num{260136} & \num{540048} \\
 \emph{subnormal} & 31 & exact & different & $5.3\times 10^{9}$ & \num{563727} & \num{493644} \\
 \emph{geom-stress} & 31 & exact & different & $1$ & \num{1895371} & \num{4474819} \\
 \emph{shipped-osc} & 31 & exact & different & $4.0\times 10^{7}$ & \num{1435268} & \num{3221237} \\
-\emph{pareto-01} & 31 & exact & different & $4$ & \num{5142501} & \num{12139294} \\
-\emph{pareto-02} & 31 & exact & different & $1$ & \num{5030428} & \num{12156351} \\
-\emph{real-median} & 31 & exact & different & $4.4\times 10^{12}$ & \num{1423933} & \num{1013244} \\
 \emph{real-slowest} & 31 & exact & different & $4.7\times 10^{10}$ & \num{1981459} & \num{3935876} \\
+\emph{real-median} & 31 & exact & different & $4.4\times 10^{12}$ & \num{1423933} & \num{1013244} \\
 \bottomrule
 \end{tabular}
 \par\smallskip\footnotesize Line-search entries: 0 on every input (measured); C++ passes = $N_{\mathrm{iter}}{+}1$ exactly on every input. The 6 $P$-sweep instances (not shown) also satisfy the work-trace criterion. \emph{search-00} jointly stresses engine input and configuration; \emph{geom-stress} uses production-contract geometry with non-shipped $\epsilon$; \emph{shipped-osc} also fixes shipped $\epsilon$.

@@ -24,39 +24,14 @@ import math
 import pathlib
 import random
 
+from fixture_order import FIXTURE_LABELS as LABEL
+from fixture_order import ordered_fixture_names
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 OUT = ROOT / "tables"
 
 EULER_GAMMA = 0.5772156649015329
-# Display order: worst first.
-ORDER = [
-    "search_00",
-    "pareto_01",
-    "pareto_02",
-    "search_01",
-    "dense_neighbors",
-    "max_iterations",
-    "cache_hostile",
-    "subnormal",
-    "legal_worst",
-    "legal_osc",
-]
-COUNTER_ORDER = [name for name in ORDER if not name.startswith("pareto_")]
-LABEL = {
-    "search_00": r"\emph{search-00}",
-    "search_01": r"\emph{search-01}",
-    "dense_neighbors": r"\emph{dense-nbrs}",
-    "max_iterations": r"\emph{max-iters}",
-    "cache_hostile": r"\emph{cache-hostile}",
-    "subnormal": r"\emph{subnormal}",
-    "legal_worst": r"\emph{geom-stress}",
-    "legal_osc": r"\emph{shipped-osc}",
-    "pareto_01": r"\emph{pareto-01}",
-    "pareto_02": r"\emph{pareto-02}",
-    "real_median": r"\emph{real-median}",
-    "real_slowest": r"\emph{real-slowest}",
-}
 # Shared table footnote for the tier markers.
 STRESS_CLASS_NOTE = (
     r"\emph{search-00} jointly stresses engine input and configuration; "
@@ -361,9 +336,7 @@ def raspi4_timing():
             f"raspi4_timing: warm max/p50 {spread:.4f} exceeds the sub-0.5% spread claim")
 
     rows = []
-    for n in ORDER:
-        if n not in counters:
-            continue
+    for n in ordered_fixture_names(counters):
         w, c = stats[(n, "warm")], stats[(n, "cold")]
         rows.append(
             f"{LABEL[n]} & {w['p50'] / 1000.0:.1f} & {w['max'] / 1000.0:.1f} "
@@ -442,11 +415,10 @@ def interference():
     # Include every fixture present in all measured series.
     rows = []
     co_changes = {}
-    display_names = [
-        name for name in ORDER
-        if name in warm and name in cold
-        and all(name in co[mode] for mode in ("membw", "llc", "fp"))
-    ]
+    measured_in_all_series = set(warm).intersection(
+        cold, *(co[mode] for mode in ("membw", "llc", "fp"))
+    )
+    display_names = ordered_fixture_names(measured_in_all_series)
     for n in display_names:
         cells = [LABEL[n]]
         for eng in ("cpp", "rust"):
@@ -606,9 +578,9 @@ def main():
             "counters": derived,
         }
 
-    counter_names = [n for n in ORDER if n in timing and n in trace_fx]
-    alloc_names = [n for n in COUNTER_ORDER if n in timing and n in rust and n in alloc]
-    timing_names = [n for n in ORDER if n in timing]
+    counter_names = ordered_fixture_names(set(timing).intersection(trace_fx))
+    alloc_names = ordered_fixture_names(set(timing).intersection(rust, alloc))
+    timing_names = ordered_fixture_names(timing)
     prov = provenance(manifest, meta)
     env_macros(manifest, meta)
 
@@ -807,9 +779,17 @@ def main():
                              "traced replay over this fixture")
         return float(int(tr["cpp_kd_dist"]) + int(tr["cpp_kd_accum"]))
 
+    # Keep seeded bootstrap resamples independent of the paper's display order.
+    regression_sample_order = (
+        "search_00", "pareto_01", "pareto_02", "search_01", "dense_neighbors",
+        "max_iterations", "cache_hostile", "subnormal", "legal_worst", "legal_osc",
+    )
+
     def reg_rows(engine):
         rows_ = []
-        for n in counter_names:
+        for n in regression_sample_order:
+            if n not in counter_names:
+                continue
             c = counter_record(n)["counters"]
             t50 = pct(sorted(timing[n][engine]["samples_ms"]), 0.5)
             rows_.append((float(c["points_processed"]), float(c["sum_neighbors"]),
@@ -1407,10 +1387,7 @@ def bridge():
     binary_hashes = {manifest.get("binary_hash") for manifest in bridge_manifests}
     if None in binary_hashes or len(binary_hashes) != 1:
         raise SystemExit("bridge: all legs must use one byte-identical benchmark binary")
-    order = ["search_00", "legal_worst", "legal_osc", "real_slowest", "real_median"]
-    label = {"search_00": r"\emph{search-00}", "legal_worst": r"\emph{geom-stress}",
-             "legal_osc": r"\emph{shipped-osc}", "real_slowest": r"\emph{real-slowest}",
-             "real_median": r"\emph{real-median}"}
+    order = ordered_fixture_names(inputs)
     rows = []
     infl = {"cpp": [], "rust": []}
     for fx in order:
@@ -1420,7 +1397,7 @@ def bridge():
             infl[eng].append(v["inflation_max"])
             a, b = v["replay"], v["isolated"]
             rows.append(
-                f"{label[fx] if eng == 'cpp' else ''} & {eng} & "
+                f"{LABEL[fx] if eng == 'cpp' else ''} & {eng} & "
                 f"{b['p50_ms']:.1f} & {b['max_ms']:.1f} & "
                 f"{a['p50_ms']:.1f} & {a['max_ms']:.1f} & "
                 f"\\textbf{{{v['inflation_max']:.2f}}}"
@@ -1708,8 +1685,9 @@ def trace_cert():
     fixtures = doc["fixtures"]
     ulps = {}
     rows = []
-    table_names = [n for n in COUNTER_ORDER if n in fixtures]
-    table_names += sorted(n for n in fixtures if n not in COUNTER_ORDER and not n.startswith("psweep"))
+    table_names = ordered_fixture_names(
+        n for n in fixtures if not n.startswith("psweep_")
+    )
     for n, fx in fixtures.items():
         tr = fx.get("trace")
         if tr is None:
@@ -1863,15 +1841,13 @@ def parallel():
         return
     doc = json.loads(pj.read_text())
     inputs = doc["inputs"]
-    label = {"search_00": r"\emph{search-00}", "legal_worst": r"\emph{geom-stress}",
-             "legal_osc": r"\emph{shipped-osc}"}
     rows = []
-    for fx in ("legal_worst",):
+    for fx in ordered_fixture_names(("legal_worst",)):
         cells = inputs[fx]
         for eng, name in (("cpp", "C++"), ("rust", "Rust")):
             r = [cells[str(k)][eng] for k in (1, 2, 4)]
             rows.append(
-                f"{label[fx] if eng == 'cpp' else ''} & {name} & "
+                f"{LABEL[fx] if eng == 'cpp' else ''} & {name} & "
                 f"{r[0]['max_ms']:.1f} & {r[1]['max_ms']:.1f} ({r[1]['speedup_max']:.1f}$\\times$) "
                 f"& {r[2]['max_ms']:.1f} ({r[2]['speedup_max']:.1f}$\\times$)"
             )

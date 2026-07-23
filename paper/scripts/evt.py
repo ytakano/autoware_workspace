@@ -23,16 +23,14 @@ import pathlib
 import statistics
 import sys
 
+from fixture_order import FIXTURE_LABELS as LABEL
+from fixture_order import ordered_fixture_names
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 OUT = ROOT / "tables"
 
-TAIL_FIXTURES = ["search_00", "legal_worst", "legal_osc"]
-LABEL = {
-    "search_00": r"\emph{search-00}",
-    "legal_worst": r"\emph{geom-stress}",
-    "legal_osc": r"\emph{shipped-osc}",
-}
+TAIL_FIXTURES = ordered_fixture_names(("search_00", "legal_worst", "legal_osc"))
 N_SESSIONS = 3
 WORK_Q = 0.95  # working threshold quantile
 EULER_GAMMA = 0.5772156649015329
