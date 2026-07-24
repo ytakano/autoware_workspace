@@ -3,6 +3,11 @@
 LaTeX source for the WCET-analysis paper (IEEEtran conference format; switch the class if the
 target venue requires LIPIcs — the ECRTS WCET Workshop is the primary candidate).
 
+**Reproducing the results:** see [`REPRODUCE.md`](REPRODUCE.md) for the tiered guide
+(T0 build the PDF → T1 regenerate tables → T2 re-run the WCET campaign, plus pointers to the
+hardware-bound stack-replay and Raspberry Pi 4 experiments). The `scripts/reproduce.sh` driver
+automates the hardware-independent tiers (T0/T1).
+
 ## Build
 
 ```sh
