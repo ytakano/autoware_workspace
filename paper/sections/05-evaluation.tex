@@ -314,7 +314,13 @@ deadline compliance or multi-core WCET.
 To relate the two tiers to real inputs, we used an environment-gated hook at the engine
 entry points to capture each NDT input: the map tile, per-align guess, and source cloud. The
 capture contains \realFrames{} aligns collected after production preprocessing during a
-57-minute urban drive in İstanbul from the Istanbul Open Dataset~\cite{istanbulopendataset}.
+57-minute urban drive in İstanbul from the Istanbul Open Dataset~\cite{istanbulopendataset},
+whose route deliberately traverses LiDAR-hostile structures (a sub-sea tunnel, long
+bridges, dense urban canyons). A byte-exact join of every captured cloud against the
+recording shows the capture covers the drive's first $\approx$33 minutes, that 5582 clouds
+were aligned two or three times by concurrent capture consumers (with different guesses),
+and that the capture order is not drive order; per-frame statistics therefore weight some
+scan geometries two- or three-fold.
 Both engines replayed the resulting buffers offline with
 cost counters enabled. The primary replay deliberately discards the recorded
 production-filter guesses in favor of a frozen track built from NDT odometry with
@@ -411,40 +417,41 @@ C++-to-C++ variability.
 The pose deltas in Table~\ref{tab:realdata} measure substitutability rather than localization
 error because only one engine runs in production and the replay has no ground truth.
 
-Stack-level replay extends the comparison to the NDT--extended-Kalman-filter (EKF) interface, including rotation,
-quality-gate, innovation, and feedback behavior. We replayed the same 57-minute cloud,
-twist, and GNSS streams twice per engine in C++--Rust--Rust--C++ order. A fixed timestamp
-offset preserved recorded intervals; all runs used one initial pose, a
-\SI{\stackMapExtent}{m} tiled map loaded within \SI{\stackMapRadius}{m}, and a
-\SI{3.2}{GHz} governor. Unlike the serial offline comparison in
-Table~\ref{tab:realdata}, the stack used the deployed \stackWorkers-worker configuration:
-\stackWorkers{} OpenMP threads for C++ and a \stackWorkers-worker Rayon pool for Rust. The workers remained under CFS without
-per-worker pinning, so this is a throughput observation rather than multi-core WCET evidence.
-Each run consumed \stackInputFrames{} clouds at \SI{\stackInputHz}{Hz}. C++ NDT maxima were
-\SI{\stackCppTimeMin}{ms}--\SI{\stackCppTimeMax}{ms} and Rust maxima were
-\SI{\stackRustTimeMin}{ms}--\SI{\stackRustTimeMax}{ms}; no alignment exceeded \SI{100}{ms}. The different parallelism and
-feedback-conditioned work distribution mean that this absence of overruns does not contradict
-the serial C++ overruns in Table~\ref{tab:realdata}. Raw outputs ranged
-from \stackCppRawMin{} to \stackCppRawMax{} for C++ and \stackRustRawMin{} to
-\stackRustRawMax{} for Rust because feedback trajectories
-left the available map region. C++ therefore had per-align compute headroom for \SI{10}{Hz}; missing
-outputs were predominantly map-availability failures, not deadline overruns.
+Stack-level replay extends the comparison to the full NDT--EKF--GNSS loop with
+production-like recovery. We replayed the same 57-minute cloud, twist, and GNSS streams
+twice per engine (C++--Rust--Rust--C++), each run starting from one shared frozen initial
+pose on a \SI{\stackMapExtent}{m} tiled map loaded within \SI{\stackMapRadius}{m}, under
+CFS with the deployed \stackWorkers-worker configuration (\stackWorkers{} OpenMP threads
+for C++, a \stackWorkers-worker Rayon pool for Rust) at \num{34375} clouds and
+\SI{10}{Hz}. A watchdog implements the production pose-initializer recovery flow (GNSS
+seed, NDT align service, EKF reset, node triggers): it fires after \SI{\stackStarve}{s}
+without an accepted NDT pose and dead-reckons the refined pose across the multi-second
+align latency using the live twist stream --- replacing the standstill that production
+requires but a recorded drive cannot perform. The route deliberately traverses
+LiDAR-hostile structures (a sub-sea tunnel with large elevation change, long
+bridges)~\cite{istanbulopendataset}, so all rates below are stress-route values.
 
-At the open-loop maximum-delta frame, all runs produced a raw pose. The cross-language
-horizontal difference was at most \SI{\stackEventCrossMm}{mm}, equal at the reported
-precision to the \SI{\stackEventCppRepeatMm}{mm} C++ repeat difference. Whole-drive
-repeatability was insufficient for attribution: the C++/Rust repeats disagreed on
-\stackQRepeatCpp{}/\stackQRepeatRust{} NDT quality decisions and
-\stackERepeatCpp{}/\stackERepeatRust{} EKF gate decisions, while cross-language ranges were
-\stackQCrossMin--\stackQCrossMax{} and \stackECrossMin--\stackECrossMax{}, respectively.
-Cross-language p99 innovation differences
-(\stackInnovCrossMin--\stackInnovCrossMax{} m) were comparable to same-engine values
-(\stackInnovRepeatMin--\stackInnovRepeatMax{} m). Feedback reached
-kilometre-scale separation within one engine, and no pair returned to within \SI{0.10}{m}
-and \SI{0.01}{rad} for five frames after its maximum. The replay neither demonstrates EKF absorption
-nor closed-loop equivalence. Feedback-dependent trajectories repeatedly left the available
-differential map, so this result does not turn the recording into a full-map nominal
-workload.
+All 26 re-initializations across the four runs succeeded, and no run ever lost the
+differential map. Both engines fail in the same places: every run starves at the same
+\stackSharedEpisodes{} hardest route sections (the tunnel approach and one urban section),
+and \stackCppOnlyEpisodes{} further sections starve only the C++ runs. Same-engine repeat
+bands are tight and the engine bands do not overlap: accepted-output coverage is
+\stackCppSurvMin--\stackCppSurvMax\% for C++ versus \stackRustSurvMin--\stackRustSurvMax\%
+for Rust, with \stackCppReinitMin--\stackCppReinitMax{} versus
+\stackRustReinitMin--\stackRustReinitMax{} re-initializations and iteration-cap shares of
+\stackCppCapMin--\stackCppCapMax\% versus \stackRustCapMin--\stackRustCapMax\% of aligned
+frames. Median align cost is \stackCppExeMedMin--\stackCppExeMedMax{} versus
+\stackRustExeMedMin--\stackRustExeMedMax{} \si{ms}; the only \SI{100}{ms}-budget
+violations are \stackCppOverMin--\stackCppOverMax{} C++ frames per run, all inside
+recovery windows where the align service contends with the main callback (maxima
+\SI{\stackCppTimeMax}{ms} versus \SI{\stackRustTimeMax}{ms}; Rust has none anywhere).
+The consistent reading is that the roughly halved align cost rides out quality gaps that
+starve the slower engine. Cross-language gate and innovation differences
+(\stackQCrossMin--\stackQCrossMax{} disagreements; \SI{\stackInnovCrossMin}{m}--\SI{\stackInnovCrossMax}{m} p99)
+exceed the same-engine repeat bands (\stackQRepeatMin--\stackQRepeatMax{};
+\SI{\stackInnovRepeatMin}{m}--\SI{\stackInnovRepeatMax}{m}), consistent with that
+systematic difference rather than replay noise. With two runs per engine, feedback chaos,
+and no ground truth, these remain run-level observations.
 
 \subsection{Bridge experiment: Isolated and Replay configurations}
 \label{sec:eval-bridge}

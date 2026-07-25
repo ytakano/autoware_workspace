@@ -1361,124 +1361,117 @@ def realdata_prodprior():
 
 
 def stack_replay_macros():
-    """Validate the stack-level replay artifact and generate all quoted results."""
+    """Validate the GNSS-reinit stack-replay artifact and generate all quoted results."""
     doc = json.loads((DATA / "stack_replay.json").read_text())
     meta, runs = doc["meta"], doc["runs"]
-    expected_runs = {"cpp1", "cpp2", "rust1", "rust2"}
-    if set(runs) != expected_runs or meta["run_order"] != [
+    if set(runs) != {"cpp1", "cpp2", "rust1", "rust2"} or meta["run_order"] != [
         "cpp1", "rust1", "rust2", "cpp2"
     ]:
         raise SystemExit("stack replay: expected two runs per engine")
-    if meta["ground_truth_available"]:
-        raise SystemExit("stack replay: ground-truth claim must be revisited")
-    if meta["worker_pinning"] or meta["scheduler"] != "CFS":
-        raise SystemExit("stack replay: scheduling protocol changed")
-    if (
-        meta["workers_per_engine"] != 4
-        or meta["cpp_parallelism"] != "OpenMP"
-        or meta["rust_parallelism"] != "Rayon"
-        or meta["initial_pose_count"] != 1
-    ):
-        raise SystemExit("stack replay: parallel or initialization protocol changed")
-    frames = {run["input_frames"] for run in runs.values()}
-    rates = {run["input_hz"] for run in runs.values()}
-    if len(frames) != 1 or len(rates) != 1:
-        raise SystemExit("stack replay: input stream differs among runs")
-    if any(run["ndt_over_100ms"] != 0 for run in runs.values()):
-        raise SystemExit("stack replay: an align exceeded 100 ms; update the analysis")
-
-    cpp = [runs[name] for name in ("cpp1", "cpp2")]
-    rust = [runs[name] for name in ("rust1", "rust2")]
-    comparisons = {item["label"]: item for item in doc["comparisons"]}
-    repeat_labels = ("cpp-repeat", "rust-repeat")
-    cross = [item for label, item in comparisons.items() if label not in repeat_labels]
-    if len(cross) != 4 or any(
-        item["recovery_primary"] is not None for item in comparisons.values()
-    ):
-        raise SystemExit("stack replay: comparison or recovery result changed")
-
-    event = doc["open_loop_max_event_correspondence"]
-    event_times = {item["original_ns"] for item in event.values()}
-    if len(event_times) != 1:
-        raise SystemExit("stack replay: open-loop event timestamps do not match")
-
-    def horizontal_mm(left, right):
-        lp, rp = event[left]["raw_pose"], event[right]["raw_pose"]
-        return 1000.0 * math.hypot(lp["x"] - rp["x"], lp["y"] - rp["y"])
-
-    cross_event_mm = max(
-        horizontal_mm(cpp_name, rust_name)
-        for cpp_name in ("cpp1", "cpp2")
-        for rust_name in ("rust1", "rust2")
-    )
-    cpp_repeat_mm = horizontal_mm("cpp1", "cpp2")
-    q_cross = [item["quality_gate_disagreements"] for item in cross]
-    e_cross = [item["ekf_gate_disagreements"] for item in cross]
-    i_cross = [item["innovation_translation_difference_m"]["p99"] for item in cross]
-    i_repeat = [
-        comparisons[label]["innovation_translation_difference_m"]["p99"]
-        for label in repeat_labels
-    ]
+    if meta["ground_truth_available"] or meta["worker_pinning"] or meta["scheduler"] != "CFS":
+        raise SystemExit("stack replay: protocol changed")
+    if meta["watchdog"]["starve_s"] != 25.0 or meta["initial_pose_count"] != 1:
+        raise SystemExit("stack replay: recovery protocol changed")
+    for name, run in runs.items():
+        if run["map_unavailable_frames"] != 0:
+            raise SystemExit(f"stack replay: {name} lost the map -- update the text")
+        if run["reinit_events"]["starvation"] != run["reinit_successes"]:
+            raise SystemExit(f"stack replay: {name} has failed re-init attempts")
+        if run["exe_over_100ms"] != run["exe_over_100ms_in_reinit_windows"]:
+            raise SystemExit(f"stack replay: {name} exceeded 100 ms outside recovery windows")
+        if run["iter_median"] > 30 or run["cap_hits"] > run["align_frames"]:
+            raise SystemExit(f"stack replay: implausible iteration summary for {name}")
+    cpp = [runs["cpp1"], runs["cpp2"]]
+    rust = [runs["rust1"], runs["rust2"]]
 
     def extrema(rows, field):
         values = [row[field] for row in rows]
         return min(values), max(values)
 
-    cpp_time = extrema(cpp, "ndt_execution_max_ms")
-    rust_time = extrema(rust, "ndt_execution_max_ms")
-    cpp_raw = extrema(cpp, "raw_ndt_frames")
-    rust_raw = extrema(rust, "raw_ndt_frames")
+    # Shared failure geography: cluster each run's starvation times into episodes and count
+    # the sections (+-120 s) where every run has an episode.
+    def episodes(times):
+        eps = []
+        for t in sorted(times):
+            if eps and t - eps[-1][-1] <= 120.0:
+                eps[-1].append(t)
+            else:
+                eps.append([t])
+        return [e[0] for e in eps]
+    per_run = {name: episodes(run["starvation_times_s"]) for name, run in runs.items()}
+    shared = sum(
+        1
+        for t in per_run["rust1"]
+        if all(any(abs(t - u) <= 120.0 for u in per_run[o]) for o in per_run)
+    )
+    cpp_only = sum(
+        1
+        for t in per_run["cpp1"]
+        if any(abs(t - u) <= 120.0 for u in per_run["cpp2"])
+        and not any(any(abs(t - u) <= 120.0 for u in per_run[r]) for r in ("rust1", "rust2"))
+    )
+    if shared < 2:
+        raise SystemExit("stack replay: shared-failure-section claim no longer holds")
 
-    # Per-run NDT iteration summaries (derived from the archived ndt_diagnostics.csv;
-    # align_frames excludes iteration_num==0 map-unavailable/skip rows).
-    iter_blocks = {name: run.get("iterations") for name, run in runs.items()}
-    if any(block is None for block in iter_blocks.values()):
-        raise SystemExit("stack replay: missing per-run iteration summary")
-    for name, block in iter_blocks.items():
-        if not 0 < block["align_frames"] <= runs[name]["raw_ndt_frames"]:
-            raise SystemExit(f"stack replay: implausible align_frames for {name}")
-        if block["cap_hits"] > block["align_frames"]:
-            raise SystemExit(f"stack replay: cap_hits exceed align_frames for {name}")
-        recomputed = 100.0 * block["cap_hits"] / block["align_frames"]
-        if abs(recomputed - block["cap_pct"]) > 0.05:
-            raise SystemExit(f"stack replay: cap_pct inconsistent for {name}")
-        if block["iter_median"] > 30 or block["iter_p99"] > 30:
-            raise SystemExit(f"stack replay: iteration summary exceeds the cap for {name}")
-    iter_meds = [block["iter_median"] for block in iter_blocks.values()]
-    iter_caps = [block["cap_pct"] for block in iter_blocks.values()]
+    q_repeat = [c["quality_gate_disagreements"] for c in doc["comparisons"]
+                if c["label"].endswith("repeat")]
+    q_cross = [c["quality_gate_disagreements"] for c in doc["comparisons"]
+               if not c["label"].endswith("repeat")]
+    i_repeat = [c["innovation_translation_difference_m"]["p99"] for c in doc["comparisons"]
+                if c["label"].endswith("repeat")]
+    i_cross = [c["innovation_translation_difference_m"]["p99"] for c in doc["comparisons"]
+               if not c["label"].endswith("repeat")]
+
+    surv_cpp, surv_rust = extrema(cpp, "survival_pct"), extrema(rust, "survival_pct")
+    reinit_cpp, reinit_rust = extrema(cpp, "reinit_successes"), extrema(rust, "reinit_successes")
+    cap_cpp, cap_rust = extrema(cpp, "cap_pct"), extrema(rust, "cap_pct")
+    exe_cpp, exe_rust = extrema(cpp, "exe_ms_max"), extrema(rust, "exe_ms_max")
+    med_all = extrema(list(runs.values()), "iter_median")
+    cap_all = extrema(list(runs.values()), "cap_pct")
+    over_cpp = extrema(cpp, "exe_over_100ms")
     macros = [
         "% AUTO-GENERATED by scripts/gen_tables.py -- do not hand-edit.",
-        rf"\newcommand{{\stackInputFrames}}{{\num{{{next(iter(frames))}}}}}",
-        rf"\newcommand{{\stackInputHz}}{{{next(iter(rates)):.2f}}}",
+        rf"\newcommand{{\stackInputFrames}}{{\num{{{runs['cpp1']['input_frames']}}}}}",
         rf"\newcommand{{\stackWorkers}}{{{meta['workers_per_engine']}}}",
         rf"\newcommand{{\stackMapExtent}}{{{meta['map_extent_m']}}}",
         rf"\newcommand{{\stackMapRadius}}{{{meta['map_load_radius_m']}}}",
-        rf"\newcommand{{\stackCppTimeMin}}{{{cpp_time[0]:.1f}}}",
-        rf"\newcommand{{\stackCppTimeMax}}{{{cpp_time[1]:.1f}}}",
-        rf"\newcommand{{\stackRustTimeMin}}{{{rust_time[0]:.1f}}}",
-        rf"\newcommand{{\stackRustTimeMax}}{{{rust_time[1]:.1f}}}",
-        rf"\newcommand{{\stackCppRawMin}}{{\num{{{cpp_raw[0]}}}}}",
-        rf"\newcommand{{\stackCppRawMax}}{{\num{{{cpp_raw[1]}}}}}",
-        rf"\newcommand{{\stackRustRawMin}}{{\num{{{rust_raw[0]}}}}}",
-        rf"\newcommand{{\stackRustRawMax}}{{\num{{{rust_raw[1]}}}}}",
-        rf"\newcommand{{\stackEventCrossMm}}{{{cross_event_mm:.1f}}}",
-        rf"\newcommand{{\stackEventCppRepeatMm}}{{{cpp_repeat_mm:.1f}}}",
-        rf"\newcommand{{\stackQRepeatCpp}}{{{comparisons['cpp-repeat']['quality_gate_disagreements']}}}",
-        rf"\newcommand{{\stackQRepeatRust}}{{{comparisons['rust-repeat']['quality_gate_disagreements']}}}",
-        rf"\newcommand{{\stackERepeatCpp}}{{{comparisons['cpp-repeat']['ekf_gate_disagreements']}}}",
-        rf"\newcommand{{\stackERepeatRust}}{{{comparisons['rust-repeat']['ekf_gate_disagreements']}}}",
-        rf"\newcommand{{\stackQCrossMin}}{{{min(q_cross)}}}",
-        rf"\newcommand{{\stackQCrossMax}}{{{max(q_cross)}}}",
-        rf"\newcommand{{\stackECrossMin}}{{{min(e_cross)}}}",
-        rf"\newcommand{{\stackECrossMax}}{{{max(e_cross)}}}",
+        rf"\newcommand{{\stackStarve}}{{{meta['watchdog']['starve_s']:.0f}}}",
+        rf"\newcommand{{\stackCppTimeMin}}{{{exe_cpp[0]:.1f}}}",
+        rf"\newcommand{{\stackCppTimeMax}}{{{exe_cpp[1]:.1f}}}",
+        rf"\newcommand{{\stackRustTimeMin}}{{{exe_rust[0]:.1f}}}",
+        rf"\newcommand{{\stackRustTimeMax}}{{{exe_rust[1]:.1f}}}",
+        rf"\newcommand{{\stackCppExeMedMin}}{{{extrema(cpp, 'exe_ms_median')[0]:.1f}}}",
+        rf"\newcommand{{\stackCppExeMedMax}}{{{extrema(cpp, 'exe_ms_median')[1]:.1f}}}",
+        rf"\newcommand{{\stackRustExeMedMin}}{{{extrema(rust, 'exe_ms_median')[0]:.1f}}}",
+        rf"\newcommand{{\stackRustExeMedMax}}{{{extrema(rust, 'exe_ms_median')[1]:.1f}}}",
+        rf"\newcommand{{\stackCppSurvMin}}{{{surv_cpp[0]:.1f}}}",
+        rf"\newcommand{{\stackCppSurvMax}}{{{surv_cpp[1]:.1f}}}",
+        rf"\newcommand{{\stackRustSurvMin}}{{{surv_rust[0]:.1f}}}",
+        rf"\newcommand{{\stackRustSurvMax}}{{{surv_rust[1]:.1f}}}",
+        rf"\newcommand{{\stackCppReinitMin}}{{{reinit_cpp[0]}}}",
+        rf"\newcommand{{\stackCppReinitMax}}{{{reinit_cpp[1]}}}",
+        rf"\newcommand{{\stackRustReinitMin}}{{{reinit_rust[0]}}}",
+        rf"\newcommand{{\stackRustReinitMax}}{{{reinit_rust[1]}}}",
+        rf"\newcommand{{\stackCppCapMin}}{{{cap_cpp[0]:.1f}}}",
+        rf"\newcommand{{\stackCppCapMax}}{{{cap_cpp[1]:.1f}}}",
+        rf"\newcommand{{\stackRustCapMin}}{{{cap_rust[0]:.1f}}}",
+        rf"\newcommand{{\stackRustCapMax}}{{{cap_rust[1]:.1f}}}",
+        rf"\newcommand{{\stackIterMedMin}}{{{med_all[0]:.0f}}}",
+        rf"\newcommand{{\stackIterMedMax}}{{{med_all[1]:.0f}}}",
+        rf"\newcommand{{\stackIterCapPctMin}}{{{cap_all[0]:.1f}}}",
+        rf"\newcommand{{\stackIterCapPctMax}}{{{cap_all[1]:.1f}}}",
+        rf"\newcommand{{\stackCppOverMin}}{{{over_cpp[0]}}}",
+        rf"\newcommand{{\stackCppOverMax}}{{{over_cpp[1]}}}",
+        rf"\newcommand{{\stackSharedEpisodes}}{{{shared}}}",
+        rf"\newcommand{{\stackCppOnlyEpisodes}}{{{cpp_only}}}",
+        rf"\newcommand{{\stackQRepeatMin}}{{\num{{{min(q_repeat)}}}}}",
+        rf"\newcommand{{\stackQRepeatMax}}{{\num{{{max(q_repeat)}}}}}",
+        rf"\newcommand{{\stackQCrossMin}}{{\num{{{min(q_cross)}}}}}",
+        rf"\newcommand{{\stackQCrossMax}}{{\num{{{max(q_cross)}}}}}",
         rf"\newcommand{{\stackInnovRepeatMin}}{{{min(i_repeat):.2f}}}",
         rf"\newcommand{{\stackInnovRepeatMax}}{{{max(i_repeat):.2f}}}",
         rf"\newcommand{{\stackInnovCrossMin}}{{{min(i_cross):.2f}}}",
         rf"\newcommand{{\stackInnovCrossMax}}{{{max(i_cross):.2f}}}",
-        rf"\newcommand{{\stackIterMedMin}}{{{min(iter_meds):.0f}}}",
-        rf"\newcommand{{\stackIterMedMax}}{{{max(iter_meds):.0f}}}",
-        rf"\newcommand{{\stackIterCapPctMin}}{{{min(iter_caps):.1f}}}",
-        rf"\newcommand{{\stackIterCapPctMax}}{{{max(iter_caps):.1f}}}",
     ]
     (OUT / "stack_replay_macros.tex").write_text(
         "\n".join(macros) + "\n", encoding="utf-8"

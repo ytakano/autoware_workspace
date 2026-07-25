@@ -30,12 +30,12 @@ work over the full recording. The degraded-prior track uses offline NDT odometry
 the production filter, so it does not represent nominal cruising or closed-loop behavior;
 the control replay restores the recorded production guesses but remains open-loop on the
 same cropped map.
-The NDT--EKF replay includes feedback but lacks ground truth, vehicle dynamics, and
-co-resident workloads. It also initializes once from a GNSS seed with no
-monitoring-triggered re-initialization, so lost localization cannot recover; production
-deployments bound such excursions through GNSS re-initialization and degraded-mode
-reactions, making the replay's kilometre-scale off-map stretches a replay artifact rather
-than expected field behavior. Same-engine repetitions also diverge, preventing whole-drive
+The NDT--EKF--GNSS replay includes feedback and GNSS re-initialization but lacks ground
+truth, vehicle dynamics, and co-resident workloads. Its watchdog replaces production's
+standstill requirement with twist-based motion compensation because a recorded drive
+cannot stop for recovery, and the starvation threshold was tuned on the baseline run; the
+recovery statistics are stress-route values on a deliberately LiDAR-hostile route and
+carry two runs per engine. Same-engine repetitions also diverge, preventing whole-drive
 language attribution; environment-gated EKF tracing may itself perturb scheduling.
 
 \subsection{Cross-language and cross-ISA validity}
