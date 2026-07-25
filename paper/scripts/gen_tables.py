@@ -1313,8 +1313,17 @@ def realdata_prodprior():
 
     seqs = sorted(f["seq"] for f in onmap)
     segments = 1 + sum(1 for a, b in zip(seqs, seqs[1:]) if b != a + 1)
-    # Span of the on-map window in drive minutes (57-min bag / 22416 frames).
-    span_min = seqs[-1] * 57.0 / len(frames)
+    # Span of the on-map window in drive minutes, from the frozen byte-exact frame->bag-cloud
+    # join (realdata_frame_stamps.json). The capture's frame order is NOT drive-time order
+    # (see that file's audit), so a seq-proportional estimate would be wrong.
+    stamps_doc = json.loads((DATA / "realdata_frame_stamps.json").read_text())
+    stamp_by_seq = {r["seq"]: r["stamp_ns"] for r in stamps_doc["frames"]}
+    if stamps_doc["meta"]["audit"]["misses"] or stamps_doc["meta"]["audit"][
+        "matched"
+    ] != len(frames):
+        raise SystemExit("realdata_prodprior: frame-stamp join is incomplete")
+    onmap_stamps = [stamp_by_seq[s] for s in seqs]
+    span_min = (max(onmap_stamps) - min(onmap_stamps)) / 60e9
 
     # Controlled A/B on the frames that are on-map in BOTH replays. The prose states the
     # degraded replay's on-map set is a subset of the production-guess one; enforce it.
