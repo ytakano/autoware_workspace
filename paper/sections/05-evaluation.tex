@@ -347,9 +347,22 @@ The input counters are consistent with the preprocessing contracts: $P\le\realPM
 on all \realFrames{} frames. The per-point neighbor count reaches at most
 $\realKmaxMax$, which is within the geometric bound of 27 but one above the voxel-center
 heuristic of 8. Real centroids can deviate from voxel centers and bring a ninth leaf into
-range; 27, rather than 8, is the applicable bound. Under degraded priors, the iteration cap
-is reached on \realIterCapPct\% of on-map frames, showing that the iteration cap is
-reachable on captured production-preprocessed geometry under this degraded-prior replay.
+range; 27, rather than 8, is the applicable bound. Under the degraded-prior track, the
+iteration cap is reached on \realIterCapPct\% of on-map frames. A control replay of the
+same capture with its recorded production EKF guesses --- identical per-frame inputs except
+the guess --- separates the prior's contribution: on the \realABCommonN{} frames that are
+on-map in both replays the cap share drops from \realABCapDegPct\% to \realABCapProdPct\%,
+and over the control replay's own \realProdOnMap{} on-map frames
+(\realProdOnMapSegments{} boundary-transit segments spanning the drive's first
+\realProdOnMapSpanMin{} minutes) it is \realProdIterCapPct\%. Prior quality therefore
+shifts the cap share but does not eliminate it: the cap stays routinely reached with
+production-quality priors on this cropped single-tile benchmark map, and the closed-loop
+tiled-map replay of the same drive (below) still reaches it on
+\stackIterCapPctMin--\stackIterCapPctMax\% of aligned frames (median
+\stackIterMedMin--\stackIterMedMax{} iterations). Iteration-cap reachability on captured
+production-preprocessed geometry thus holds under degraded priors, production priors, and
+the closed production loop; the absolute share depends on prior quality and map
+configuration.
 
 The timing rows report the \emph{Replay} configuration. They use
 normal CFS scheduling, no pinning, one align per frame in production order, and a pinned

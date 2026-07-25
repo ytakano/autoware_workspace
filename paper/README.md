@@ -43,7 +43,23 @@ make clean      # drop latexmk intermediates
      --config src/core/autoware_core/localization/autoware_ndt_scan_matcher/bench/campaign_config_psweep.json \
      --warm-output-name wcet_psweep.json --warm-only
    ```
-3. Run `make`.
+3. To refresh `data/realdata_prodprior.json` (the production-guess control replay of the
+   archived real-drive capture; iteration/counter quantities only), replay the ORIGINAL
+   capture with both engine sides and merge (`BENCH` = the package's `bench/` directory):
+
+   ```sh
+   WCET_REPEATS=1 build/autoware_ndt_scan_matcher/ndt_bench_replay \
+     --capture /tmp/cpp_prod.json ~/autoware_ista_data/l1b_capture
+   WCET_JSON=/tmp/rust_prod.json WCET_FRAMES=1 cargo run --release \
+     --features wcet-count --example wcet_frame -- --capture ~/autoware_ista_data/l1b_capture
+   python3 "$BENCH"/wcet_realdata.py /tmp/rust_prod.json /tmp/cpp_prod.json \
+     -o paper/data/realdata_prodprior.json   # then re-add the meta block (see the frozen file)
+   ```
+
+   Gate first: re-run the degraded-track capture (regenerate it with
+   `"$BENCH"/rewrite_guesses.py` from the archived `guess_track.bin`) and check the per-frame
+   iteration counts still match `data/realdata.json` exactly before refreshing.
+4. Run `make`.
 
 The current host snapshot is the 2026-07-20/2026-07-21 three-boot campaign on the Ryzen
 5900HX with the performance governor and isolated benchmark core. Timing integration rejects

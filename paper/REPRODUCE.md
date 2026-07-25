@@ -163,6 +163,9 @@ own committed inputs (`data/stack_replay.json` / `data/realdata.json` and
   builds the C++ and Rust stacks (`install_stack_cpp/`, `install_stack_rust/`),
   runs the `cpp1 rust1 rust2 cpp2` sequence, and calls `analyze_stack_replay.py`.
   Real-frame timing is merged into `data/realdata.json` by `bench/wcet_realdata.py`.
+  The production-guess control replay (`data/realdata_prodprior.json`,
+  iteration/counter quantities only — no timing discipline required) replays the
+  archived capture directly; see the paper `README.md` data-pipeline step 3.
 - **T4 — Raspberry Pi 4 (no_std)**: build the on-target harness with
   `make aarch64 BSP=raspi4 RELEASE=1 FEATURES=ndt` in `awkernel/`, flash
   `kernel8.img`, and capture the UART serial log. The frozen log and its
