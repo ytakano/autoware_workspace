@@ -18,21 +18,20 @@ degraded-prior replay provides a more restrictive result: only \realOnMap{} fram
 meaningful matching, \realShapeOnMap{} satisfy both the base and work-trace criteria, and
 \realBaseDivergent{} fall outside the base criterion. Among the latter,
 \realIterationDivergent{} take different iteration paths. The replay therefore exposes
-port-fidelity and map-boundary sensitivity but does not characterize representative nominal
-localization over the complete recording.
+port-fidelity and map-boundary sensitivity rather than nominal operation.
 
 Rust is not necessary for these bounds. Its safe core narrows memory-safety and race
 obligations so validation can focus on equivalence, numerics, work, and timing; FFI, unsafe
 code, and dependencies remain trusted.
 
-The auxiliary NDT--EKF--GNSS replay extends the evidence to feedback and recovery on a
-deliberately LiDAR-hostile route: both engines starve at the same hardest sections and
+The auxiliary NDT--EKF--GNSS replay extends the evidence to feedback and recovery on the
+stress route: both engines starve at the same most difficult sections and
 every GNSS re-initialization succeeds, while the engine bands stay disjoint
 (accepted-output coverage \stackCppSurvMin--\stackCppSurvMax\% for C++ versus
 \stackRustSurvMin--\stackRustSurvMax\% for Rust) and the only \SI{100}{ms} overruns are
 C++ frames inside recovery windows. It does not establish production readiness.
 Operational evaluation requires the production ECU, ground truth, co-resident loads, and
-end-to-end \SI{10}{Hz} gate and innovation measurements. Host parallelism places the
+end-to-end \SI{10}{Hz} acceptance-gate and innovation measurements. Host parallelism places the
 non-shipped \emph{geom-stress} run below the period with two cores; it establishes neither
 shipped deadline compliance nor multi-core WCET. Stronger timing claims require either a
 deployment cost bound or an independence-preserving measurement protocol.

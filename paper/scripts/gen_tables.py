@@ -1424,6 +1424,7 @@ def stack_replay_macros():
 
     surv_cpp, surv_rust = extrema(cpp, "survival_pct"), extrema(rust, "survival_pct")
     reinit_cpp, reinit_rust = extrema(cpp, "reinit_successes"), extrema(rust, "reinit_successes")
+    reinit_total = sum(run["reinit_successes"] for run in runs.values())
     cap_cpp, cap_rust = extrema(cpp, "cap_pct"), extrema(rust, "cap_pct")
     exe_cpp, exe_rust = extrema(cpp, "exe_ms_max"), extrema(rust, "exe_ms_max")
     med_all = extrema(list(runs.values()), "iter_median")
@@ -1452,6 +1453,7 @@ def stack_replay_macros():
         rf"\newcommand{{\stackCppReinitMax}}{{{reinit_cpp[1]}}}",
         rf"\newcommand{{\stackRustReinitMin}}{{{reinit_rust[0]}}}",
         rf"\newcommand{{\stackRustReinitMax}}{{{reinit_rust[1]}}}",
+        rf"\newcommand{{\stackReinitTotal}}{{{reinit_total}}}",
         rf"\newcommand{{\stackCppCapMin}}{{{cap_cpp[0]:.1f}}}",
         rf"\newcommand{{\stackCppCapMax}}{{{cap_cpp[1]:.1f}}}",
         rf"\newcommand{{\stackRustCapMin}}{{{cap_rust[0]:.1f}}}",

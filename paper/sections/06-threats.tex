@@ -10,10 +10,12 @@ of session-level Rust/C++ median ratios is \sessRatioSpreadWorst{}. Nevertheless
 comes from one machine. The campaign compares complete deployable implementations under recorded
 release settings, not languages in isolation; compiler flags have no exact cross-toolchain
 mapping, and allocators, layouts, kd-trees, libraries, and compiler choices all contribute.
-Real replay is single-shot per frame, and parallel results omit worker scheduling and
-interference, so neither supports a multi-core WCET claim. The unified campaign and
+The open-loop real-data timing replay measures each captured frame once, the closed-loop
+replay carries only two runs per engine, and parallel results omit worker scheduling and
+interference, so none supports a multi-core WCET claim. The unified campaign and
 $P$-sweep are the primary bounded-build timing evidence. Bridge, parallel, subnormal-control,
-real-data, and AArch64 results are artifact-pinned auxiliary experiments; they are not pooled
+real-data (open-loop and closed-loop), and AArch64 results are artifact-pinned auxiliary
+experiments; they are not pooled
 with the primary campaign, and their measurements do not characterize its binary.
 
 Search covers a parameterized generator, not all inputs. Kernel-evaluation saturation is
@@ -33,8 +35,9 @@ same cropped map.
 The NDT--EKF--GNSS replay includes feedback and GNSS re-initialization but lacks ground
 truth, vehicle dynamics, and co-resident workloads. Its watchdog replaces production's
 standstill requirement with twist-based motion compensation because a recorded drive
-cannot stop for recovery, and the starvation threshold was tuned on the baseline run; the
-recovery statistics are stress-route values on a deliberately LiDAR-hostile route and
+cannot stop for recovery. The \SI{\stackStarve}{s} starvation threshold was selected using
+the first C++ run and held fixed for all four runs; the results may be sensitive to this
+choice. The recovery statistics are stress-route values (Sec.~\ref{sec:eval-stack}) and
 carry two runs per engine. Same-engine repetitions also diverge, preventing whole-drive
 language attribution; environment-gated EKF tracing may itself perturb scheduling.
 

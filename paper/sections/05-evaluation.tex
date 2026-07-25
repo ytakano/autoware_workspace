@@ -315,8 +315,8 @@ To relate the two tiers to real inputs, we used an environment-gated hook at the
 entry points to capture each NDT input: the map tile, per-align guess, and source cloud. The
 capture contains \realFrames{} aligns collected after production preprocessing during a
 57-minute urban drive in İstanbul from the Istanbul Open Dataset~\cite{istanbulopendataset},
-whose route deliberately traverses LiDAR-hostile structures (a sub-sea tunnel, long
-bridges, dense urban canyons). A byte-exact join of every captured cloud against the
+whose route deliberately traverses LiDAR-hostile structures (a sub-sea tunnel with large
+elevation change, long bridges, dense urban canyons). A byte-exact join of every captured cloud against the
 recording shows the capture covers the drive's first $\approx$33 minutes, that 5582 clouds
 were aligned two or three times by concurrent capture consumers (with different guesses),
 and that the capture order is not drive order; per-frame statistics therefore weight some
@@ -326,10 +326,8 @@ cost counters enabled. The primary replay deliberately discards the recorded
 production-filter guesses in favor of a frozen track built from NDT odometry with
 constant-velocity extrapolation from a global-navigation-satellite-system (GNSS) seed, so
 that the guess stream is independent of the production filter. This track represents
-degraded-prior operation, including initialization and filter dropouts, rather than nominal
-cruising; a control replay with the recorded production guesses appears below, and the
-closed-loop tiled-map replay runs at a median of
-\stackIterMedMin--\stackIterMedMax{} iterations per aligned frame.
+degraded-prior operation, including initialization and filter dropouts; a control replay
+with the recorded production guesses appears below.
 
 The offline benchmark map is cropped, and the reconstructed trajectory exits it after frame
 \realOnMapSeqMax{}. Only \realOnMap{} aligns, distributed across \realSegments{} short
@@ -358,7 +356,7 @@ $\realKmaxMax$, which is within the geometric bound of 27 but one above the voxe
 heuristic of 8. Real centroids can deviate from voxel centers and bring a ninth leaf into
 range; 27, rather than 8, is the applicable bound. Under the degraded-prior track, the
 iteration cap is reached on \realIterCapPct\% of on-map frames. A control replay of the
-same capture with its recorded production EKF guesses --- identical per-frame inputs except
+same capture with its recorded production extended-Kalman-filter (EKF) guesses --- identical per-frame inputs except
 the guess --- separates the prior's contribution: on the \realABCommonN{} frames that are
 on-map in both replays the cap share drops from \realABCapDegPct\% to \realABCapProdPct\%,
 and over the control replay's own \realProdOnMap{} on-map frames
@@ -366,12 +364,12 @@ and over the control replay's own \realProdOnMap{} on-map frames
 \realProdOnMapSpanMin{} minutes) it is \realProdIterCapPct\%. Prior quality therefore
 shifts the cap share but does not eliminate it: the cap stays routinely reached with
 production-quality priors on this cropped single-tile benchmark map, and the closed-loop
-tiled-map replay of the same drive (below) still reaches it on
-\stackIterCapPctMin--\stackIterCapPctMax\% of aligned frames (median
-\stackIterMedMin--\stackIterMedMax{} iterations). Iteration-cap reachability on captured
+tiled-map replay of the same drive (Sec.~\ref{sec:eval-stack}) still reaches it on
+\stackRustCapMin--\stackRustCapMax\% (Rust) to \stackCppCapMin--\stackCppCapMax\% (C++)
+of aligned frames. Iteration-cap reachability on captured
 production-preprocessed geometry thus holds under degraded priors, production priors, and
-the closed production loop; the absolute share depends on prior quality and map
-configuration.
+the closed-loop replay with production-like recovery; the absolute share depends on prior
+quality and map configuration.
 
 The timing rows report the \emph{Replay} configuration. They use
 normal CFS scheduling, no pinning, one align per frame in production order, and a pinned
@@ -417,41 +415,54 @@ C++-to-C++ variability.
 The pose deltas in Table~\ref{tab:realdata} measure substitutability rather than localization
 error because only one engine runs in production and the replay has no ground truth.
 
+\subsection{Closed-loop stack replay with GNSS recovery}
+\label{sec:eval-stack}
 Stack-level replay extends the comparison to the full NDT--EKF--GNSS loop with
-production-like recovery. We replayed the same 57-minute cloud, twist, and GNSS streams
-twice per engine (C++--Rust--Rust--C++), each run starting from one shared frozen initial
-pose on a \SI{\stackMapExtent}{m} tiled map loaded within \SI{\stackMapRadius}{m}, under
-CFS with the deployed \stackWorkers-worker configuration (\stackWorkers{} OpenMP threads
-for C++, a \stackWorkers-worker Rayon pool for Rust) at \num{34375} clouds and
-\SI{10}{Hz}. A watchdog implements the production pose-initializer recovery flow (GNSS
-seed, NDT align service, EKF reset, node triggers): it fires after \SI{\stackStarve}{s}
-without an accepted NDT pose and dead-reckons the refined pose across the multi-second
-align latency using the live twist stream --- replacing the standstill that production
-requires but a recorded drive cannot perform. The route deliberately traverses
-LiDAR-hostile structures (a sub-sea tunnel with large elevation change, long
-bridges)~\cite{istanbulopendataset}, so all rates below are stress-route values.
+production-like recovery. We replayed the same 57-minute cloud, vehicle-twist (linear and
+angular velocity), and GNSS streams twice per engine (C++--Rust--Rust--C++), each run
+starting from one shared frozen initial pose on a \SI{\stackMapExtent}{m}-extent map whose
+dynamic tiles are loaded within \SI{\stackMapRadius}{m} of the pose estimate, under CFS
+with the deployed \stackWorkers-worker configuration (\stackWorkers{} OpenMP threads for
+C++, a \stackWorkers-worker Rayon pool for Rust), replaying \stackInputFrames{} clouds at
+\SI{10}{Hz}. A watchdog implements the production pose-initializer recovery flow: a GNSS
+seed pose, a call to the NDT align service, an EKF reset, and re-enabling of the
+localization nodes. It fires after \SI{\stackStarve}{s} without an accepted NDT pose ---
+one admitted by the EKF's measurement-acceptance gate --- and we call such a period a
+\emph{starvation episode}. Because a recorded drive cannot perform the standstill that
+production recovery requires, the watchdog instead dead-reckons the pose returned by the
+align service across the multi-second align latency using the live twist stream. As noted
+in Sec.~\ref{sec:eval-realdata}, the route traverses LiDAR-hostile structures, so
+all rates below are stress-route values.
 
-All 26 re-initializations across the four runs succeeded, and no run ever lost the
-differential map. Both engines fail in the same places: every run starves at the same
-\stackSharedEpisodes{} hardest route sections (the tunnel approach and one urban section),
-and \stackCppOnlyEpisodes{} further sections starve only the C++ runs. Same-engine repeat
-bands are tight and the engine bands do not overlap: accepted-output coverage is
+All \stackReinitTotal{} re-initializations across the four runs succeeded, and no run ever
+lost the dynamically loaded map: map tiles remained available on every frame. Starvation
+episodes coincide across engines: every run starves at the same \stackSharedEpisodes{}
+most difficult route sections (the tunnel approach and one urban section), and
+\stackCppOnlyEpisodes{} further sections starve only the C++ runs. Same-engine repeat
+bands are narrow and the engine bands do not overlap: \emph{accepted-output coverage} ---
+the fraction of input clouds for which the pipeline published an NDT pose that passed the
+EKF acceptance gate --- is
 \stackCppSurvMin--\stackCppSurvMax\% for C++ versus \stackRustSurvMin--\stackRustSurvMax\%
 for Rust, with \stackCppReinitMin--\stackCppReinitMax{} versus
 \stackRustReinitMin--\stackRustReinitMax{} re-initializations and iteration-cap shares of
 \stackCppCapMin--\stackCppCapMax\% versus \stackRustCapMin--\stackRustCapMax\% of aligned
-frames. Median align cost is \stackCppExeMedMin--\stackCppExeMedMax{} versus
+frames (median \stackIterMedMin--\stackIterMedMax{} iterations per aligned frame). Median
+align cost is \stackCppExeMedMin--\stackCppExeMedMax{} versus
 \stackRustExeMedMin--\stackRustExeMedMax{} \si{ms}; the only \SI{100}{ms}-budget
 violations are \stackCppOverMin--\stackCppOverMax{} C++ frames per run, all inside
-recovery windows where the align service contends with the main callback (maxima
-\SI{\stackCppTimeMax}{ms} versus \SI{\stackRustTimeMax}{ms}; Rust has none anywhere).
-The consistent reading is that the roughly halved align cost rides out quality gaps that
-starve the slower engine. Cross-language gate and innovation differences
-(\stackQCrossMin--\stackQCrossMax{} disagreements; \SI{\stackInnovCrossMin}{m}--\SI{\stackInnovCrossMax}{m} p99)
-exceed the same-engine repeat bands (\stackQRepeatMin--\stackQRepeatMax{};
-\SI{\stackInnovRepeatMin}{m}--\SI{\stackInnovRepeatMax}{m}), consistent with that
-systematic difference rather than replay noise. With two runs per engine, feedback chaos,
-and no ground truth, these remain run-level observations.
+\emph{recovery windows} --- the intervals from a watchdog trigger to the completed EKF
+reset --- where the align service contends with the main callback (maxima
+\SI{\stackCppTimeMax}{ms} versus \SI{\stackRustTimeMax}{ms}; no Rust frame exceeds the
+budget in any run). These observations are consistent with the lower align cost allowing
+the faster engine to tolerate transient match-quality degradations that drive the slower
+engine past the starvation threshold. The EKF acceptance-gate decision differs across
+languages on \stackQCrossMin--\stackQCrossMax{} of \stackInputFrames{} frames, and the p99
+cross-language difference in the EKF innovation (measurement residual) is
+\SI{\stackInnovCrossMin}{m}--\SI{\stackInnovCrossMax}{m}; both exceed the same-engine
+repeat bands (\stackQRepeatMin--\stackQRepeatMax{} frames;
+\SI{\stackInnovRepeatMin}{m}--\SI{\stackInnovRepeatMax}{m}), consistent with a systematic
+engine difference rather than replay noise. With two runs per engine and
+feedback-induced trajectory divergence, these remain run-level observations.
 
 \subsection{Bridge experiment: Isolated and Replay configurations}
 \label{sec:eval-bridge}

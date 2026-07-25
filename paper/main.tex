@@ -75,7 +75,9 @@ traversal at lower common work. Per-input traces define \emph{work-trace conform
 passes, processed points, neighbor counts, and leaf identities. Leaf payloads,
 implementation-specific traversal, total work, and latency remain outside that relation, so
 C++ results are observations over transferred fixtures rather than a C++ worst-case search.
-An auxiliary cropped-map, degraded-prior replay exposes the remaining conformance boundary.
+An auxiliary cropped-map, degraded-prior replay exposes the remaining conformance
+boundary, and a closed-loop replay with recovery shows both engines re-initializing at the
+same route sections with disjoint coverage bands.
 
 In a unified three-boot synthetic campaign, the largest observed values are
 \SI{\unifiedFixtureMaxCpp}{ms} for C++ and \SI{\unifiedFixtureMaxRust}{ms} for Rust; Rust
