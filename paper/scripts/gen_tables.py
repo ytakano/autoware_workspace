@@ -32,6 +32,11 @@ DATA = ROOT / "data"
 OUT = ROOT / "tables"
 
 EULER_GAMMA = 0.5772156649015329
+# Configured Newton-iteration cap of the real-drive replay. Matches the archived capture's
+# params.bin (verified: trans_epsilon=0.01, step_size=0.1, max_iterations=30); realdata.json
+# does not record the configured cap, so it is pinned here rather than inferred from the
+# observed maximum (which would silently mislabel a dataset that never reaches the cap).
+REAL_MAX_ITERATIONS = 30
 # Shared table footnote for the tier markers.
 STRESS_CLASS_NOTE = (
     r"\emph{search-00} jointly stresses engine input and configuration; "
@@ -1133,8 +1138,13 @@ def realdata():
     offmap_iter = sorted(x["iteration_num"] for x in offmap)
     offmap_cpp = sorted(x["cpp_ms"] for x in offmap)
     onmap_seq_max = max(x["seq"] for x in frames)
-    # Share of on-map frames that hit the iteration cap (prose: "routinely reached").
-    itercap = sum(1 for x in frames if x["iteration_num"] >= it[-1])
+    # Share of on-map frames that hit the configured iteration cap (prose: "reachable").
+    if it[-1] > REAL_MAX_ITERATIONS:
+        raise SystemExit(
+            f"realdata: observed iteration count {it[-1]} exceeds the configured "
+            f"cap {REAL_MAX_ITERATIONS}"
+        )
+    itercap = sum(1 for x in frames if x["iteration_num"] >= REAL_MAX_ITERATIONS)
     # On-map scenario breakdown and the locations of the divergences.
     seqs = sorted(x["seq"] for x in frames)
     seg_bounds = []
