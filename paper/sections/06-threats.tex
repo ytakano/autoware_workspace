@@ -22,19 +22,24 @@ $O(N_{\mathrm{leaves}})$ structural cap; a slower Rust geometry may exist. The c
 solver branches, and numerical regime. No independent search uses the C++ FLANN distance or
 plane-evaluation counters, so C++ timing evidence is limited to observations over the
 transferred fixture set. The real-data evidence covers one
-vehicle, route, and cropped map, with
-only \realOnMap{} on-map frames in \realSegments{} short segments. The remaining
-\realOffMap{} frames are near-no-op aligns and therefore do not characterize localization
+vehicle, route, and cropped map: the primary degraded-track replay performs meaningful
+matching on only \realOnMap{} on-map frames in \realSegments{} short segments, and the
+production-guess control replay on \realProdOnMap{} boundary-transit frames. The remaining
+frames are near-no-op aligns and therefore do not characterize localization
 work over the full recording. The degraded-prior track uses offline NDT odometry rather than
-the production filter, so it does not represent nominal cruising or closed-loop behavior.
+the production filter, so it does not represent nominal cruising or closed-loop behavior;
+the control replay restores the recorded production guesses but remains open-loop on the
+same cropped map.
 The NDT--EKF replay includes feedback but lacks ground truth, vehicle dynamics, and
 co-resident workloads. Same-engine repetitions also diverge, preventing whole-drive
 language attribution; environment-gated EKF tracing may itself perturb scheduling.
 
 \subsection{Cross-language and cross-ISA validity}
-For the evaluated port, real-frame iteration-count divergence occurs on
-\realIterationDivergent{} of \realFrames{} frames, all among the \realOnMap{} on-map set
-(\realOnMapDivPct\%). The stricter $E_{\mathrm{base}}$ criterion excludes
+For the evaluated port, iteration-count divergence in the primary degraded-track replay
+occurs on \realIterationDivergent{} of \realFrames{} frames, all among the \realOnMap{}
+on-map set (\realOnMapDivPct\%); the production-guess control replay shows a comparable
+on-map rate (\realProdIterationDivergent{} of \realProdOnMap{} frames, likewise all
+on-map). The stricter $E_{\mathrm{base}}$ criterion excludes
 \realBaseDivergent{} on-map frames: \realOutputDivergent{} have equal iterations but exceed
 at least one output threshold, and \realIterationDivergent{} take different iteration
 paths. Residual differences are consistent with glibc versus \texttt{libm}, eigensolver

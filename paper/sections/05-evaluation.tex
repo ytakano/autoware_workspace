@@ -316,11 +316,14 @@ entry points to capture each NDT input: the map tile, per-align guess, and sourc
 capture contains \realFrames{} aligns collected after production preprocessing during a
 57-minute urban drive in İstanbul from the Istanbul Open Dataset~\cite{istanbulopendataset}.
 Both engines replayed the resulting buffers offline with
-cost counters enabled. The harness could not reproduce the production localization filter's
-prior quality, so the frozen guess track uses NDT odometry with constant-velocity
-extrapolation from a global-navigation-satellite-system (GNSS) seed. This track represents
+cost counters enabled. The primary replay deliberately discards the recorded
+production-filter guesses in favor of a frozen track built from NDT odometry with
+constant-velocity extrapolation from a global-navigation-satellite-system (GNSS) seed, so
+that the guess stream is independent of the production filter. This track represents
 degraded-prior operation, including initialization and filter dropouts, rather than nominal
-cruising; the converged node-level baseline requires three iterations per frame.
+cruising; a control replay with the recorded production guesses appears below, and the
+closed-loop tiled-map replay runs at a median of
+\stackIterMedMin--\stackIterMedMax{} iterations per aligned frame.
 
 The offline benchmark map is cropped, and the reconstructed trajectory exits it after frame
 \realOnMapSeqMax{}. Only \realOnMap{} aligns, distributed across \realSegments{} short
