@@ -69,6 +69,10 @@ if [ "${do_tables}" -eq 1 ]; then
   else
     echo "   (not a git checkout -- skipped the drift check)"
   fi
+  # Advisory prose lint (never fails the build; findings are for human review).
+  if [ -f scripts/lint_prose.py ]; then
+    python3 scripts/lint_prose.py | tail -1
+  fi
 fi
 
 if [ "${do_pdf}" -eq 1 ]; then

@@ -26,7 +26,7 @@ fixture and engine order. For each fixture and engine, every session records
 \envSamplesPerSession{} measured alignments after \envWarmup{} warmups, yielding
 \envPooledSamples{} pooled samples per fixture and engine. We pool these samples across
 sessions for the warm series; Sec.~\ref{sec:eval-interference} reports matched-size cold
-and co-runner series. A \texttt{steady\_clock} measures only the align loop, after the map
+and co-runner (concurrent-interference-workload) series. A \texttt{steady\_clock} measures only the align loop, after the map
 and kd-tree have been built once per engine and fixture. A fixed-work calibration guard
 rejects a cell whose sustained speed shifts by more than 10\%. Rejected cells are
 remeasured, and the pooled data contain accepted cells only. The primary campaign engines
@@ -82,13 +82,12 @@ The archived search-candidate rows use the same $3{\times}1000$ protocol as ever
 p50 and maximum orderings differ as described above, so neither the observed maximum alone
 nor the recorded counter order establishes a general latency ordering.
 
-The \emph{subnormal} fixture has a p50 ratio of $\subnormalMedianRatio\times$. In a
-controlled check, moving the source shell from \SI{\subnormalShellSourceM}{m} to
-\SI{\subnormalShellControlM}{m} moves every
+A controlled check does not support subnormal arithmetic as the cause of the
+\emph{subnormal} fixture's p50 ratio of $\subnormalMedianRatio\times$. Moving the source
+shell from \SI{\subnormalShellSourceM}{m} to \SI{\subnormalShellControlM}{m} moves every
 kernel $\exp$ result out of the subnormal band without reducing p50 for either engine: C++
 changes from \SI{\subnormalShellSubCpp}{ms} to \SI{\subnormalShellCtrlCpp}{ms}, and
-Rust changes from \subnormalShellSubRust{} to \subnormalShellCtrlRust. This result does
-not support subnormal arithmetic as the cause of the gap.
+Rust changes from \subnormalShellSubRust{} to \subnormalShellCtrlRust.
 
 The remaining difference is consistent with per-point overhead exposed by a neighbor-sparse
 shape. With little kernel work, C++ spends approximately
@@ -303,7 +302,8 @@ Table~\ref{tab:parallel} reports host scaling for the \emph{geom-stress} run at
 $\epsilon=10^{-10}$. The
 serial Rust result costs \SI{\parRustLegalSerialMs}{ms}, missing the
 \SI{100}{ms} budget. We therefore ran both engines with $k\in\{1,2,4\}$ workers on $k$ isolated physical
-cores, with one pinned worker per core. The Rust Rayon reduction preserves point order and
+cores, with one pinned worker per core. The Rust engine's Rayon (data-parallelism
+library) reduction preserves point order and
 is bit-identical to serial for every $k$. At $k=\parRustLegalFitK$, it reduces the witness
 to \SI{\parRustLegalFitMaxMs}{ms}. Thus this non-shipped stress run falls below the period
 on this host with two cores. This is a throughput observation, not evidence of shipped
@@ -329,17 +329,18 @@ that the guess stream is independent of the production filter. This track repres
 degraded-prior operation, including initialization and filter dropouts; a control replay
 with the recorded production guesses appears below.
 
-The offline benchmark map is cropped, and the reconstructed trajectory exits it after frame
-\realOnMapSeqMax{}. Only \realOnMap{} aligns, distributed across \realSegments{} short
+We treat the experiment as a \emph{cropped-map, degraded-prior stress replay}, useful for
+exposing map-boundary numerical branching, stressing initialization and dropout priors,
+and identifying port-fidelity failures; it is not a representative nominal-localization
+workload over the full recording. The offline benchmark map is cropped, and the
+reconstructed trajectory exits it after frame \realOnMapSeqMax{}. Only \realOnMap{}
+aligns, distributed across \realSegments{} short
 segments in this prefix and covering approximately 2\% of the drive, perform meaningful
 matching work. We classify a frame as \emph{on-map} when at least one radius search returns
 a neighbor, so $\sumnbr>0$. Every search is empty on the remaining \realOffMap{}
 \emph{off-map} frames, making those aligns near-no-ops with a median of
 \realOffMapIterMed{} iterations and a C++ p50 of approximately
-\SI{\realOffMapCppMed}{ms}. We therefore treat the experiment as a \emph{cropped-map,
-degraded-prior stress replay}, useful for exposing map-boundary numerical branching,
-stressing initialization and dropout priors, and identifying port-fidelity failures. It is
-not a representative nominal-localization workload over the full recording.
+\SI{\realOffMapCppMed}{ms}.
 
 Table~\ref{tab:realdata} separates these populations. Its first panel reports $P$, maximum
 $K$, and the partition by base agreement and trace conformance over all frames. The second reports timing over
@@ -371,14 +372,14 @@ production-preprocessed geometry thus holds under degraded priors, production pr
 the closed-loop replay with production-like recovery; the absolute share depends on prior
 quality and map configuration.
 
-The timing rows report the \emph{Replay} configuration. They use
-normal CFS scheduling, no pinning, one align per frame in production order, and a pinned
-\SI{3.2}{GHz} reference clock on all cores. The observed-maximum frame costs
-\SI{\realCppMax}{ms} in C++ and \SI{\realRustMax}{ms} in Rust. Under this track, the
-10\,Hz deadline is no longer a marginal worst case: \realOverrunsCpp{} C++
-aligns exceed the \SI{100}{ms} budget. They represent
+Under this track, the 10\,Hz deadline is no longer a marginal worst case:
+\realOverrunsCpp{} C++ aligns exceed the \SI{100}{ms} budget, whereas Rust has no
+overruns. The timing rows report the \emph{Replay} configuration: normal CFS scheduling,
+no pinning, one align per frame in production order, and a pinned \SI{3.2}{GHz} reference
+clock on all cores. The observed-maximum frame costs \SI{\realCppMax}{ms} in C++ and
+\SI{\realRustMax}{ms} in Rust. The overruns represent
 \realOverrunsCppOnMapPct\% of the on-map frames, whose C++ median is
-\SI{\realCppMedOnMap}{ms}. Rust has no overruns. These Replay observations are not compared numerically with the
+\SI{\realCppMedOnMap}{ms}. These Replay observations are not compared numerically with the
 primary Isolated maxima because the auxiliary replay uses a separately pinned binary.
 The comparison is specific to the recorded reference clock; a production electronic control unit (ECU) may have
 different governor and boost behavior. The replay also excludes co-resident Autoware
@@ -480,12 +481,12 @@ max-vs-max ratios are same-$n$; the real-frame legs are $n{=}100$ in both config
 
 \input{tables/bridge}
 
-For Rust, the Replay-to-Isolated ratio spans
-$\bridgeRustInflMin$--$\bridgeRustInflMax\times$ over the five bridge inputs on the
-otherwise-idle host. Co-resident load is a separate axis probed in
-Sec.~\ref{sec:eval-interference}. For C++, the ratio spans
-$\bridgeCppInflMin$--$\bridgeCppInflMax\times$ and is below one on all five inputs,
-showing that the two host configurations are not engine-neutral. The available controls do
+The two host configurations are not engine-neutral. For Rust, the Replay-to-Isolated
+ratio spans $\bridgeRustInflMin$--$\bridgeRustInflMax\times$ over the five bridge inputs
+on the otherwise-idle host, whereas for C++ it spans
+$\bridgeCppInflMin$--$\bridgeCppInflMax\times$ and is below one on all five inputs.
+Co-resident load is a separate axis probed in
+Sec.~\ref{sec:eval-interference}. The available controls do
 not identify a single mechanism, so the ratios are descriptive configuration-transfer
 measurements rather than generic scheduler penalties or additive interference bounds.
 

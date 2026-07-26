@@ -348,9 +348,10 @@ def raspi4_timing():
             f"& {c['max'] / 1000.0:.1f} & exact")
     write(
         "raspi4.tex",
-        r"On-target Bare-metal series: Raspberry Pi 4 (Cortex-A72), bare-metal "
-        r"\texttt{no\_std} kernel; per fixture 100 warm + 20 cold (8\,MiB evict) samples "
-        r"after 3 warmups.",
+        r"Every recorded counter tuple transfers exactly to the AArch64 target, and "
+        r"repeated timing per fixture has sub-percent spread (Bare-metal: Raspberry Pi 4 "
+        r"Cortex-A72, \texttt{no\_std} kernel; per fixture 100 warm + 20 cold (8\,MiB "
+        r"evict) samples after 3 warmups).",
         "tab:raspi4",
         "lrrrl",
         r"fixture & warm p50 & warm max & cold max (\si{ms}) & counters",
@@ -372,8 +373,8 @@ def raspi4_timing():
         rf"\newcommand{{\raspiTimingSamples}}{{100}}",
         rf"\newcommand{{\raspiTimingCold}}{{20}}",
         rf"\newcommand{{\raspiCalibDriftPct}}{{{100.0 * drift:.2f}}}",
-        rf"\newcommand{{\raspiSpreadWorstPct}}{{{100.0 * (spread - 1.0):.2f}}}",
-        rf"\newcommand{{\raspiColdDeltaWorstPct}}{{{100.0 * (cold_delta - 1.0):.2f}}}",
+        rf"\newcommand{{\raspiSpreadWorstPct}}{{{100.0 * (spread - 1.0):.1f}}}",
+        rf"\newcommand{{\raspiColdDeltaWorstPct}}{{{100.0 * (cold_delta - 1.0):.1f}}}",
         rf"\newcommand{{\raspiSearchWarmMaxS}}{{{s00['max'] / 1e6:.2f}}}",
     ]
     if factor is not None:
@@ -455,7 +456,8 @@ def interference():
     )
     write(
         "interference.tex",
-        r"Cache and interference sensitivity: relative change vs.\ the warm series "
+        r"The cache and interference response is fixture- and engine-specific: relative "
+        r"change vs.\ the warm series "
         r"(\%; cold = median shift under between-sample eviction; co-runner columns = "
         r"max shift with the named one-resource co-runner on an L3-sharing core).",
         "tab:interference",
@@ -600,7 +602,8 @@ def main():
         )
     write(
         "counters.tex",
-        r"Frozen fixtures: deterministic Rust work counters "
+        r"Deterministic Rust work counters of the frozen fixtures: search-00 "
+        r"reaches the analytic kernel-evaluation ceiling exactly "
         r"($P=2000$ for the search outputs).",
         "tab:counters",
         "lrrrrr",
@@ -629,7 +632,8 @@ def main():
         )
     write(
         "tails.tex",
-        r"Frame time per engine (\si{ms}; \envSessions{} sessions $\times$ "
+        r"Unified-campaign frame times: Rust has the smaller observed maximum on every "
+        r"fixture (\si{ms}; \envSessions{} sessions $\times$ "
         r"\envSamplesPerSession{} measured samples per fixture and engine; "
         r"\envPooledSamples{} pooled; serial, isolated pinned core). "
         r"Each fixture satisfies work-trace conformance.",
@@ -753,7 +757,9 @@ def main():
         )
     write(
         "alloc.tex",
-        r"Heap allocations per align (\texttt{LD\_PRELOAD} interposer).",
+        r"C++ allocates ${\approx}\allocPerPtPass$ times per point per derivative pass "
+        r"on neighbor-returning fixtures, whereas the Rust align path allocates zero: "
+        r"heap allocations per align (\texttt{LD\_PRELOAD} interposer).",
         "tab:alloc",
         "lrrr",
         r"fixture & C++ / align & C++ / (pt$\cdot$pass) & Rust / align",
@@ -958,8 +964,9 @@ def main():
     print("wrote tables/regression_macros.tex")
     write(
         "regression.tex",
-        rf"Diagnostic regression ($n={reg_n}$ per engine; brackets: 95\% bootstrap CIs; "
-        rf"worst regressor correlation {corr:.2f}). The traversal regressor is "
+        rf"Wide intervals and regressor correlation up to {corr:.2f} leave "
+        rf"coefficient-level cost attribution unsupported: diagnostic regression "
+        rf"($n={reg_n}$ per engine; brackets: 95\% bootstrap CIs). The traversal regressor is "
         r"\flannevals{} for C++ and \kdnodes{} for Rust; coefficients are not "
         r"cross-engine unit costs. A star marks the adopted diagnostic model for each engine.",
         "tab:regression",
@@ -1210,16 +1217,18 @@ def realdata():
         count_row("base-only", base_only_all),
         count_row(r"outside $E_{\mathrm{base}}$", base_divergent_all),
         r"\midrule \multicolumn{6}{l}{\emph{On-map timing observations}}",
-        dist_row("all on-map", r"C++ align (\si{ms})", cpp, "{:.2f}"),
-        dist_row("all on-map", r"Rust align (\si{ms})", rust, "{:.2f}"),
-        dist_row(r"$E_{\mathrm{shape}}$", r"C++ align (\si{ms})", strict_cpp, "{:.2f}"),
-        dist_row(r"$E_{\mathrm{shape}}$", r"Rust align (\si{ms})", strict_rust, "{:.2f}"),
+        dist_row("all on-map", r"C++ align (\si{ms})", cpp, "{:.1f}"),
+        dist_row("all on-map", r"Rust align (\si{ms})", rust, "{:.1f}"),
+        dist_row(r"$E_{\mathrm{shape}}$", r"C++ align (\si{ms})", strict_cpp, "{:.1f}"),
+        dist_row(r"$E_{\mathrm{shape}}$", r"Rust align (\si{ms})", strict_rust, "{:.1f}"),
     ]
     write(
         "realdata.tex",
-        rf"Real-data replay (İstanbul urban drive, open-loop frozen guess track), "
-        r"the Replay configuration (CFS, unpinned, one align per "
-        r"frame): per-frame distributions.",
+        rf"Only the {len(frames)} on-map frames perform meaningful matching; C++ "
+        r"overruns the \SI{100}{ms} budget on this track while Rust never does: "
+        r"per-frame "
+        r"distributions of the real-data replay (İstanbul urban drive, open-loop frozen "
+        r"guess track; Replay configuration: CFS, unpinned, one align per frame).",
         "tab:realdata",
         "llrrrr",
         r"population & metric & $n$ & p50 & p99 & max",
@@ -1249,12 +1258,12 @@ def realdata():
         rf"\newcommand{{\realOutputDivergent}}{{{output_divergent_all}}}",
         rf"\newcommand{{\realNotShapeOnMap}}{{{base_only_onmap + base_divergent_onmap}}}",
         rf"\newcommand{{\realNotShapeOnMapPct}}{{{100.0 * (base_only_onmap + base_divergent_onmap) / len(frames):.1f}}}",
-        rf"\newcommand{{\realDivPctAll}}{{{100.0 * iteration_divergent_all / len(allframes):.2f}}}",
+        rf"\newcommand{{\realDivPctAll}}{{{100.0 * iteration_divergent_all / len(allframes):.1f}}}",
         rf"\newcommand{{\realOnMapDivPct}}{{{100.0 * iteration_divergent_onmap / len(frames):.1f}}}",
         rf"\newcommand{{\realOffMapIterMed}}{{{pct(offmap_iter, 0.5):.0f}}}",
         rf"\newcommand{{\realOffMapCppMed}}{{{pct(offmap_cpp, 0.5):.1f}}}",
         rf"\newcommand{{\realOnMapSeqMax}}{{{onmap_seq_max}}}",
-        rf"\newcommand{{\realIterCapPct}}{{{100.0 * itercap / len(frames):.0f}}}",
+        rf"\newcommand{{\realIterCapPct}}{{{100.0 * itercap / len(frames):.1f}}}",
         rf"\newcommand{{\realSegments}}{{{len(seg_bounds)}}}",
         rf"\newcommand{{\realDivSegments}}{{{div_segs}}}",
         rf"\newcommand{{\realDivIterMin}}{{{mism_iters[0]}}}",
@@ -1266,7 +1275,7 @@ def realdata():
         rf"\newcommand{{\realRustMax}}{{{rust[-1]:.1f}}}",
         rf"\newcommand{{\realCppMax}}{{{cpp[-1]:.1f}}}",
         rf"\newcommand{{\realOverrunsCpp}}{{{over_cpp}}}",
-        rf"\newcommand{{\realOverrunsCppOnMapPct}}{{{100.0 * over_cpp_onmap / len(frames):.0f}}}",
+        rf"\newcommand{{\realOverrunsCppOnMapPct}}{{{100.0 * over_cpp_onmap / len(frames):.1f}}}",
         rf"\newcommand{{\realCppMedOnMap}}{{{pct(cpp, 0.5):.1f}}}",
     ]
     (OUT / "realdata_macros.tex").write_text("\n".join(macros) + "\n", encoding="utf-8")
@@ -1348,11 +1357,11 @@ def realdata_prodprior():
         rf"\newcommand{{\realProdOnMap}}{{\num{{{len(onmap)}}}}}",
         rf"\newcommand{{\realProdOnMapSegments}}{{{segments}}}",
         rf"\newcommand{{\realProdOnMapSpanMin}}{{{span_min:.0f}}}",
-        rf"\newcommand{{\realProdIterCapPct}}{{{100.0 * cap / len(onmap):.0f}}}",
+        rf"\newcommand{{\realProdIterCapPct}}{{{100.0 * cap / len(onmap):.1f}}}",
         rf"\newcommand{{\realProdIterationDivergent}}{{{len(divergent)}}}",
         rf"\newcommand{{\realABCommonN}}{{{len(common)}}}",
-        rf"\newcommand{{\realABCapDegPct}}{{{100.0 * cap_deg_common / len(common):.0f}}}",
-        rf"\newcommand{{\realABCapProdPct}}{{{100.0 * cap_prod_common / len(common):.0f}}}",
+        rf"\newcommand{{\realABCapDegPct}}{{{100.0 * cap_deg_common / len(common):.1f}}}",
+        rf"\newcommand{{\realABCapProdPct}}{{{100.0 * cap_prod_common / len(common):.1f}}}",
     ]
     (OUT / "realdata_prodprior_macros.tex").write_text(
         "\n".join(macros) + "\n", encoding="utf-8"
@@ -1537,11 +1546,12 @@ def bridge():
         gaps[fx] = (gb, ga)
     write(
         "bridge.tex",
-        r"Bridge experiment on one byte-identical benchmark binary under Isolated, with an "
-        r"isolated core, its SMT sibling offline, and IRQs moved, and under Replay, "
-        r"with normal CFS, no pinning, and SMT enabled. Both use the same "
-        r"\SI{3.2}{GHz} reference clock. The ratio is Replay maximum divided by "
-        r"Isolated maximum and is descriptive only.",
+        r"The Isolated and Replay configurations are not engine-neutral: C++ maxima are "
+        r"lower under Replay on all five inputs while Rust ratios stay near one. Bridge "
+        r"experiment on one byte-identical benchmark binary under Isolated (isolated "
+        r"core, SMT sibling offline, IRQs moved) and Replay (normal CFS, no pinning, SMT "
+        r"enabled), same \SI{3.2}{GHz} reference clock. The ratio is Replay maximum "
+        r"divided by Isolated maximum and is descriptive only.",
         "tab:bridge",
         "llrrrrr",
         r"input & engine & \multicolumn{2}{c}{Isolated (\si{ms})} "
@@ -1633,7 +1643,8 @@ def psweep():
         )
     write(
         "psweep.tex",
-        r"Capacity-parameterized $P$-sweep on the Rust-search geometry (\si{ms}; "
+        r"An affine line closely fits the observed maxima of the capacity-parameterized "
+        r"$P$-sweep on the Rust-search geometry (\si{ms}; "
         r"common kernel work verified: $N_{\mathrm{iter}}{=}30$ and "
         r"$\sumnbr = P \cdot 64 \cdot 31$ at every $P$).",
         "tab:psweep",
@@ -1826,7 +1837,8 @@ def trace_cert():
         )
     write(
         "tracecert.tex",
-        r"Per-input work-trace conformance (traced analysis build vs.\ the Rust engine's mirrored "
+        r"Work-trace shape agrees on every frozen fixture while the payload digest does "
+        r"not always: per-input conformance (traced analysis build vs.\ the Rust engine's mirrored "
         r"trace; deterministic and timing-environment-independent). Shape compares pass count, "
         r"per-pass point/neighbor counts, and SHA-256 digests of sorted canonical leaf IDs. "
         r"Payload additionally digests each leaf's mean and regularized inverse covariance. "
@@ -1967,7 +1979,8 @@ def parallel():
             )
     write(
         "parallel.tex",
-        r"Host scaling of geom-stress at non-shipped $\epsilon=10^{-10}$ "
+        r"Two workers bring the Rust geom-stress run below the \SI{100}{ms} "
+        r"period on this host: host scaling at non-shipped $\epsilon=10^{-10}$ "
         r"(maximum align \si{ms}; one pinned worker per isolated physical core). "
         r"Not evidence of shipped deadline compliance or multi-core WCET.",
         "tab:parallel",
