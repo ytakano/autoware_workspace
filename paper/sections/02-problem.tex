@@ -46,7 +46,7 @@ the configured source-point limit, $N_{\mathrm{leaves}}$ is the number of active
 leaves indexed by the kd-tree, $L_{\max}$ is its configured leaf limit, and \maxnn{} is
 the per-query neighbor cap. A kd traversal visits at most $N_{\mathrm{leaves}}$ nodes per
 query. The principal evaluation configuration uses $P_{\max}=\runtimePMax$ and
-$L_{\max}=\runtimeLeavesMax$: production replay observes at most 1500 scan points, while
+$L_{\max}=\runtimeLeavesMax$: production replay observes at most \realPMax{} scan points, while
 the engine stress fixtures use 2000. Section~\ref{sec:eval-psweep} separately varies the
 configured $P_{\max}$. Table~\ref{tab:preconditions} records the principal limits and
 violation behavior.
@@ -66,7 +66,7 @@ platform-specific bounds.
 \subsection{Why work bounds need timing evidence}
 Individual maxima need not be jointly reachable, so constructed inputs are witnesses, not
 upper bounds. Cache, allocator, and floating-point costs are absent from the work model.
-In particular, C++ performs about 11 heap allocations per point per derivative pass on
+In particular, C++ performs about \allocPerPtPass{} heap allocations per point per derivative pass on
 neighbor-returning fixtures. This is a known input-proportional latency path whose cost is
 not bounded by the work model;
 removing it eliminates one such path but does not by itself establish a finite latency bound

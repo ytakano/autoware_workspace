@@ -317,7 +317,7 @@ capture contains \realFrames{} aligns collected after production preprocessing d
 57-minute urban drive in İstanbul from the Istanbul Open Dataset~\cite{istanbulopendataset},
 whose route deliberately traverses LiDAR-hostile structures (a sub-sea tunnel with large
 elevation change, long bridges, dense urban canyons). A byte-exact join of every captured cloud against the
-recording shows the capture covers the drive's first $\approx$33 minutes, that 5582 clouds
+recording shows the capture covers the drive's first $\approx$\realCaptureSpanMin{} minutes, that \realDupClouds{} clouds
 were aligned two or three times by concurrent capture consumers (with different guesses),
 and that the capture order is not drive order; per-frame statistics therefore weight some
 scan geometries two- or three-fold.
@@ -420,12 +420,12 @@ error because only one engine runs in production and the replay has no ground tr
 \label{sec:eval-stack}
 Stack-level replay extends the comparison to the full NDT--EKF--GNSS loop with
 production-like recovery. We replayed the same 57-minute cloud, vehicle-twist (linear and
-angular velocity), and GNSS streams twice per engine (C++--Rust--Rust--C++), each run
-starting from one shared frozen initial pose on a \SI{\stackMapExtent}{m}-extent map whose
-dynamic tiles are loaded within \SI{\stackMapRadius}{m} of the pose estimate, under CFS
-with the deployed \stackWorkers-worker configuration (\stackWorkers{} OpenMP threads for
-C++, a \stackWorkers-worker Rayon pool for Rust), replaying \stackInputFrames{} clouds at
-\SI{10}{Hz}. A watchdog implements the production pose-initializer recovery flow: a GNSS
+angular velocity), and GNSS streams twice per engine (C++--Rust--Rust--C++), replaying
+\stackInputFrames{} clouds at \SI{10}{Hz}. Each run starts from one shared frozen initial
+pose on a \SI{\stackMapExtent}{m}-extent map whose dynamic tiles are loaded within
+\SI{\stackMapRadius}{m} of the pose estimate, under CFS with the deployed
+\stackWorkers-worker configuration (\stackWorkers{} OpenMP threads for C++, a
+\stackWorkers-worker Rayon pool for Rust). A watchdog implements the production pose-initializer recovery flow: a GNSS
 seed pose, a call to the NDT align service, an EKF reset, and re-enabling of the
 localization nodes. It fires after \SI{\stackStarve}{s} without an accepted NDT pose ---
 one admitted by the EKF's measurement-acceptance gate --- and we call such a period a
@@ -440,21 +440,21 @@ lost the dynamically loaded map: map tiles remained available on every frame. St
 episodes coincide across engines: every run starves at the same \stackSharedEpisodes{}
 most difficult route sections (the tunnel approach and one urban section), and
 \stackCppOnlyEpisodes{} further sections starve only the C++ runs. Same-engine repeat
-bands are narrow and the engine bands do not overlap: \emph{accepted-output coverage} ---
+bands are narrow and the engine bands do not overlap. \emph{Accepted-output coverage} ---
 the fraction of input clouds for which the pipeline published an NDT pose that passed the
 EKF acceptance gate --- is
 \stackCppSurvMin--\stackCppSurvMax\% for C++ versus \stackRustSurvMin--\stackRustSurvMax\%
-for Rust, with \stackCppReinitMin--\stackCppReinitMax{} versus
-\stackRustReinitMin--\stackRustReinitMax{} re-initializations and iteration-cap shares of
-\stackCppCapMin--\stackCppCapMax\% versus \stackRustCapMin--\stackRustCapMax\% of aligned
-frames (median \stackIterMedMin--\stackIterMedMax{} iterations per aligned frame). Median
+for Rust. The runs perform \stackCppReinitMin--\stackCppReinitMax{} (C++) versus
+\stackRustReinitMin--\stackRustReinitMax{} (Rust) re-initializations, with iteration-cap
+shares of \stackCppCapMin--\stackCppCapMax\% versus \stackRustCapMin--\stackRustCapMax\%
+of aligned frames (median \stackIterMedMin--\stackIterMedMax{} iterations). Median
 align cost is \stackCppExeMedMin--\stackCppExeMedMax{} versus
-\stackRustExeMedMin--\stackRustExeMedMax{} \si{ms}; the only \SI{100}{ms}-budget
+\stackRustExeMedMin--\stackRustExeMedMax{} \si{ms}. The only \SI{100}{ms}-budget
 violations are \stackCppOverMin--\stackCppOverMax{} C++ frames per run, all inside
 \emph{recovery windows} --- the intervals from a watchdog trigger to the completed EKF
-reset --- where the align service contends with the main callback (maxima
+reset --- where the align service contends with the main callback. The maxima are
 \SI{\stackCppTimeMax}{ms} versus \SI{\stackRustTimeMax}{ms}; no Rust frame exceeds the
-budget in any run). These observations are consistent with the lower align cost allowing
+budget in any run. These observations are consistent with the lower align cost allowing
 the faster engine to tolerate transient match-quality degradations that drive the slower
 engine past the starvation threshold. The EKF acceptance-gate decision differs across
 languages on \stackQCrossMin--\stackQCrossMax{} of \stackInputFrames{} frames, and the p99
