@@ -118,6 +118,60 @@ C++ はベース遅延が大きいためこのスパイラルに入りやすく�
 cap→棄却→prior 劣化の正帰還に入りにくい**。エンジンの速度差がシステムレベルの
 頑健性(coverage・回復回数)に伝播する、が閉ループ実験の中心的知見。
 
+## 6. 付録: GNSS 再初期化 watchdog の設計(`bench/l1b_reinit_watchdog.py`)
+
+素の stack replay は「初期化 1 回・復帰経路なし」で、喪失後は二度と戻れない
+(旧実験は最長 2,088 秒の喪失を放置)。watchdog は production の GNSS 再初期化を
+replay に再現する装置だが、production の再初期化は**停車中**が前提
+(`pose_initializer` の stop_check)であり、記録済み走行は止められない。
+そのための適応が以下の 2 点。
+
+### トリガ: starvation 25 秒のみ
+
+- **accepted NDT pose(EKF 採択ゲート通過出力)が 25 秒途絶**したときだけ発火。
+  値の根拠はベースライン run の実測: 自己回復する良性ギャップは最大 19.2 秒
+  (その間 twist デッドレコニングが ~3 m 精度を維持)、本物の喪失は 54〜2,088 秒。
+- **EKF−GNSS 乖離トリガは検討の末に撤廃**(v1 で実装→失敗)。トンネル区間では
+  GNSS-INS 側が ~420 m ドリフトし NDT は健全なため、乖離トリガは健全なループを
+  リセットしてしまう。原則「NDT が出力しているなら NDT を信じる」。
+
+### TPE レイテンシの twist 前方予測補償
+
+再初期化の実体は pose_initializer AUTO と同一の呼び出し列:
+GNSS-INS シード → `ndt_align_srv`(TPE = Tree-structured Parzen Estimator による
+多点初期姿勢探索 align、**3〜6 秒**かかる)→ `/initialpose3d` → trigger 再有効化。
+
+問題は、align 実行中も bag が再生され続け、車両が数十〜100 m 進むこと。
+refined pose を `stamp=now` で注入すると「数十 m 古い姿勢を現在値として EKF に
+教える」ことになる。**v1 の実測**: 補償なし注入で、健全だったループ
+(EKF−GNSS 乖離 1.2 m)が 50〜80 m の持続振動に陥った(注入 → EKF 破壊 →
+再発散 → 再注入の自己維持ループ)。production はこれを停車で回避しており、
+init スクリプト(`l1b_ndt_align_init.py`)が bag を pause するのも同じ理由。
+
+**v2 の解決**: align 要求時刻から発行時刻までの live twist(並進・角速度)を
+バッファし、平面デッドレコニングで refined pose を前進させてから注入する:
+
+```
+yaw += wz·dt;  x += vx·cos(yaw)·dt;  y += vx·sin(yaw)·dt
+```
+
+実証値: 本番 run で 104 m / 127 m の移動分を補償し、注入直後の EKF−GNSS 乖離は
+2.9 m / 2.7 m(`reinit_events.csv` の `predict_m` 列に記録)。
+
+### 安全弁
+
+| 機構 | 役割 |
+|---|---|
+| align の success フラグ | 実効的な妥当性ゲート。トンネル内で GNSS シードが数百 m ズレていれば align が失敗し、誤注入を防ぐ(GNSS 共分散は tunnel でも ~mm 級を報告するため cov ゲートは不可) |
+| クールダウン 30 秒 / リトライ 10 秒 | 再ロック中の連続介入・TPE 乱発を防止 |
+| GNSS 鮮度 1 秒 | 古い GNSS シードでの注入を防止 |
+| arm 条件 | 最初の accepted pose まで発火しない(初期化は共有 fixture 担当) |
+| `reinit_events.csv` | 全判定・シード・成否・補償距離を記録(100 ms 超過が全て回復窓内であることの証明にも使用) |
+
+production との残る逸脱は「停車 → twist 前方予測」の置換 1 点と、
+「いつ再初期化するか」の自動化(production では operator/MRM の領分)。
+検証: 30 分 run で誤発火ゼロ、本番 4 run で 26/26 発火が全て正当・全て成功。
+
 ## 限定条件
 
 - ルートは意図的に LiDAR 困難(海底トンネル・長大橋・都市峡谷)— 全数値はストレスルート値
