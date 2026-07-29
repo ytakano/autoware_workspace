@@ -411,3 +411,39 @@ Net: the shipping 1.26× is roughly (overflow-checks ≈ FFI-marshaling) > (nalg
 **no FLOP divergence**; the ISA-matched, overflow-checks-off Rust kernel is within ~1.05× of
 Eigen, and full codegen flags make it faster.
 
+
+### 8.4 FFI-coarsening investigation — negative result (2026-07-29)
+
+Following §8.3 (FFI marshaling ≈ 35–48 % of the per-event excess), a plan tried to recover it
+by coarsening the C ABI (batched getters + collapsed update crossings). Implemented, gated,
+then **reverted** — no code shipped. Findings:
+
+- **B1 audit (measurement-update path):** the adapter's `measurement_update_pose` /
+  `measurement_update_twist` each make **exactly one** FFI crossing. `find_closest_delay_time_index`
+  and `compensate_rph_with_delay` are performed *internally* by the Rust `EkfModule`, not
+  re-crossed — so there are **no nested crossings to collapse**. (The standalone
+  `find_closest`/`compensate_rph` FFI entries exist only for `test/test_ekf_module.cpp`.)
+
+- **Getter batching (C) measured NET-NEGATIVE.** A batched `aw_ekf_module_get_outputs` (one
+  crossing filling all six outputs) replaced the timer-callback's four individual getter
+  crossings. Direct microbench of the node output path (`taskset -c 2`, N=10, static-lib link):
+  the per-getter **FFI crossing overhead is only ~2–3 ns** — not a bottleneck. The getter
+  **work** dominates (~220 ns for all six). Because `get_outputs` computes all six while the
+  timer block consumes only four and the publish path still recomputes
+  `pose_cov`/`twist_cov`/`yaw_bias`, `twist_cov` and `yaw_bias` end up computed twice
+  (7 getter-works → 9): **305 → 375 ns/tick, a ~70 ns/tick regression** (absolute scale
+  negligible — 3.5 µs/s at 50 Hz — but the wrong direction). The §8.1 replay harness is blind
+  to this path (`ekf_replay` never calls the getters), confirming the getters were never in the
+  §8.3 FFI number.
+
+- **Where the §8.3 "FFI marshaling 5–7 µs/event" actually is:** the **measurement-update**
+  path (`ffi − native` on the replay, which drives predict/update, not getters). It is
+  dominated by the C++-side `geometry_msgs` construction + adapter `geometry_msgs→AwEkf→plain`
+  marshaling of the 36-element covariances — partly inherent to keeping the node a thin C++
+  shell over ROS messages. A borrow-instead-of-copy on the Rust entry (B2) would save only the
+  ~44-double `pose_from_ffi` copy (~tens of ns), not the C++-side work.
+
+**Conclusion:** the FFI boundary is **not a worthwhile perf lever** for the EKF — crossings are
+~ns, the measurement-update marshaling cost is largely inherent to the thin-shell design, and
+batching the getters regresses. No code change shipped; the reduction opportunity identified in
+§8.3 is therefore **overflow-checks and codegen flags (§8.5)**, not FFI coarsening.
