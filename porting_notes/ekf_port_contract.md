@@ -447,3 +447,50 @@ then **reverted** — no code shipped. Findings:
 ~ns, the measurement-update marshaling cost is largely inherent to the thin-shell design, and
 batching the getters regresses. No code change shipped; the reduction opportunity identified in
 §8.3 is therefore **overflow-checks and codegen flags (§8.5)**, not FFI coarsening.
+
+### 8.5 Corrected attribution + nalgebra overflow-checks recovery (2026-07-29)
+
+§8.3 identified overflow-checks as ~half the FFI-backend excess over C++ and located it in the
+"predict block-copy index arithmetic". Refined finding: that tax lives in **nalgebra's**
+internal `copy_from`/`gemm`/`axpy` loops (bounded loop-counter/index arithmetic that cannot
+overflow in practice), **not** in our crates' arithmetic (which already uses `checked_*`). It is
+therefore removable with a **per-package profile override** — `overflow-checks = false` for
+`nalgebra` only — applied in both `realtime_core/Cargo.toml` and the vendored FFI crate's
+`Cargo.toml` (the profile Corrosion compiles the static lib with). Every `realtime_*` crate
+keeps `overflow-checks = true` (the profile default), so our own integer arithmetic still fails
+loudly.
+
+**Invariance:** `overflow-checks` guards only integer ops, so float results are unchanged — the
+frozen 13-scenario conformance traces are **byte-identical to the pre-change build**, both
+native (`ekf_replay` Rust example) and through the FFI backend, and all decisions match the
+frozen C++ fixtures 100 %. Workspace tests 178/178 (release + debug); colcon
+`EKF_USE_RUST=ON` 152/152, `OFF` unaffected. Our crates staying checked is structural: no
+`realtime_*` package override exists, so they inherit the checked default.
+
+**Attribution (trace-off native, §8.1 conditions, µs/event):**
+
+| build | realdata | note |
+|---|---|---|
+| native, overflow-checks ON everywhere (§8.3 baseline) | 66.5 | — |
+| native, **nalgebra override only** | 60.6 | recovers **5.9 µs (~79 % of the tax)** |
+| native, overflow-checks OFF everywhere (§8.3 ceiling) | 58.9 | recovers 7.6 µs (100 %) |
+| C++ (`-O3`, SSE2) | 54.8 | reference |
+
+So ~79 % of the overflow-checks tax is inside nalgebra (removed safely) and ~21 % is in our
+still-checked code — a deliberate safety/perf split, not a blanket flag flip.
+
+**Before/after — shipping FFI-Rust backend (trace-off, taskset -c 2, N=10, parse-baseline
+subtracted):**
+
+| scenario | C++ | FFI before (ovf ON) | FFI after (nalgebra ovf off) | ffi/cpp before → after | recovery |
+|---|---|---|---|---|---|
+| realdata | 54.8 | 70.8 | 59.7 | 1.27 → **1.09** | −11.1 µs |
+| straight | 57.0 | 72.3 | 60.2 | 1.26 → **1.06** | −12.1 µs |
+| queue_burst | 61.1 | 74.4 | 66.8 | 1.26 → **1.09** | −7.6 µs |
+
+The shipping Rust EKF backend now runs within **1.06–1.09×** of the header-only, fully-inlined
+C++/Eigen backend (down from 1.26×), with no numeric change and our crates' overflow safety
+intact. The residual ~1.06–1.09× is the ISA-matched nalgebra-vs-Eigen kernel gap (§8.3 H3, the
+naive rank-m covariance downdate) plus the inherent FFI/`geometry_msgs` marshaling (§8.4);
+closing further would need either a hand-blocked downdate kernel (breaks byte-identity → re-freeze)
+or `-march`/target-cpu on both backends — out of scope here.
