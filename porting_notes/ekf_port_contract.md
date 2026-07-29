@@ -215,3 +215,40 @@ fix PR is not merged, so the quirk-faithful semantics of §2 still hold).
   **0 reinit attempts** with EKF↔GNSS residual 1.28 m at shutdown — matching the frozen
   baseline cpp1, whose first reinit event occurs at ~1,318 s wall, well past this window.
 
+### 8.1 Offline replay cost: execution time / heap allocations (measured 2026-07-29)
+
+Setup: `ekf_replay` OFF-build (C++ Eigen) vs ON-build (Rust over FFI), pinned to one core
+(`taskset -c 2`, all governors `performance`), N=10 runs after 1 discarded warmup. "compute"
+subtracts a per-scenario parse-only baseline (same scenario with `tick` lines stripped —
+parsing is byte-identical between backends). Timing rows are **untraced** (unopenable
+`AUTOWARE_EKF_POSE_TRACE` path disables all trace formatting on both sides). Allocations via
+an LD_PRELOAD interposer (bench/alloc_count.c extended with byte counting + exit dump),
+net of the same parse-only baseline; bytes are gross requested, not live.
+
+| scenario (events) | backend | median wall | compute | µs/event | net allocs | net MB | allocs/event | KB/event | peak RSS |
+|---|---|---|---|---|---|---|---|---|---|
+| realdata (11 859) | C++ | 711.1 ms | 651.2 ms | 54.9 | 261 485 | 2 380 | 22.0 | 201 | 11.3 MiB |
+| realdata | Rust | 987.4 ms | 927.4 ms | 78.2 | 1 415 071 | 8 972 | 119.3 | 757 | 11.4 MiB |
+| straight (1 200) | C++ | 113.3 ms | 69.8 ms | 58.1 | 26 140 | 242 | 21.8 | 201 | 11.7 MiB |
+| straight | Rust | 143.0 ms | 98.5 ms | 82.1 | 143 140 | 908 | 119.3 | 757 | 11.4 MiB |
+| queue_burst (1 000) | C++ | 104.1 ms | 59.9 ms | 59.9 | 22 433 | 166 | 22.4 | 166 | 11.7 MiB |
+| queue_burst | Rust | 129.1 ms | 85.0 ms | 85.0 | 121 233 | 758 | 121.2 | 758 | 11.4 MiB |
+
+- **Execution time**: the Rust backend is a consistent **~1.42× slower** on the filter
+  compute across all three scenarios (~78–85 µs vs ~55–60 µs per event). Run-to-run spread
+  is < 1 % (min ≈ median).
+- **Heap**: neither side is allocation-free (dynamic 300-dim extended state). C++ ≈ 22
+  allocs / ~200 KB per event; Rust ≈ 119 allocs / ~757 KB per event (**~5.4× calls,
+  ~3.8× bytes**). The extra comes from nalgebra producing owned temporaries where Eigen
+  uses lazy expression views (`.transpose()`, view `.into_owned()`, per-event
+  latest-state/covariance snapshots for the trace record) — a known optimization headroom,
+  not a semantic difference. Peak RSS is equal (~11.5 MiB): the temporaries are transient.
+- **Trace-writing overhead** (excluded above): +150 ms on realdata for C++ (iostream
+  `setprecision(17)` formatting) vs +12 ms for Rust — the traced/untraced split matters
+  when comparing traced runs.
+- **What this does/doesn't mean**: offline replay cost on one pinned core, including FFI
+  marshaling for the Rust side; not the 50 Hz node's real-time budget. Worst mean per-tick
+  cost (realdata, 2 952 ticks incl. update events): C++ ≈ 221 µs, Rust ≈ 314 µs — 1.1 % vs
+  1.6 % of the 20 ms tick; the closed-loop smoke (§8) showed identical 50.00 Hz output and
+  no starvation for the Rust backend.
+
