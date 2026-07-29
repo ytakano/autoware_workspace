@@ -11,7 +11,18 @@
 \usepackage{xcolor}
 \usepackage{listings}
 \usepackage{algorithm}
-\usepackage{algpseudocode}
+% Python-style pseudocode listing (used in the NDT-align appendix). mathescape lets
+% $I_{\max}$, $\epsilon$, $K(p)$ render as math inside the code.
+\lstdefinestyle{pypseudo}{%
+  language=Python,
+  basicstyle=\scriptsize\ttfamily,
+  keywordstyle=\bfseries,
+  commentstyle=\itshape\color{gray},
+  numbers=left, numberstyle=\tiny, numbersep=6pt,
+  columns=fullflexible, keepspaces=true,
+  mathescape=true, showstringspaces=false,
+  xleftmargin=1.4em, aboveskip=0pt, belowskip=0pt,
+}
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.18}
 \usepackage{placeins}
