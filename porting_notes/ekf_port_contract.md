@@ -294,3 +294,120 @@ N=10, parse-baseline subtraction, trace formatting disabled):
   gaps > 100 ms, 0 reinit attempts, EKF↔GNSS residual 1.27 m at shutdown, peak RSS
   1.35 GiB — indistinguishable from the §8 smoke.
 
+### 8.3 Root-cause decomposition of the residual EKF slowdown (investigation, 2026-07-29)
+
+Investigation only — no shipping code or numeric behavior changed; all perf/microbench code
+lived in scratch. No hardware PMCs available (no perf/valgrind), so the attribution is by
+wall-time A/B, per-op microbenchmarks, source reading, and `objdump`/Cargo.lock static
+inspection. Conditions: §8.1 harness (`taskset -c 2`, governor **performance** — verified),
+N=10 after warmup, parse-baseline subtracted, trace formatting disabled on every backend.
+"native" is a throwaway crate driving the realtime crates directly with the trace populated
+but not serialized (identical to the FFI untraced path).
+
+**Exp 1 — layer split (µs/event).**
+
+| scenario | C++ | native-Rust | FFI-Rust | native/cpp | ffi/cpp | FFI cost (ffi−native) |
+|---|---|---|---|---|---|---|
+| realdata | 55.9 | 65.5 | 70.8 | 1.17 | 1.27 | +5.3 |
+| straight | 57.4 | 65.1 | 72.3 | 1.13 | 1.26 | +7.2 |
+| queue_burst | 59.1 | 69.1 | 74.4 | 1.17 | 1.26 | +5.3 |
+
+The §8.2 "1.25–1.29×" is the **FFI** backend; it splits into a genuine FFI/adapter cost
+(+5–7 µs/event) and the pure kernel gap (native/cpp ≈ 1.13–1.17×). The FFI cost is the
+`geometry_msgs → AwEkf* → plain-struct` double copy per call plus the boundary — it is real
+and was previously (mis)attributed entirely to "kernel".
+
+**Exp 2 — codegen ceiling (native-Rust µs/event; C++ is `-O3 -DNDEBUG`, no `-march`, so Eigen
+is SSE2 — same ISA as default Rust).**
+
+| config | realdata | straight | queue_burst | vs C++ |
+|---|---|---|---|---|
+| C++ (ref) | 55.9 | 57.4 | 59.1 | 1.00 |
+| baseline (release, overflow-checks=on, SSE2) | 66.5 | 65.4 | 69.0 | 1.15–1.19 |
+| overflow-checks=off (SSE2) | 58.9 | 58.9 | 64.6 | **1.03–1.09** |
+| lto=fat + cgu=1 + ovf-off (SSE2) | 59.5 | 59.4 | 65.6 | 1.03–1.11 |
+| target-cpu=native only (AVX, ovf on) | 55.9 | 56.4 | 57.9 | 0.98–1.01 |
+| perf-all (AVX + lto + cgu=1 + ovf-off) | 45.6 | 45.8 | 49.2 | **0.81–0.83** |
+
+`overflow-checks` is the dominant **ISA-neutral** factor (~7.6 µs/event). LTO/cgu add
+essentially nothing (the crates are small and nalgebra is already inlined). ISA-matched, with
+overflow-checks off, the Rust kernel is within **1.03–1.09×** of Eigen. `target-cpu=native`
+(AVX+FMA the C++ build does not use) closes the rest and, combined, makes Rust **0.81–0.83× —
+faster than C++** — but that is an ISA lever available to both languages, not part of the
+like-for-like gap.
+
+**Exp 3 — per-op microbench (ns/iter, fixed 300-dim state; synthetic P is denser than the
+replay steady state, so absolute per-op gaps are upper bounds — used to localize, not to size,
+the gap).**
+
+| op | C++ SSE2 | C++ AVX | Rust base (SSE2,ovf) | Rust ovf-off SSE2 | Rust perf AVX |
+|---|---|---|---|---|---|
+| predictWithDelay | 43 639 | 39 163 | 53 610 | **28 167** | 27 752 |
+| updateWithDelay m=3 | 64 477 | 36 908 | 86 804 | 87 754 | 76 837 |
+| updateWithDelay m=2 | 53 604 | 29 378 | 63 613 | 66 031 | 59 028 |
+| mahalanobis m=3 / m=2 | — | — | 40.7 / 24.3 | — | — |
+
+- **predict** is memory-bound (the 294×294 P-block shift/copy) and its Rust slowdown is
+  **100 % overflow-checks**: with the flag off it is 28.2 µs — *faster* than Eigen (43.6 µs).
+  The index/offset arithmetic in the block copy is where the checks land.
+- **update** is FLOP-bound and **unaffected** by overflow-checks or LTO/cgu (87.8/66.0 ≈
+  baseline). The ISA-matched gap (Rust SSE2 1.35×/1.19× over C++ SSE2) is the genuine kernel
+  residual (H3), and it *widens* under AVX (C++ AVX 36.9/29.4 vs Rust AVX 76.8/59.0 → 2.0×):
+  Eigen vectorizes the rank-m covariance downdate far better.
+- mahalanobis is negligible (tens of ns) — not a factor.
+
+**Exp 4 — FLOP-structure audit (H4).** `time_delay_kalman_filter.cpp` vs the Rust port compute
+the **identical** products and block-structure exploitation: predict = {A·P00·Aᵀ+Q, A·P0j
+(6×294), P·Aᵀ (294×6), copy P (294×294), state slide}; update = {e=y−C·x_d, S=C·P_dd·Cᵀ+R,
+P_CT=P_*d·Cᵀ (300×m), LLT-solved Kᵀ, x+=K·e, **P −= P_CT·Kᵀ (300×300 rank-m downdate)**}. Same
+asymptotic work; Rust only materializes two tiny transposes (6×6, 6×m) Eigen keeps lazy
+(negligible — predict is *faster* in Rust once overflow-checks is off). **No divergence.**
+
+**Exp 5 — kernel identity (H3).** The dominant op both sides is the 300×300 **rank-m** (m=2/3)
+covariance downdate. `matrixmultiply` is **absent** from the dependency tree (Cargo.lock: the
+crates are `no_std` and never enable it); even in the std FFI build, nalgebra's `gemm_uninit`
+only dispatches to `matrixmultiply::dgemm` when every dimension `> SMALL_DIM = 5`, and the
+contraction dimension here is m = 2/3 — so the downdate **always** runs nalgebra's naive
+per-output-column `gemv` loop (no register blocking, no accumulator reuse across the m rank-1
+updates). Eigen runs its own blocked/vectorized kernel. `objdump` confirms both reach AVX+FMA
+(`%ymm`/`vfmadd`) under the aggressive flags — so H3 is microkernel **quality**, not SIMD
+width.
+
+**Root-cause breakdown of the shipping FFI 1.26× (per-event excess over C++, replay ground
+truth; shares vary with the scenario's predict/pose/twist mix):**
+
+| cause | hypothesis | mechanism | share of the excess | evidence |
+|---|---|---|---|---|
+| overflow-checks | H1 | integer index/offset checks in the predict block-copy path | **29–44 %** (~4.5–6.6 µs) | Exp2 (baseline−ovf-off), Exp3 predict halves |
+| FFI / adapter marshaling | H2 | `geometry_msgs↔AwEkf↔plain` double copy + boundary per call | **35–48 %** (~5–7 µs) | Exp1 (ffi−native) |
+| nalgebra naive rank-m gemm | H3 | 300×300 downdate falls to per-column gemv (K≤5<SMALL_DIM; matrixmultiply absent) | **10–36 %** (~1.5–5.5 µs) | Exp2 (ovf-off native−cpp), Exp3 update, Exp5 |
+| FLOP asymmetry | H4 | — none — same products/blocks both sides | 0 % | Exp4 |
+| LTO / codegen-units | H1 | crates already inlined | ~0 % | Exp2 (lto+cgu ≈ ovf-off) |
+
+(target-cpu/AVX is an orthogonal ~18 % lever for *both* languages, not counted in the
+like-for-like gap; the C++ build does not use `-march` either.)
+
+**Cheap improvement candidates (NOT implemented — each noted with its tradeoff):**
+
+1. **overflow-checks=off in a dedicated release profile** — largest ISA-neutral win (~7 µs/
+   event, halves predict). *Tradeoff/policy*: CLAUDE.md + rust-hardening mandate
+   `overflow-checks=true` in every profile as the runtime backstop. All EKF integer arithmetic
+   already uses `checked_*`/`saturating_*` (float math dominates), so the backstop is
+   near-redundant here — but flipping it is a **policy exception requiring an explicit audit**,
+   not a silent change.
+2. **`target-cpu` / `-march` (e.g. `x86-64-v3`) on the deployment target, applied to BOTH the
+   Rust crate and the C++ colcon build** — ~18 % each (AVX+FMA). *Tradeoff*: binary portability
+   (won't run on older CPUs); must be matched on both sides for a fair comparison.
+3. **Coarser FFI boundary** — one handle call per tick (batch predict + queue drain) and pass
+   measurements as POD without the `geometry_msgs→AwEkf→plain` double copy. Recovers most of the
+   ~5–7 µs FFI cost. *Tradeoff*: widens the C ABI surface; modest.
+4. **Symmetric / blocked rank-m covariance downdate** (exploit P symmetry → ~half the FLOPs, and
+   block the m rank-1 updates with FMA accumulator reuse) to beat nalgebra's naive gemv.
+   *Tradeoff*: changes the arithmetic/rounding → **breaks the byte-identical conformance and
+   needs a re-freeze under the §3 numeric contract**; not "cheap".
+5. **LTO/cgu**: measured negligible here — not worth the compile-time cost.
+
+Net: the shipping 1.26× is roughly (overflow-checks ≈ FFI-marshaling) > (nalgebra kernel), with
+**no FLOP divergence**; the ISA-matched, overflow-checks-off Rust kernel is within ~1.05× of
+Eigen, and full codegen flags make it faster.
+
