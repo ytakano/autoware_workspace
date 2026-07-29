@@ -192,3 +192,26 @@ replay: 2952 ticks, 601 poses, 6021 bag twists) — **21,378 trace rows** total.
   `expected_cpp_traces.sha256`; regeneration is deterministic
   (`run_conformance.sh` verify mode passes twice from clean workdirs).
 
+## 8. FFI integration conformance (fork `ekf_in_rust`, frozen 2026-07-29)
+
+The EKF module boundary is integrated behind `-DEKF_USE_RUST=ON`
+(`autoware_ekf_localizer_rs` staticlib + `ekf_module_rs.cpp` adapter; selector header is the
+single preprocessor seam). Post-upstream-merge baseline (HEAD `f6ee1539`) verified first: the
+C++ `ekf_replay` reproduces both frozen SHA manifests exactly (no drift; the discarded-update
+fix PR is not merged, so the quirk-faithful semantics of §2 still hold).
+
+- **Builds**: `EKF_USE_RUST=OFF` and `ON` (both with `EKF_BUILD_REPLAY=ON`) build cleanly.
+- **C++ test suite under the Rust backend**: 152/152 pass unchanged in both configurations
+  (unit + diagnostics + both launch tests; no test was inapplicable).
+- **FFI conformance**: the Rust-backend `ekf_replay` over the frozen 13 scenarios —
+  100 % decision agreement vs the frozen C++ fixtures with the same per-scenario numerics as
+  the native run (worst synthetic rel 3.0e-10; real-data within §3 policy), and every trace is
+  **byte-identical** to the native Rust replay (`cmp`), as predicted (same core, same trace
+  writer, now exercised through the C ABI).
+- **Closed-loop smoke** (C++ NDT + Rust EKF, `install_stack_rust_ekf`, REINIT=1 watchdog,
+  600 s, governor=performance): graph up; EKF output 29,878 poses over 597.5 s sim =
+  **50.00 Hz**, inter-pose gap p99 = 20.0 ms, max 21.1 ms, zero gaps > 100 ms (no
+  starvation); NDT 5,915 diags / 5,722 accepted (~10 Hz); peak RSS 1.39 GiB; watchdog:
+  **0 reinit attempts** with EKF↔GNSS residual 1.28 m at shutdown — matching the frozen
+  baseline cpp1, whose first reinit event occurs at ~1,318 s wall, well past this window.
+
