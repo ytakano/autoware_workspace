@@ -1,4 +1,76 @@
 \appendices
+\section{NDT Align: Pseudocode and Cost-Model Correspondence}
+\label{app:pseudocode}
+Algorithm~\ref{alg:ndt-align} states the shipped \ndt{} align kernel at the specification
+level, so that each factor of the execution-time decomposition~\eqref{eq:decomp} maps to a
+concrete step. Line-search derivative refinement is disabled in the shipped configuration,
+so the loop performs one initial derivative pass (line~\ref{ln:init}) plus one pass per
+Newton step (line~\ref{ln:pass}), giving $N_{\mathrm{pass}}=N_{\mathrm{iter}}+1$.
+
+\begin{algorithm}[t]
+\caption{$\textsc{NDT-Align}(\mathrm{map}, \mathrm{source}, \mathrm{guess})$ --- shipped
+serial kernel; $\mathrm{cfg}$ holds $I_{\max}$, $\epsilon$ (\texttt{trans\_epsilon}), and the
+step-size cap.}
+\label{alg:ndt-align}
+\begin{algorithmic}[1]
+\Function{DerivPass}{$\mathrm{map}, \mathrm{source}, \mathbf{x}$}
+  \State $(\mathrm{score}, \mathbf{g}, \mathbf{H}) \gets (0, \mathbf{0}, \mathbf{0})$
+  \For{$p \gets 1$ \textbf{to} $P$} \Comment{$P=\lvert\mathrm{source}\rvert$}
+    \State $q \gets \textsc{Transform}(\mathbf{x}, \mathrm{source}[p])$
+    \State $\mathcal{N} \gets \textsc{RadiusSearch}(\mathrm{map.tree}, q)$ \label{ln:search}
+       \Comment{returns $K(p)\le\maxnn$ leaves}
+    \For{$\ell \in \mathcal{N}$} \label{ln:kernel}
+       \Comment{per point--leaf score/gradient/Hessian}
+      \State $(\mathrm{score}, \mathbf{g}, \mathbf{H}) \mathrel{+}= \textsc{LeafTerm}(q, \ell)$
+    \EndFor
+  \EndFor
+  \State \Return $(\mathrm{score}, \mathbf{g}, \mathbf{H})$
+\EndFunction
+\Statex
+\State $\mathbf{x} \gets \textsc{EulerOf}(\mathrm{guess})$;\quad $i \gets 0$
+\State $(\mathrm{score}, \mathbf{g}, \mathbf{H}) \gets \Call{DerivPass}{\mathrm{map}, \mathrm{source}, \mathbf{x}}$ \label{ln:init}
+   \Comment{initial pass}
+\While{$\Delta \gets \textsc{SolveNewton}(\mathbf{H}, -\mathbf{g})$ \textbf{succeeds}} \label{ln:solve}
+  \State $a \gets \mathrm{clamp}(\lVert\Delta\rVert,\ \epsilon/2,\ \mathrm{cfg.step})$;\quad
+         $\mathbf{x} \gets \mathbf{x} + a\,\widehat{\Delta}$ \label{ln:update}
+     \Comment{step length + pose update}
+  \State $(\mathrm{score}, \mathbf{g}, \mathbf{H}) \gets \Call{DerivPass}{\mathrm{map}, \mathrm{source}, \mathbf{x}}$ \label{ln:pass}
+  \State $i \gets i + 1$
+  \If{$i \ge I_{\max}$ \textbf{or} $a < \epsilon$} \textbf{break} \EndIf \label{ln:conv}
+\EndWhile
+\State \Return $(\mathbf{x}, i)$ \Comment{$i = N_{\mathrm{iter}}$}
+\end{algorithmic}
+\end{algorithm}
+
+Table~\ref{tab:eqmap} maps every symbol of~\eqref{eq:decomp} to its step. The bounds
+of Sec.~\ref{sec:decomposition} follow directly: $\textsc{DerivPass}$ runs
+$N_{\mathrm{pass}}=N_{\mathrm{iter}}+1$ times, its point loop $P$ times, and its leaf loop
+$K(p)\le\maxnn$ times, while $\textsc{SolveNewton}$ and the pose update run once per
+Newton iteration ($N_{\mathrm{iter}}\le I_{\max}$ times). The pseudocode is
+implementation-agnostic; the C++ and Rust engines realize the same work shape (the
+per-pass structure verified in Sec.~\ref{sec:eval-tracecert}).
+
+\begin{table}[t]
+\centering
+\caption{Correspondence between the decomposition~\eqref{eq:decomp} and
+Algorithm~\ref{alg:ndt-align}.}
+\label{tab:eqmap}
+\footnotesize
+\begin{tabular}{@{}lll@{}}
+\toprule
+Term & Step & Meaning \\
+\midrule
+$N_{\mathrm{pass}}$ & lines~\ref{ln:init},~\ref{ln:pass} & derivative-pass count ($=N_{\mathrm{iter}}{+}1$) \\
+$P$ & line~\ref{ln:search} loop & source points per pass \\
+$T_{\mathrm{search}}(p)$ & line~\ref{ln:search} & one radius search ($\textsc{RadiusSearch}$) \\
+$K(p)$ & line~\ref{ln:kernel} count & leaves returned ($\le\maxnn$) \\
+$T_{\mathrm{kernel}}$ & line~\ref{ln:kernel} body & one point--leaf score/grad/Hessian \\
+$N_{\mathrm{iter}}$ & \textbf{while} (line~\ref{ln:solve}) & completed Newton updates ($\le I_{\max}$) \\
+$T_{\mathrm{solve}}$ & lines~\ref{ln:solve},~\ref{ln:update} & one Newton solve + pose update \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \section{Supplementary Diagnostics}
 
 \subsection{Regression details}
