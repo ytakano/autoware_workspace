@@ -252,3 +252,45 @@ net of the same parse-only baseline; bytes are gross requested, not live.
   1.6 % of the 20 ms tick; the closed-loop smoke (§8) showed identical 50.00 Hz output and
   no starvation for the Rust backend.
 
+### 8.2 Real-time hardening: allocation-free event path (measured 2026-07-29)
+
+The Rust event path (realtime_kalman_filter + realtime_ekf_localizer, mirrored into the fork
+vendor) was reworked onto preallocated scratch (extended-dim buffers sized at init, lazy
+per-measurement-dimension pools, in-place gemm/`transpose_to` through the same nalgebra
+kernels, a hand-rolled in-place LLT transcribed from nalgebra's `Cholesky::new`/`solve_mut`
+loops, buffer-swap instead of buffer-replace), and the FFI layer now skips CSV serialization
+entirely when no trace stream is open and reuses a handle-owned event buffer.
+
+**Invariance**: the frozen 13-scenario corpus still passes (decisions 100 %, numerics within
+§3) and the traces are **byte-identical to the pre-hardening Rust build** — the plan's
+fallback clause was not needed (the hand LLT was verified bit-equal to `Cholesky::new` on
+randomized 2×2/3×3 factors with 300-column solves; the covariance downdate deliberately
+subtracts the fully-accumulated product once, because a β=1 gemm changes the rounding).
+New gate: `realtime_ekf_localizer/tests/zero_alloc.rs` (counting global allocator) asserts
+**0 allocations/event** after warmup for predict + accepted/rejected pose/twist updates and
+the getter path. 178 workspace tests and 152 colcon tests (EKF_USE_RUST=ON) pass.
+
+Re-measurement under §8.1 conditions (same harness, pinned core, performance governor,
+N=10, parse-baseline subtraction, trace formatting disabled):
+
+| scenario | backend | compute before | compute after | allocs/event before → after | KB/event before → after |
+|---|---|---|---|---|---|
+| realdata | C++ | 651.2 ms | 652.2 ms | 22.0 → 22.1 | 201 → 201 |
+| realdata | Rust | 927.4 ms | **843.5 ms** | 119.3 → **0.53** | 757 → **0.04** |
+| straight | C++ | 69.8 ms | 68.6 ms | 21.8 → 21.8 | 201 → 201 |
+| straight | Rust | 98.5 ms | **85.3 ms** | 119.3 → **0.55** | 757 → **0.07** |
+| queue_burst | C++ | 59.9 ms | 60.1 ms | 22.4 → 22.4 | 166 → 166 |
+| queue_burst | Rust | 85.0 ms | **75.4 ms** | 121.2 → **0.45** | 758 → **0.07** |
+
+- The residual ~0.5 allocs/event is the **replay harness's** per-`tick`-line
+  `istringstream` parsing (absent from the no-tick parse baseline); the filter path itself
+  is zero-allocation per the counting-allocator gate. The C++ backend is unchanged
+  (~22 allocs / ~200 KB per event — Eigen dynamic temporaries).
+- Rust compute improved 10–15 %; the C++ ratio drops from 1.42× to **1.25–1.29×** (the
+  remaining gap is kernel-level gemm cost on these shapes, no longer allocation).
+- Peak RSS: ~12.1 MiB (+ ~0.7 MiB for the two preallocated N×N scratch buffers).
+- Closed-loop smoke re-run (C++ NDT + hardened Rust EKF, REINIT=1, 600 s, governor
+  performance): 29,878 poses / 597.5 s = **50.00 Hz**, gap p99 = 20.0 ms, max 21.4 ms, zero
+  gaps > 100 ms, 0 reinit attempts, EKF↔GNSS residual 1.27 m at shutdown, peak RSS
+  1.35 GiB — indistinguishable from the §8 smoke.
+
