@@ -25,8 +25,8 @@ The campaign comprises \envSessions{} sessions from distinct boots, with randomi
 fixture and engine order. For each fixture and engine, every session records
 \envSamplesPerSession{} measured alignments after \envWarmup{} warmups, yielding
 \envPooledSamples{} pooled samples per fixture and engine. We pool these samples across
-sessions for the warm series, and also record matched-size cold and co-runner
-(concurrent-interference-workload) series (summarized in Sec.~\ref{sec:eval-tails}).
+sessions for the warm series, and Sec.~\ref{sec:eval-tails} summarizes the matched-size
+cold and co-runner series, in which a co-runner is a concurrent interference workload.
 A \texttt{steady\_clock} measures only the align loop, after the map
 and kd-tree have been built once per engine and fixture. A fixed-work calibration guard
 rejects a cell whose sustained speed shifts by more than 10\%. Rejected cells are
@@ -107,15 +107,16 @@ this limitation.
 Matched-size Isolated control series probe these warm-series maxima. Between-sample software
 cache eviction (the \emph{cold} series) raises the median by at most $+\coldWorstPct\%$
 across the fixtures; a co-runner sharing the last-level (L3) cache and stressing one resource
-at a time raises the observed maximum by at most $+\coWorstCppPct\%$ (C++, \coWorstCppFixture{}
-with the \coWorstCppMode{} co-runner) and $+\coWorstRustPct\%$ (Rust, \coWorstRustFixture{}
-with the \coWorstRustMode{} co-runner). Across the warm, cold, and three co-runner series Rust
+at a time raises the observed maximum by at most $+\coWorstCppPct\%$ for C++, on
+\coWorstCppFixture{} with the \coWorstCppMode{} co-runner, and by at most
+$+\coWorstRustPct\%$ for Rust, on \coWorstRustFixture{} with the \coWorstRustMode{}
+co-runner. Across the warm, cold, and three co-runner series Rust
 has the smaller observed maximum in \coRustLowerCells{} of \coPairedCells{} equal-sample
 comparisons; these are empirical comparisons, not additive interference bounds.
 
-A unit-cost regression on the counter vector is diagnostic only --- the worst regressor
+A unit-cost regression on the counter vector is diagnostic only. The worst regressor
 correlation is \regCorr, bootstrap intervals are wide, and the adopted Rust model has a
-\regLooMaxRust\% worst leave-one-out error --- so the implementation comparison rests on the
+\regLooMaxRust\% worst leave-one-out error. The implementation comparison therefore rests on the
 direct fixture maxima of Table~\ref{tab:tails} rather than fitted coefficients; the models,
 coefficients, and intervals are in Appendix~\ref{app:regression}.
 
@@ -340,17 +341,18 @@ $\realKmaxMax$, which is within the geometric bound of 27 but one above the voxe
 heuristic of 8. Real centroids can deviate from voxel centers and bring a ninth leaf into
 range; 27, rather than 8, is the applicable bound. Under the degraded-prior track, the
 iteration cap is reached on \realIterCapPct\% of on-map frames. A control replay of the
-same capture with its recorded production extended-Kalman-filter (EKF) guesses --- identical per-frame inputs except
-the guess --- separates the prior's contribution: on the \realABCommonN{} frames that are
+same capture with its recorded production extended-Kalman-filter (EKF) guesses isolates the
+prior's contribution, since the per-frame inputs are identical except for the guess. On the
+\realABCommonN{} frames that are
 on-map in both replays the cap share drops from \realABCapDegPct\% to \realABCapProdPct\%,
-and over the control replay's own \realProdOnMap{} on-map frames
-(\realProdOnMapSegments{} boundary-transit segments spanning the drive's first
-\realProdOnMapSpanMin{} minutes) it is \realProdIterCapPct\%. Prior quality therefore
+and over the control replay's own \realProdOnMap{} on-map frames it is
+\realProdIterCapPct\%; those frames form \realProdOnMapSegments{} boundary-transit segments
+spanning the drive's first \realProdOnMapSpanMin{} minutes. Prior quality therefore
 shifts the cap share but does not eliminate it: the cap stays routinely reached with
 production-quality priors on this cropped single-tile benchmark map, and the closed-loop
-tiled-map replay of the same drive (Sec.~\ref{sec:eval-stack}) still reaches it on
-\stackRustCapMin--\stackRustCapMax\% (Rust) to \stackCppCapMin--\stackCppCapMax\% (C++)
-of aligned frames. Iteration-cap reachability on captured
+tiled-map replay of the same drive in Sec.~\ref{sec:eval-stack} still reaches it on
+\stackRustCapMin--\stackRustCapMax\% of aligned frames for Rust and
+\stackCppCapMin--\stackCppCapMax\% for C++. Iteration-cap reachability on captured
 production-preprocessed geometry thus holds under degraded priors, production priors, and
 the closed-loop replay with production-like recovery; the absolute share depends on prior
 quality and map configuration.
@@ -407,11 +409,11 @@ angular velocity), and GNSS streams twice per engine (C++--Rust--Rust--C++), rep
 \stackInputFrames{} clouds at \SI{10}{Hz}. Each run starts from one shared frozen initial
 pose on a \SI{\stackMapExtent}{m}-extent map whose dynamic tiles are loaded within
 \SI{\stackMapRadius}{m} of the pose estimate, under CFS with the deployed
-\stackWorkers-worker configuration (\stackWorkers{} OpenMP threads for C++, a
-\stackWorkers-worker Rayon pool for Rust). A watchdog implements the production pose-initializer recovery flow: a GNSS
+\stackWorkers-worker configuration: \stackWorkers{} OpenMP threads for C++ and a
+\stackWorkers-worker Rayon pool for Rust. A watchdog implements the production pose-initializer recovery flow: a GNSS
 seed pose, a call to the NDT align service, an EKF reset, and re-enabling of the
-localization nodes. It fires after \SI{\stackStarve}{s} without an accepted NDT pose ---
-one admitted by the EKF's measurement-acceptance gate --- and we call such a period a
+localization nodes. It fires after \SI{\stackStarve}{s} without an accepted NDT pose, that
+is, one admitted by the EKF's measurement-acceptance gate. We call such a period a
 \emph{starvation episode}. Because a recorded drive cannot perform the standstill that
 production recovery requires, the watchdog instead dead-reckons the pose returned by the
 align service across the multi-second align latency using the live twist stream. As noted
@@ -423,19 +425,20 @@ lost the dynamically loaded map: map tiles remained available on every frame. St
 episodes coincide across engines: every run starves at the same \stackSharedEpisodes{}
 most difficult route sections (the tunnel approach and one urban section), and
 \stackCppOnlyEpisodes{} further sections starve only the C++ runs. Same-engine repeat
-bands are narrow and the engine bands do not overlap. \emph{Accepted-output coverage} ---
+bands are narrow and the engine bands do not overlap. \emph{Accepted-output coverage} is
 the fraction of input clouds for which the pipeline published an NDT pose that passed the
-EKF acceptance gate --- is
+EKF acceptance gate. It is
 \stackCppSurvMin--\stackCppSurvMax\% for C++ versus \stackRustSurvMin--\stackRustSurvMax\%
-for Rust. The runs perform \stackCppReinitMin--\stackCppReinitMax{} (C++) versus
-\stackRustReinitMin--\stackRustReinitMax{} (Rust) re-initializations, with iteration-cap
+for Rust. The runs perform \stackCppReinitMin--\stackCppReinitMax{} re-initializations for
+C++ versus \stackRustReinitMin--\stackRustReinitMax{} for Rust, with iteration-cap
 shares of \stackCppCapMin--\stackCppCapMax\% versus \stackRustCapMin--\stackRustCapMax\%
-of aligned frames (median \stackIterMedMin--\stackIterMedMax{} iterations). Median
+of aligned frames at a median of \stackIterMedMin--\stackIterMedMax{} iterations. Median
 align cost is \stackCppExeMedMin--\stackCppExeMedMax{} versus
-\stackRustExeMedMin--\stackRustExeMedMax{} \si{ms}. The only \SI{100}{ms}-budget
-violations are \stackCppOverMin--\stackCppOverMax{} C++ frames per run, all inside
-\emph{recovery windows} --- the intervals from a watchdog trigger to the completed EKF
-reset --- where the align service contends with the main callback. The maxima are
+\stackRustExeMedMin--\stackRustExeMedMax{} \si{ms}. A \emph{recovery window} is the
+interval from a watchdog trigger to the completed EKF reset, during which the align service
+contends with the main callback. The only \SI{100}{ms}-budget
+violations are \stackCppOverMin--\stackCppOverMax{} C++ frames per run, all inside these
+windows. The maxima are
 \SI{\stackCppTimeMax}{ms} versus \SI{\stackRustTimeMax}{ms}; no Rust frame exceeds the
 budget in any run. These observations are consistent with the lower align cost allowing
 the faster engine to tolerate transient match-quality degradations that drive the slower
@@ -468,8 +471,8 @@ The two host configurations are not engine-neutral. For Rust, the Replay-to-Isol
 ratio spans $\bridgeRustInflMin$--$\bridgeRustInflMax\times$ over the five bridge inputs
 on the otherwise-idle host, whereas for C++ it spans
 $\bridgeCppInflMin$--$\bridgeCppInflMax\times$ and is below one on all five inputs.
-Co-resident load is a separate axis probed by the co-runner series
-(Sec.~\ref{sec:eval-tails}). The available controls do
+Co-resident load is a separate axis probed by the co-runner series of
+Sec.~\ref{sec:eval-tails}. The available controls do
 not identify a single mechanism, so the ratios are descriptive configuration-transfer
 measurements rather than generic scheduler penalties or additive interference bounds.
 

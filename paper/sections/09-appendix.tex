@@ -2,8 +2,9 @@
 \section{NDT Align: Pseudocode and Cost-Model Correspondence}
 \label{app:pseudocode}
 Algorithm~\ref{alg:ndt-align} states the shipped \ndt{} align kernel at the specification
-level, in Python-like notation (not the shipped C++/Rust implementation), so that each
-factor of the execution-time decomposition~\eqref{eq:decomp} maps to a named step.
+level, in Python-like notation, so that each
+factor of the execution-time decomposition~\eqref{eq:decomp} maps to a named step. It is
+notation, not the shipped C++/Rust implementation.
 Line-search derivative refinement is disabled in the shipped configuration, so the kernel
 performs one initial \texttt{deriv\_pass} plus one per Newton step, giving
 $N_{\mathrm{pass}}=N_{\mathrm{iter}}+1$.

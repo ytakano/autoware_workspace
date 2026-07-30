@@ -26,9 +26,9 @@ code, and dependencies remain trusted.
 
 The auxiliary NDT--EKF--GNSS replay extends the evidence to feedback and recovery on a
 stress route: both engines starve at the same most difficult sections, and every GNSS
-re-initialization succeeds. The engine bands stay disjoint (accepted-output coverage
+re-initialization succeeds. The engine bands stay disjoint, with accepted-output coverage
 \stackCppSurvMin--\stackCppSurvMax\% for C++ versus
-\stackRustSurvMin--\stackRustSurvMax\% for Rust), and the only \SI{100}{ms} overruns
+\stackRustSurvMin--\stackRustSurvMax\% for Rust, and the only \SI{100}{ms} overruns
 are C++ frames inside recovery windows. It does not establish production readiness.
 Operational evaluation requires the production ECU, ground truth, co-resident loads, and
 end-to-end \SI{10}{Hz} acceptance-gate and innovation measurements. Host parallelism places the

@@ -37,16 +37,16 @@ truth, vehicle dynamics, and co-resident workloads. Its watchdog replaces produc
 standstill requirement with twist-based motion compensation because a recorded drive
 cannot stop for recovery. The \SI{\stackStarve}{s} starvation threshold was selected using
 the first C++ run and held fixed for all four runs; the results may be sensitive to this
-choice. The recovery statistics are stress-route values (Sec.~\ref{sec:eval-stack}) and
+choice. The recovery statistics of Sec.~\ref{sec:eval-stack} are stress-route values and
 carry two runs per engine. Same-engine repetitions also diverge, preventing whole-drive
 language attribution; environment-gated EKF tracing may itself perturb scheduling.
 
 \subsection{Cross-language and cross-ISA validity}
 For the evaluated port, iteration-count divergence in the primary degraded-track replay
 occurs on \realIterationDivergent{} of \realFrames{} frames, all among the \realOnMap{}
-on-map set (\realOnMapDivPct\%); the production-guess control replay shows a comparable
-on-map rate (\realProdIterationDivergent{} of \realProdOnMap{} frames, likewise all
-on-map). The stricter $E_{\mathrm{base}}$ criterion excludes
+on-map set, or \realOnMapDivPct\%; the production-guess control replay shows a comparable
+on-map rate of \realProdIterationDivergent{} of \realProdOnMap{} frames, likewise all
+on-map. The stricter $E_{\mathrm{base}}$ criterion excludes
 \realBaseDivergent{} on-map frames: \realOutputDivergent{} have equal iterations but exceed
 at least one output threshold, and \realIterationDivergent{} take different iteration
 paths. Residual differences are consistent with glibc versus \texttt{libm}, eigensolver
