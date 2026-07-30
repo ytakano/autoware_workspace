@@ -113,6 +113,12 @@ with the \coWorstRustMode{} co-runner). Across the warm, cold, and three co-runn
 has the smaller observed maximum in \coRustLowerCells{} of \coPairedCells{} equal-sample
 comparisons; these are empirical comparisons, not additive interference bounds.
 
+A unit-cost regression on the counter vector is diagnostic only --- the worst regressor
+correlation is \regCorr, bootstrap intervals are wide, and the adopted Rust model has a
+\regLooMaxRust\% worst leave-one-out error --- so the implementation comparison rests on the
+direct fixture maxima of Table~\ref{tab:tails} rather than fitted coefficients; the models,
+coefficients, and intervals are in Appendix~\ref{app:regression}.
+
 \subsection{Per-input work-trace conformance}
 \label{sec:eval-tracecert}
 \input{tables/tracecert}
@@ -187,17 +193,6 @@ one deviation, \emph{subnormal} at \allocCertSparse{}, is itself structural: its
 mostly-empty radius searches skip the per-result containers.
 
 \input{tables/alloc}
-
-\subsection{Unit-cost regression}
-\label{sec:eval-regression}
-Regression is diagnostic, not unit-cost identification. Across the fixtures and $P$-sweep
-points, the worst regressor correlation is \regCorr, bootstrap intervals are wide, and the
-adopted Rust model has a \regLooMaxRust\% worst leave-one-out error. The recorded counter
-vector therefore does not support general latency prediction. Moreover, each engine uses a
-different traversal counter. We use the counters to target structural work and base the
-implementation comparison on direct fixture maxima in Table~\ref{tab:tails}, not
-coefficient attribution. The models, coefficients, and intervals appear in
-Table~\ref{tab:regression} of Appendix~\ref{app:regression}.
 
 \subsection{Scaling with the input size \texorpdfstring{$P$}{P}}
 \label{sec:eval-psweep}
