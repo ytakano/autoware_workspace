@@ -348,16 +348,14 @@ def raspi4_timing():
             f"& {c['max'] / 1000.0:.1f} & exact")
     write(
         "raspi4.tex",
-        r"Every recorded counter tuple transfers exactly to the AArch64 target, and "
-        r"repeated timing per fixture has sub-percent spread (Bare-metal: Raspberry Pi 4 "
-        r"Cortex-A72, \texttt{no\_std} kernel; per fixture 100 warm + 20 cold (8\,MiB "
-        r"evict) samples after 3 warmups).",
+        r"Every recorded counter tuple transfers exactly to the AArch64 Bare-metal "
+        r"target, and repeated timing per fixture has sub-percent spread. Device: "
+        r"Raspberry Pi 4 Cortex-A72, \texttt{no\_std} kernel.",
         "tab:raspi4",
         "lrrrl",
         r"fixture & warm p50 & warm max & cold max (\si{ms}) & counters",
         rows,
-        note=STRESS_CLASS_NOTE
-        + r" Counters match the host reference for all eight fixtures. A fixed-work "
+        note=r"Counters match the host reference for all eight fixtures. A fixed-work "
         r"calibration spin brackets every series: "
         r"worst drift \raspiCalibDriftPct\% over the sustained run, with no calibration "
         r"evidence of throttling. Firmware-default clock; single core active, no interrupts routed to "
@@ -632,17 +630,15 @@ def main():
         )
     write(
         "tails.tex",
-        r"Unified-campaign frame times: Rust has the smaller observed maximum on every "
-        r"fixture (\si{ms}; \envSessions{} sessions $\times$ "
-        r"\envSamplesPerSession{} measured samples per fixture and engine; "
-        r"\envPooledSamples{} pooled; serial, isolated pinned core). "
-        r"Each fixture satisfies work-trace conformance.",
+        r"Unified-campaign frame times in \si{ms}: Rust has the smaller observed maximum "
+        r"on every fixture. Serial, isolated pinned core; \envPooledSamples{} pooled "
+        r"samples per fixture and engine. Each fixture satisfies work-trace conformance.",
         "tab:tails",
         "lrrrrr",
         r"fixture & \multicolumn{2}{c}{C++ (p50 / max)} "
         r"& \multicolumn{2}{c}{Rust (p50 / max)} & ratio",
         rows,
-        note=r"ratio = Rust max / C++ max; values below one favor Rust. " + STRESS_CLASS_NOTE + " " + prov,
+        note=r"ratio = Rust max / C++ max; values below one favor Rust. " + prov,
     )
 
     # ---- tails_macros.tex: timing/counter/alloc-derived prose numbers ----
@@ -766,7 +762,7 @@ def main():
         rows,
         note=r"The constant ${\approx}11$ per point per pass locates the source in the "
         r"per-point inner loop (Sec.~\ref{sec:eval-alloc}). Rust: zero, matching the "
-        r"counting-allocator-verified allocation-freedom contract. " + STRESS_CLASS_NOTE
+        r"counting-allocator-verified allocation-freedom contract."
         + f" Allocation counting uses {alloc_meta['iters']} measured aligns per fixture "
         + f"after {alloc_meta['warmup']} warmups under Isolated.",
     )
@@ -965,10 +961,8 @@ def main():
     write(
         "regression.tex",
         rf"Wide intervals and regressor correlation up to {corr:.2f} leave "
-        rf"coefficient-level cost attribution unsupported: diagnostic regression "
-        rf"($n={reg_n}$ per engine; brackets: 95\% bootstrap CIs). The traversal regressor is "
-        r"\flannevals{} for C++ and \kdnodes{} for Rust; coefficients are not "
-        r"cross-engine unit costs. A star marks the adopted diagnostic model for each engine.",
+        rf"coefficient-level cost attribution unsupported. Brackets are 95\% bootstrap "
+        rf"CIs; a star marks the adopted diagnostic model per engine.",
         "tab:regression",
         "llrrrrr",
         r"engine & model & $c_{\mathrm{pt},e}$ (\si{\micro\second}/pt) "
@@ -1224,11 +1218,9 @@ def realdata():
     ]
     write(
         "realdata.tex",
-        rf"Only the {len(frames)} on-map frames perform meaningful matching; C++ "
-        r"overruns the \SI{100}{ms} budget on this track while Rust never does: "
-        r"per-frame "
-        r"distributions of the real-data replay (İstanbul urban drive, open-loop frozen "
-        r"guess track; Replay configuration: CFS, unpinned, one align per frame).",
+        rf"Only the {len(frames)} on-map frames perform meaningful matching, where C++ "
+        r"overruns the \SI{100}{ms} budget while Rust never does. Per-frame distributions "
+        r"from the open-loop İstanbul replay under the Replay configuration.",
         "tab:realdata",
         "llrrrr",
         r"population & metric & $n$ & p50 & p99 & max",
@@ -1550,11 +1542,9 @@ def bridge():
     write(
         "bridge.tex",
         r"The Isolated and Replay configurations are not engine-neutral: C++ maxima are "
-        r"lower under Replay on all five inputs while Rust ratios stay near one. Bridge "
-        r"experiment on one byte-identical benchmark binary under Isolated (isolated "
-        r"core, SMT sibling offline, IRQs moved) and Replay (normal CFS, no pinning, SMT "
-        r"enabled), same \SI{3.2}{GHz} reference clock. The ratio is Replay maximum "
-        r"divided by Isolated maximum and is descriptive only.",
+        r"lower under Replay on all five inputs while Rust ratios stay near one. The ratio "
+        r"column is the descriptive Replay-to-Isolated maximum ratio for one "
+        r"byte-identical binary at a fixed \SI{3.2}{GHz} clock.",
         "tab:bridge",
         "llrrrrr",
         r"input & engine & \multicolumn{2}{c}{Isolated (\si{ms})} "
@@ -1840,15 +1830,10 @@ def trace_cert():
         )
     write(
         "tracecert.tex",
-        r"Work-trace shape agrees on every frozen fixture while the payload digest does "
-        r"not always: per-input conformance (traced analysis build vs.\ the Rust engine's mirrored "
-        r"trace; deterministic and timing-environment-independent). Shape compares pass count, "
-        r"per-pass point/neighbor counts, and SHA-256 digests of sorted canonical leaf IDs. "
-        r"Payload additionally digests each leaf's mean and regularized inverse covariance. "
-        r"Score ULP is the maximum per-pass f64 ULP distance of the score handed to "
-        r"the Newton step. \flannevals{} sums C++ FLANN distance and split-plane "
-        r"evaluations; \kdnodes{} counts Rust kd-node visits. These columns count "
-        r"different events and are not mutually comparable.",
+        r"Per-input work-trace results. Shape compares pass count, point and neighbor "
+        r"counts, and canonical leaf-ID digests; payload additionally includes leaf "
+        r"parameters. The C++ and Rust traversal counters count different events and are "
+        r"not directly comparable.",
         "tab:tracecert",
         "lrrrrrr",
         r"fixture & passes & shape & payload & score ULP & \flannevals{} "
@@ -1856,7 +1841,7 @@ def trace_cert():
         rows,
         note=r"Line-search entries: 0 on every input (measured); C++ passes = "
         r"$N_{\mathrm{iter}}{+}1$ exactly on every input. The 6 $P$-sweep instances (not "
-        r"shown) also satisfy the work-trace criterion. " + STRESS_CLASS_NOTE,
+        r"shown) also satisfy the work-trace criterion.",
         size=r"\scriptsize",
         tabcolsep="3pt",
     )
@@ -1983,9 +1968,8 @@ def parallel():
     write(
         "parallel.tex",
         r"Two workers bring the Rust geom-stress run below the \SI{100}{ms} "
-        r"period on this host: host scaling at non-shipped $\epsilon=10^{-10}$ "
-        r"(maximum align \si{ms}; one pinned worker per isolated physical core). "
-        r"Not evidence of shipped deadline compliance or multi-core WCET.",
+        r"period on this host. Cells are the maximum align time in \si{ms} at non-shipped "
+        r"$\epsilon=10^{-10}$, one pinned worker per isolated core.",
         "tab:parallel",
         "llrrr",
         r"fixture & engine & $k{=}1$ & $k{=}2$ & $k{=}4$",
