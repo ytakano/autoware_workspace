@@ -25,8 +25,9 @@ The campaign comprises \envSessions{} sessions from distinct boots, with randomi
 fixture and engine order. For each fixture and engine, every session records
 \envSamplesPerSession{} measured alignments after \envWarmup{} warmups, yielding
 \envPooledSamples{} pooled samples per fixture and engine. We pool these samples across
-sessions for the warm series; Sec.~\ref{sec:eval-interference} reports matched-size cold
-and co-runner (concurrent-interference-workload) series. A \texttt{steady\_clock} measures only the align loop, after the map
+sessions for the warm series, and also record matched-size cold and co-runner
+(concurrent-interference-workload) series (summarized in Sec.~\ref{sec:eval-tails}).
+A \texttt{steady\_clock} measures only the align loop, after the map
 and kd-tree have been built once per engine and fixture. A fixed-work calibration guard
 rejects a cell whose sustained speed shifts by more than 10\%. Rejected cells are
 remeasured, and the pooled data contain accepted cells only. The primary campaign engines
@@ -103,6 +104,15 @@ were unavailable in the measurement container, so this decomposition remains mec
 interpretation rather than a measured cost attribution. Section~\ref{sec:threats} records
 this limitation.
 
+Matched-size Isolated control series probe these warm-series maxima. Between-sample software
+cache eviction (the \emph{cold} series) raises the median by at most $+\coldWorstPct\%$
+across the fixtures; a co-runner sharing the last-level (L3) cache and stressing one resource
+at a time raises the observed maximum by at most $+\coWorstCppPct\%$ (C++, \coWorstCppFixture{}
+with the \coWorstCppMode{} co-runner) and $+\coWorstRustPct\%$ (Rust, \coWorstRustFixture{}
+with the \coWorstRustMode{} co-runner). Across the warm, cold, and three co-runner series Rust
+has the smaller observed maximum in \coRustLowerCells{} of \coPairedCells{} equal-sample
+comparisons; these are empirical comparisons, not additive interference bounds.
+
 \subsection{Per-input work-trace conformance}
 \label{sec:eval-tracecert}
 \input{tables/tracecert}
@@ -177,28 +187,6 @@ one deviation, \emph{subnormal} at \allocCertSparse{}, is itself structural: its
 mostly-empty radius searches skip the per-result containers.
 
 \input{tables/alloc}
-
-\subsection{Cache and interference sensitivity}
-\label{sec:eval-interference}
-\input{tables/interference}
-
-Table~\ref{tab:interference} reports matched-size Isolated series that probe the
-warm-series results. The \emph{cold} series uses between-sample software cache eviction;
-the largest positive median change is only $+\coldWorstPct\%$ across the fixture set. The
-co-runner series stresses one hardware resource at a time from a core sharing the last-level (L3) cache. Its
-largest positive observed-maximum changes are $+\coWorstCppPct\%$ for C++ on
-\coWorstCppFixture{} with the \coWorstCppMode{} co-runner and $+\coWorstRustPct\%$ for
-Rust on \coWorstRustFixture{} with the \coWorstRustMode{} co-runner.
-
-The response is fixture- and engine-specific. For example, the memory-bandwidth co-runner
-changes the \emph{geom-stress} maximum by $\coGeomMembwCppPct\%$ for C++ but
-$\coGeomMembwRustPct\%$ for Rust, so the campaign does not support a claim that this
-fixture is uniformly more interference-sensitive in Rust. Negative
-changes are differences between separately measured empirical maxima, not evidence that
-interference improves execution time. Across the warm, cold, and three co-runner series,
-Rust has the smaller observed maximum in \coRustLowerCells{} of \coPairedCells{} equal-sample
-engine--fixture--series comparisons. These remain empirical comparisons rather than
-additive interference bounds.
 
 \subsection{Unit-cost regression}
 \label{sec:eval-regression}
@@ -485,8 +473,8 @@ The two host configurations are not engine-neutral. For Rust, the Replay-to-Isol
 ratio spans $\bridgeRustInflMin$--$\bridgeRustInflMax\times$ over the five bridge inputs
 on the otherwise-idle host, whereas for C++ it spans
 $\bridgeCppInflMin$--$\bridgeCppInflMax\times$ and is below one on all five inputs.
-Co-resident load is a separate axis probed in
-Sec.~\ref{sec:eval-interference}. The available controls do
+Co-resident load is a separate axis probed by the co-runner series
+(Sec.~\ref{sec:eval-tails}). The available controls do
 not identify a single mechanism, so the ratios are descriptive configuration-transfer
 measurements rather than generic scheduler penalties or additive interference bounds.
 
