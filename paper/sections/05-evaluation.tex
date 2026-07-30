@@ -85,24 +85,14 @@ nor the recorded counter order establishes a general latency ordering.
 
 A controlled check does not support subnormal arithmetic as the cause of the
 \emph{subnormal} fixture's p50 ratio of $\subnormalMedianRatio\times$. Moving the source
-shell from \SI{\subnormalShellSourceM}{m} to \SI{\subnormalShellControlM}{m} moves every
+shell from \SI{\subnormalShellSourceM}{m} to \SI{\subnormalShellControlM}{m} takes every
 kernel $\exp$ result out of the subnormal band without reducing p50 for either engine: C++
-changes from \SI{\subnormalShellSubCpp}{ms} to \SI{\subnormalShellCtrlCpp}{ms}, and
-Rust changes from \subnormalShellSubRust{} to \subnormalShellCtrlRust.
-
-The remaining difference is consistent with per-point overhead exposed by a neighbor-sparse
-shape. With little kernel work, C++ spends approximately
-$\subnormalPtPassCppUs$\,\si{\micro\second} per processed point against
-$\subnormalPtPassRustUs$ for Rust, a $\ptPassGapUs$\,\si{\micro\second} gap that
-also appears on \emph{cache-hostile}, where $\bar{K}=\cacheHostileKbar$. The C++ trace
-records approximately \subnormalAllocsPerPtPass{} allocations per processed point on
-\emph{subnormal}, but operation counts alone do not identify their share of elapsed time.
-The residual combines allocator and PCL/FLANN query machinery, including call indirection and
-result-container handling, which the direct, allocation-free Rust query avoids. Removing the
-allocation path does not bound the remaining platform effects. Hardware performance counters
-were unavailable in the measurement container, so this decomposition remains mechanistic
-interpretation rather than a measured cost attribution. Section~\ref{sec:threats} records
-this limitation.
+changes from \SI{\subnormalShellSubCpp}{ms} to \SI{\subnormalShellCtrlCpp}{ms}, and Rust
+from \subnormalShellSubRust{} to \subnormalShellCtrlRust. The residual is instead
+consistent with per-point overhead in the C++ PCL/FLANN query path, including allocation and
+call indirection that the allocation-free Rust query avoids. With hardware performance
+counters unavailable in the measurement container, this remains mechanistic interpretation
+rather than a measured cost attribution, and Sec.~\ref{sec:threats} records the limitation.
 
 Matched-size Isolated control series probe these warm-series maxima. Between-sample software
 cache eviction (the \emph{cold} series) raises the median by at most $+\coldWorstPct\%$
