@@ -253,14 +253,10 @@ the transferred Rust-search fixture in Table~\ref{tab:tails}. These are measured
 witness-to-witness gaps under stress configurations, not shipped-configuration performance
 ratios.
 
-Two caveats scope this factor. It is a \emph{fixture-to-fixture measurement}, not a proven
-tightening: \emph{geom-stress} realizes the voxel-center heuristic $K = 8$ per point, while
-the production-input domain's analytic ceiling is $K \le 27$ under the assumptions of
-Sec.~\ref{sec:implementation}. The contracts alone reduce the parametric neighbor factor
-from 64 to 27, a $64/27 \approx 2.4\times$ contraction; a contract-conforming input between
-our witness and that ceiling may exist.
-The bound is also conditional on the contracts because the engine does not check them.
-Table~\ref{tab:preconditions} lists these assumptions.
+The production contracts shrink the neighbor factor (Sec.~\ref{sec:implementation}). This
+is a \emph{fixture-to-fixture measurement}, not a proven tightening, and it is conditional
+on the contracts because the engine does not check them. Table~\ref{tab:preconditions}
+lists these assumptions.
 
 The mechanism is the $K$ ceiling: disjoint voxel-aligned map tiles cap leaf multiplicity at
 1, capping $K$ at 27 instead of 64. This witness realizes
@@ -274,8 +270,8 @@ gap also reflects fixture geometry and configuration and cannot be attributed so
 input-contract enforcement. Independently, the shipped-configuration search of
 Sec.~\ref{sec:impl-legal} reaches the full 30-iteration cap on \emph{shipped-osc}. It costs
 \SI{\legalOscMaxRust}{ms} in Rust and \SI{\legalOscMaxCpp}{ms} in C++, with
-$\bar{K} = \legalOscKbar$. This establishes iteration-cap reachability under shipped
-parameters, not a worst-case timing input. At the same shipped $\epsilon$, the
+$\bar{K} = \legalOscKbar$, establishing cap reachability at the shipped $\epsilon$
+(Sec.~\ref{sec:impl-legal}). At the same shipped $\epsilon$, the
 \emph{geom-stress} input converges before the iteration cap.
 
 \subsection{Host scaling of contract-geometry stress}
@@ -337,9 +333,9 @@ near-no-op off-map majority does not characterize localization fidelity.
 
 The input counters are consistent with the preprocessing contracts: $P\le\realPMax=1500$
 on all \realFrames{} frames. The per-point neighbor count reaches at most
-$\realKmaxMax$, which is within the geometric bound of 27 but one above the voxel-center
-heuristic of 8. Real centroids can deviate from voxel centers and bring a ninth leaf into
-range; 27, rather than 8, is the applicable bound. Under the degraded-prior track, the
+$\realKmaxMax$, within the geometric bound of 27 (Sec.~\ref{sec:implementation}); real
+centroids deviate from voxel centers and bring a ninth leaf into range. Under the
+degraded-prior track, the
 iteration cap is reached on \realIterCapPct\% of on-map frames. A control replay of the
 same capture with its recorded production extended-Kalman-filter (EKF) guesses isolates the
 prior's contribution, since the per-frame inputs are identical except for the guess. On the

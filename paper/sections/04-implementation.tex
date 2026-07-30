@@ -63,8 +63,8 @@ Production preprocessing downsamples and crops scans, rejects duplicates, limits
 fixture, displayed as \emph{geom-stress}, satisfies these input conditions with $K=8$ but
 uses non-shipped $\epsilon=10^{-10}$ to reach 30 iterations. At the shipped
 $\epsilon=0.01$, the same fixture converges before the iteration cap.
-It is therefore neither a shipped-configuration execution nor a witness for the analytic
-$K\le27$ ceiling. An independent input-contract verifier checks each candidate.
+It is therefore not a shipped-configuration execution. An independent input-contract
+verifier checks each candidate.
 
 A separate shipped-configuration search produces \emph{shipped-osc}, which satisfies the
 same input contracts and reaches 30 iterations at $\epsilon=0.01$ but has
